@@ -135,7 +135,7 @@ function App() {
       }
 
       if (!cancelled) {
-        timeoutId = window.setTimeout(pollSpectrum, 500);
+        timeoutId = window.setTimeout(pollSpectrum, 50);
       }
     }
 
