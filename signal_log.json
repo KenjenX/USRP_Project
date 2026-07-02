@@ -1,0 +1,5818 @@
+[
+    {
+        "time": "2026-07-02 09:20:28",
+        "peak_freq_mhz": 100.3037109375,
+        "peak_power_db": 5.099648208547796,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:20:28",
+        "peak_freq_mhz": 100.3076171875,
+        "peak_power_db": 0.8021526254573554,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:20:28",
+        "peak_freq_mhz": 100.28515625,
+        "peak_power_db": 9.253324578279825,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:20:29",
+        "peak_freq_mhz": 100.27001953125,
+        "peak_power_db": 0.27273438440773784,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:20:29",
+        "peak_freq_mhz": 100.29052734375,
+        "peak_power_db": 4.89385412964652,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:20:30",
+        "peak_freq_mhz": 100.30224609375,
+        "peak_power_db": 3.8154616486727795,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:21:13",
+        "peak_freq_mhz": 100.2919921875,
+        "peak_power_db": 0.5651807481640784,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:21:23",
+        "peak_freq_mhz": 100.28955078125,
+        "peak_power_db": 1.2150193039196315,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:21:23",
+        "peak_freq_mhz": 100.3154296875,
+        "peak_power_db": 2.8883478302919845,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:21:24",
+        "peak_freq_mhz": 100.31982421875,
+        "peak_power_db": 1.930225067490948,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:21:24",
+        "peak_freq_mhz": 100.3076171875,
+        "peak_power_db": 3.272037838603124,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:21:26",
+        "peak_freq_mhz": 100.2880859375,
+        "peak_power_db": 1.7383521461886375,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:22:58",
+        "peak_freq_mhz": 100.27490234375,
+        "peak_power_db": 0.29559896767427213,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:20",
+        "peak_freq_mhz": 100.2880859375,
+        "peak_power_db": 0.7640319404990047,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:32",
+        "peak_freq_mhz": 100.26708984375,
+        "peak_power_db": 0.7668474097993667,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:33",
+        "peak_freq_mhz": 100.31298828125,
+        "peak_power_db": 2.712339571651608,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:34",
+        "peak_freq_mhz": 100.31298828125,
+        "peak_power_db": 7.588545044302633,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:34",
+        "peak_freq_mhz": 100.28271484375,
+        "peak_power_db": 1.6349950757775518,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:34",
+        "peak_freq_mhz": 100.29443359375,
+        "peak_power_db": 0.17249709469288604,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:35",
+        "peak_freq_mhz": 100.283203125,
+        "peak_power_db": 0.5150731490815765,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:36",
+        "peak_freq_mhz": 100.32421875,
+        "peak_power_db": 1.4346011864327677,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:36",
+        "peak_freq_mhz": 100.30615234375,
+        "peak_power_db": 4.148496669548164,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:37",
+        "peak_freq_mhz": 100.3037109375,
+        "peak_power_db": 5.066999849014508,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:38",
+        "peak_freq_mhz": 100.29736328125,
+        "peak_power_db": 3.6677120977458086,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:38",
+        "peak_freq_mhz": 100.28955078125,
+        "peak_power_db": 9.773547823246364,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:39",
+        "peak_freq_mhz": 100.3115234375,
+        "peak_power_db": 5.308703345988269,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:39",
+        "peak_freq_mhz": 100.30126953125,
+        "peak_power_db": 1.822707497220306,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:39",
+        "peak_freq_mhz": 100.3134765625,
+        "peak_power_db": 4.486620817604358,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:40",
+        "peak_freq_mhz": 100.28173828125,
+        "peak_power_db": 4.05175158753937,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:40",
+        "peak_freq_mhz": 100.302734375,
+        "peak_power_db": 1.8369369318741302,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:40",
+        "peak_freq_mhz": 100.29736328125,
+        "peak_power_db": 3.2124941532708435,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:41",
+        "peak_freq_mhz": 100.287109375,
+        "peak_power_db": 0.6689844613017379,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:42",
+        "peak_freq_mhz": 100.30712890625,
+        "peak_power_db": 0.933483974632006,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:42",
+        "peak_freq_mhz": 100.3125,
+        "peak_power_db": 6.636900488878434,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:43",
+        "peak_freq_mhz": 100.31005859375,
+        "peak_power_db": 1.0554025281600417,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:43",
+        "peak_freq_mhz": 100.27294921875,
+        "peak_power_db": 0.40253193100901274,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:44",
+        "peak_freq_mhz": 100.30419921875,
+        "peak_power_db": 3.355212858107932,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:45",
+        "peak_freq_mhz": 100.30322265625,
+        "peak_power_db": 2.6212730854142245,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:45",
+        "peak_freq_mhz": 100.30859375,
+        "peak_power_db": 5.001422514238375,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:45",
+        "peak_freq_mhz": 100.294921875,
+        "peak_power_db": 8.524458504247331,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:47",
+        "peak_freq_mhz": 100.2490234375,
+        "peak_power_db": 0.8761591717286086,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:48",
+        "peak_freq_mhz": 100.29931640625,
+        "peak_power_db": 4.171818746661812,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:48",
+        "peak_freq_mhz": 100.3359375,
+        "peak_power_db": 0.6786091815061669,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:49",
+        "peak_freq_mhz": 100.28759765625,
+        "peak_power_db": 3.275099265992776,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:49",
+        "peak_freq_mhz": 100.2568359375,
+        "peak_power_db": 4.67528660342915,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:49",
+        "peak_freq_mhz": 100.302734375,
+        "peak_power_db": 8.505660762730063,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:50",
+        "peak_freq_mhz": 100.3037109375,
+        "peak_power_db": 0.3796339603909348,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:52",
+        "peak_freq_mhz": 100.28857421875,
+        "peak_power_db": 5.528988988966338,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:53",
+        "peak_freq_mhz": 100.29296875,
+        "peak_power_db": 7.094588227410546,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:54",
+        "peak_freq_mhz": 100.31103515625,
+        "peak_power_db": 3.864775952364348,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:54",
+        "peak_freq_mhz": 100.28271484375,
+        "peak_power_db": 6.462878744678054,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:55",
+        "peak_freq_mhz": 100.296875,
+        "peak_power_db": 10.444654852426215,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:55",
+        "peak_freq_mhz": 100.27490234375,
+        "peak_power_db": 6.24212868762264,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:56",
+        "peak_freq_mhz": 100.291015625,
+        "peak_power_db": 0.5856192472735651,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:56",
+        "peak_freq_mhz": 100.30224609375,
+        "peak_power_db": 4.26388016336209,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:57",
+        "peak_freq_mhz": 100.28955078125,
+        "peak_power_db": 10.881559215325062,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:57",
+        "peak_freq_mhz": 100.30908203125,
+        "peak_power_db": 4.205991649291922,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:57",
+        "peak_freq_mhz": 100.29296875,
+        "peak_power_db": 0.7419741599529845,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:58",
+        "peak_freq_mhz": 100.259765625,
+        "peak_power_db": 2.9935480909526033,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:58",
+        "peak_freq_mhz": 100.25146484375,
+        "peak_power_db": 0.5599967249071026,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:25:59",
+        "peak_freq_mhz": 100.28271484375,
+        "peak_power_db": 1.0802815942027184,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:01",
+        "peak_freq_mhz": 100.30322265625,
+        "peak_power_db": 4.476840654847677,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:03",
+        "peak_freq_mhz": 100.30859375,
+        "peak_power_db": 0.3765710123070109,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:03",
+        "peak_freq_mhz": 100.29296875,
+        "peak_power_db": 1.2714529623580764,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:04",
+        "peak_freq_mhz": 100.30859375,
+        "peak_power_db": 4.808140155580554,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:05",
+        "peak_freq_mhz": 100.30078125,
+        "peak_power_db": 8.969879728968307,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:05",
+        "peak_freq_mhz": 100.3046875,
+        "peak_power_db": 9.732446038006813,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:06",
+        "peak_freq_mhz": 100.30224609375,
+        "peak_power_db": 2.114141125413809,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:06",
+        "peak_freq_mhz": 100.302734375,
+        "peak_power_db": 3.540890888611493,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:06",
+        "peak_freq_mhz": 100.31591796875,
+        "peak_power_db": 0.3780564827828663,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:07",
+        "peak_freq_mhz": 100.28662109375,
+        "peak_power_db": 3.0785472551264323,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:08",
+        "peak_freq_mhz": 100.283203125,
+        "peak_power_db": 3.0490336846080233,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:08",
+        "peak_freq_mhz": 100.255859375,
+        "peak_power_db": 3.3443376233427906,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:08",
+        "peak_freq_mhz": 100.283203125,
+        "peak_power_db": 2.136598280854548,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:09",
+        "peak_freq_mhz": 100.2978515625,
+        "peak_power_db": 1.5240627477929913,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:09",
+        "peak_freq_mhz": 100.2841796875,
+        "peak_power_db": 0.5334350368831337,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:09",
+        "peak_freq_mhz": 100.34912109375,
+        "peak_power_db": 0.4150001103462064,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:11",
+        "peak_freq_mhz": 100.29248046875,
+        "peak_power_db": 1.4526520516549573,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:11",
+        "peak_freq_mhz": 100.3046875,
+        "peak_power_db": 0.43790528182464805,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:12",
+        "peak_freq_mhz": 100.27392578125,
+        "peak_power_db": 2.323761097378577,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:12",
+        "peak_freq_mhz": 100.3203125,
+        "peak_power_db": 0.5909914328058727,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:13",
+        "peak_freq_mhz": 100.27001953125,
+        "peak_power_db": 0.28831091585923707,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:13",
+        "peak_freq_mhz": 100.25146484375,
+        "peak_power_db": 1.5461149144188209,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:14",
+        "peak_freq_mhz": 100.2958984375,
+        "peak_power_db": 0.02968618327806252,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:14",
+        "peak_freq_mhz": 100.3095703125,
+        "peak_power_db": 8.747704663177197,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:14",
+        "peak_freq_mhz": 100.28369140625,
+        "peak_power_db": 8.571001520454109,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:15",
+        "peak_freq_mhz": 100.302734375,
+        "peak_power_db": 3.051933781818827,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:15",
+        "peak_freq_mhz": 100.30859375,
+        "peak_power_db": 4.782639693590415,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:16",
+        "peak_freq_mhz": 100.279296875,
+        "peak_power_db": 1.7002472848665262,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:16",
+        "peak_freq_mhz": 100.29296875,
+        "peak_power_db": 0.09537023536932011,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:16",
+        "peak_freq_mhz": 100.31640625,
+        "peak_power_db": 6.113739587455455,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:17",
+        "peak_freq_mhz": 100.279296875,
+        "peak_power_db": 5.378398017883711,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:17",
+        "peak_freq_mhz": 100.3056640625,
+        "peak_power_db": 2.591514979186261,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:18",
+        "peak_freq_mhz": 100.25341796875,
+        "peak_power_db": 1.5461774190866993,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:18",
+        "peak_freq_mhz": 100.3203125,
+        "peak_power_db": 1.368888434768559,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:19",
+        "peak_freq_mhz": 100.28662109375,
+        "peak_power_db": 0.6925921943410289,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:19",
+        "peak_freq_mhz": 100.3271484375,
+        "peak_power_db": 2.3833622070910736,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:19",
+        "peak_freq_mhz": 100.28125,
+        "peak_power_db": 1.7009287873329288,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:20",
+        "peak_freq_mhz": 100.25244140625,
+        "peak_power_db": 0.7608730902107741,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:20",
+        "peak_freq_mhz": 100.31982421875,
+        "peak_power_db": 2.4589262510374037,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:20",
+        "peak_freq_mhz": 100.2646484375,
+        "peak_power_db": 2.6241395769856584,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:21",
+        "peak_freq_mhz": 100.31005859375,
+        "peak_power_db": 5.818053978142148,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:21",
+        "peak_freq_mhz": 100.33642578125,
+        "peak_power_db": 1.023961672159401,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:22",
+        "peak_freq_mhz": 100.30078125,
+        "peak_power_db": 0.6192479488364713,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:22",
+        "peak_freq_mhz": 100.28662109375,
+        "peak_power_db": 0.1438805620963447,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:23",
+        "peak_freq_mhz": 100.31103515625,
+        "peak_power_db": 3.3921789104743185,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:23",
+        "peak_freq_mhz": 100.28173828125,
+        "peak_power_db": 6.8892188686913025,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:23",
+        "peak_freq_mhz": 100.3076171875,
+        "peak_power_db": 9.996642129743705,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:24",
+        "peak_freq_mhz": 100.3134765625,
+        "peak_power_db": 1.8582524880625164,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:24",
+        "peak_freq_mhz": 100.259765625,
+        "peak_power_db": 0.803378434702356,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:25",
+        "peak_freq_mhz": 100.28515625,
+        "peak_power_db": 3.642160224352936,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:25",
+        "peak_freq_mhz": 100.30615234375,
+        "peak_power_db": 5.308006270916481,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:25",
+        "peak_freq_mhz": 100.27001953125,
+        "peak_power_db": 6.072888007211778,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:26",
+        "peak_freq_mhz": 100.3037109375,
+        "peak_power_db": 10.973764652945018,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:26",
+        "peak_freq_mhz": 100.29736328125,
+        "peak_power_db": 8.389545701638543,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:27",
+        "peak_freq_mhz": 100.287109375,
+        "peak_power_db": 9.854633545041416,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:27",
+        "peak_freq_mhz": 100.314453125,
+        "peak_power_db": 10.115049761178955,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:28",
+        "peak_freq_mhz": 100.25732421875,
+        "peak_power_db": 2.248199429794646,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:29",
+        "peak_freq_mhz": 100.24072265625,
+        "peak_power_db": 1.523508053955053,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:29",
+        "peak_freq_mhz": 100.32373046875,
+        "peak_power_db": 0.7704138024475943,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:29",
+        "peak_freq_mhz": 100.3046875,
+        "peak_power_db": 1.818120067314489,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:30",
+        "peak_freq_mhz": 100.3388671875,
+        "peak_power_db": 3.0685304312760713,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:30",
+        "peak_freq_mhz": 100.27001953125,
+        "peak_power_db": 2.579707271301527,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:30",
+        "peak_freq_mhz": 100.333984375,
+        "peak_power_db": 2.29872973645179,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:31",
+        "peak_freq_mhz": 100.3076171875,
+        "peak_power_db": 1.1643115948266756,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:32",
+        "peak_freq_mhz": 100.28369140625,
+        "peak_power_db": 3.566868907205711,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:32",
+        "peak_freq_mhz": 100.30322265625,
+        "peak_power_db": 2.1771718631590447,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:33",
+        "peak_freq_mhz": 100.29931640625,
+        "peak_power_db": 2.7131387434145227,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:33",
+        "peak_freq_mhz": 100.3173828125,
+        "peak_power_db": 0.8700467270690107,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:34",
+        "peak_freq_mhz": 100.2763671875,
+        "peak_power_db": 1.5519739685891625,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:34",
+        "peak_freq_mhz": 100.29833984375,
+        "peak_power_db": 12.237726550500536,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:34",
+        "peak_freq_mhz": 100.28466796875,
+        "peak_power_db": 5.863842440517657,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:35",
+        "peak_freq_mhz": 100.2978515625,
+        "peak_power_db": 12.240001126310192,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:35",
+        "peak_freq_mhz": 100.2421875,
+        "peak_power_db": 0.1440467516768486,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:36",
+        "peak_freq_mhz": 100.27197265625,
+        "peak_power_db": 4.974671172639294,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:36",
+        "peak_freq_mhz": 100.29541015625,
+        "peak_power_db": 10.137120573596832,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:36",
+        "peak_freq_mhz": 100.29248046875,
+        "peak_power_db": 4.666930266399968,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:37",
+        "peak_freq_mhz": 100.29931640625,
+        "peak_power_db": 11.344842881756739,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:38",
+        "peak_freq_mhz": 100.2900390625,
+        "peak_power_db": 1.319331726372094,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:38",
+        "peak_freq_mhz": 100.27294921875,
+        "peak_power_db": 2.051646049903323,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:38",
+        "peak_freq_mhz": 100.2607421875,
+        "peak_power_db": 0.8114520529496316,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:39",
+        "peak_freq_mhz": 100.2744140625,
+        "peak_power_db": 1.0753581561885397,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:39",
+        "peak_freq_mhz": 100.2607421875,
+        "peak_power_db": 7.8863506259300795,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:40",
+        "peak_freq_mhz": 100.310546875,
+        "peak_power_db": 3.908446910586687,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:40",
+        "peak_freq_mhz": 100.29248046875,
+        "peak_power_db": 7.083604231952584,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:41",
+        "peak_freq_mhz": 100.29638671875,
+        "peak_power_db": 6.387533743618173,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:41",
+        "peak_freq_mhz": 100.29248046875,
+        "peak_power_db": 1.5055619881783535,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:42",
+        "peak_freq_mhz": 100.29345703125,
+        "peak_power_db": 9.623335927878058,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:42",
+        "peak_freq_mhz": 100.30126953125,
+        "peak_power_db": 4.383812403089735,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:43",
+        "peak_freq_mhz": 100.3046875,
+        "peak_power_db": 9.749944879077567,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:44",
+        "peak_freq_mhz": 100.2939453125,
+        "peak_power_db": 5.913455695838724,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:45",
+        "peak_freq_mhz": 100.30322265625,
+        "peak_power_db": 7.410211874041704,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:45",
+        "peak_freq_mhz": 100.27685546875,
+        "peak_power_db": 0.967306682796566,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:45",
+        "peak_freq_mhz": 100.2646484375,
+        "peak_power_db": 1.4385910005905624,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:45",
+        "peak_freq_mhz": 100.30078125,
+        "peak_power_db": 7.006781932258107,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:46",
+        "peak_freq_mhz": 100.2958984375,
+        "peak_power_db": 1.943908015122946,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:46",
+        "peak_freq_mhz": 100.296875,
+        "peak_power_db": 10.86018772449087,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:47",
+        "peak_freq_mhz": 100.34521484375,
+        "peak_power_db": 0.7449050112893385,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:47",
+        "peak_freq_mhz": 100.28955078125,
+        "peak_power_db": 3.1252752774295707,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:48",
+        "peak_freq_mhz": 100.29931640625,
+        "peak_power_db": 11.38656370920869,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:48",
+        "peak_freq_mhz": 100.2998046875,
+        "peak_power_db": 8.977697799940195,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:48",
+        "peak_freq_mhz": 100.318359375,
+        "peak_power_db": 1.4342889049336591,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:49",
+        "peak_freq_mhz": 100.29443359375,
+        "peak_power_db": 6.341860661854348,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:49",
+        "peak_freq_mhz": 100.29296875,
+        "peak_power_db": 4.051746688645585,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:49",
+        "peak_freq_mhz": 100.30810546875,
+        "peak_power_db": 8.157605574863693,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:50",
+        "peak_freq_mhz": 100.30419921875,
+        "peak_power_db": 4.435670912820683,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:50",
+        "peak_freq_mhz": 100.3095703125,
+        "peak_power_db": 2.112067974677319,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:50",
+        "peak_freq_mhz": 100.29541015625,
+        "peak_power_db": 6.34728223159016,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:51",
+        "peak_freq_mhz": 100.2939453125,
+        "peak_power_db": 8.41006473972246,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:51",
+        "peak_freq_mhz": 100.29296875,
+        "peak_power_db": 9.881977663422546,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:51",
+        "peak_freq_mhz": 100.2900390625,
+        "peak_power_db": 6.951062635241491,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:52",
+        "peak_freq_mhz": 100.283203125,
+        "peak_power_db": 0.08363785429714525,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:52",
+        "peak_freq_mhz": 100.294921875,
+        "peak_power_db": 7.176330422705213,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:53",
+        "peak_freq_mhz": 100.291015625,
+        "peak_power_db": 3.455740172571127,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:54",
+        "peak_freq_mhz": 100.28466796875,
+        "peak_power_db": 1.8948848656345187,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:54",
+        "peak_freq_mhz": 100.29736328125,
+        "peak_power_db": 1.1995121619425166,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:54",
+        "peak_freq_mhz": 100.3271484375,
+        "peak_power_db": 0.39487774276384285,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:55",
+        "peak_freq_mhz": 100.30859375,
+        "peak_power_db": 5.7787856305858485,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:55",
+        "peak_freq_mhz": 100.291015625,
+        "peak_power_db": 1.279903832973261,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:56",
+        "peak_freq_mhz": 100.287109375,
+        "peak_power_db": 2.7450429139148675,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:57",
+        "peak_freq_mhz": 100.33154296875,
+        "peak_power_db": 4.384234820993365,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:57",
+        "peak_freq_mhz": 100.30029296875,
+        "peak_power_db": 4.442016043743418,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:58",
+        "peak_freq_mhz": 100.29638671875,
+        "peak_power_db": 8.57552063046932,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:58",
+        "peak_freq_mhz": 100.25537109375,
+        "peak_power_db": 4.518906289193584,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:59",
+        "peak_freq_mhz": 100.32568359375,
+        "peak_power_db": 0.08414841102016687,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:59",
+        "peak_freq_mhz": 100.34765625,
+        "peak_power_db": 0.2930539566221232,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:59",
+        "peak_freq_mhz": 100.26171875,
+        "peak_power_db": 7.551312923870308,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:26:59",
+        "peak_freq_mhz": 100.3125,
+        "peak_power_db": 9.413477882831456,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:00",
+        "peak_freq_mhz": 100.294921875,
+        "peak_power_db": 11.950346590353469,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:00",
+        "peak_freq_mhz": 100.310546875,
+        "peak_power_db": 3.8638377759328835,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:01",
+        "peak_freq_mhz": 100.2900390625,
+        "peak_power_db": 3.4288132934906033,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:01",
+        "peak_freq_mhz": 100.25830078125,
+        "peak_power_db": 0.33729229005804906,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:01",
+        "peak_freq_mhz": 100.314453125,
+        "peak_power_db": 10.375515644359798,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:02",
+        "peak_freq_mhz": 100.3017578125,
+        "peak_power_db": 4.209491702748376,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:02",
+        "peak_freq_mhz": 100.2822265625,
+        "peak_power_db": 0.4455031668444606,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:02",
+        "peak_freq_mhz": 100.29541015625,
+        "peak_power_db": 9.540776957489784,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:03",
+        "peak_freq_mhz": 100.31591796875,
+        "peak_power_db": 0.9332548905096492,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:04",
+        "peak_freq_mhz": 100.32177734375,
+        "peak_power_db": 1.2822399383613332,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:04",
+        "peak_freq_mhz": 100.275390625,
+        "peak_power_db": 2.4581211422945306,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:05",
+        "peak_freq_mhz": 100.32177734375,
+        "peak_power_db": 1.4015410569361875,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:05",
+        "peak_freq_mhz": 100.287109375,
+        "peak_power_db": 3.790840652980017,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:06",
+        "peak_freq_mhz": 100.30029296875,
+        "peak_power_db": 2.417675409114249,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:06",
+        "peak_freq_mhz": 100.29638671875,
+        "peak_power_db": 2.4857525580051254,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:07",
+        "peak_freq_mhz": 100.28564453125,
+        "peak_power_db": 0.7960847520742103,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:07",
+        "peak_freq_mhz": 100.2900390625,
+        "peak_power_db": 2.8710791923708885,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:08",
+        "peak_freq_mhz": 100.29296875,
+        "peak_power_db": 3.650141997550163,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:08",
+        "peak_freq_mhz": 100.31689453125,
+        "peak_power_db": 10.237683372820769,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:08",
+        "peak_freq_mhz": 100.31494140625,
+        "peak_power_db": 3.69857344996528,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:09",
+        "peak_freq_mhz": 100.25439453125,
+        "peak_power_db": 0.8038692673644539,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:09",
+        "peak_freq_mhz": 100.2958984375,
+        "peak_power_db": 3.9588603021965927,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:09",
+        "peak_freq_mhz": 100.29345703125,
+        "peak_power_db": 1.0640746698845653,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:10",
+        "peak_freq_mhz": 100.2900390625,
+        "peak_power_db": 6.420714730005152,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:10",
+        "peak_freq_mhz": 100.2861328125,
+        "peak_power_db": 0.7074757118985463,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:10",
+        "peak_freq_mhz": 100.3427734375,
+        "peak_power_db": 3.3152927114255486,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:11",
+        "peak_freq_mhz": 100.28271484375,
+        "peak_power_db": 2.726641324923759,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:11",
+        "peak_freq_mhz": 100.3154296875,
+        "peak_power_db": 1.3829549534123056,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:12",
+        "peak_freq_mhz": 100.29638671875,
+        "peak_power_db": 1.9958615024378465,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:12",
+        "peak_freq_mhz": 100.3193359375,
+        "peak_power_db": 5.034027992176879,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:12",
+        "peak_freq_mhz": 100.291015625,
+        "peak_power_db": 1.6640553057703735,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:13",
+        "peak_freq_mhz": 100.28955078125,
+        "peak_power_db": 6.683525362609043,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:13",
+        "peak_freq_mhz": 100.291015625,
+        "peak_power_db": 2.5568051555512583,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:15",
+        "peak_freq_mhz": 100.29296875,
+        "peak_power_db": 6.517083467274354,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:15",
+        "peak_freq_mhz": 100.28955078125,
+        "peak_power_db": 1.7435457912911052,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:16",
+        "peak_freq_mhz": 100.3505859375,
+        "peak_power_db": 1.312498336361174,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:16",
+        "peak_freq_mhz": 100.3154296875,
+        "peak_power_db": 1.7081986581930657,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:18",
+        "peak_freq_mhz": 100.337890625,
+        "peak_power_db": 0.38016877716569647,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:18",
+        "peak_freq_mhz": 100.2998046875,
+        "peak_power_db": 6.4495644379476165,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:18",
+        "peak_freq_mhz": 100.31298828125,
+        "peak_power_db": 3.351830518189027,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:18",
+        "peak_freq_mhz": 100.29345703125,
+        "peak_power_db": 6.414298690624972,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:19",
+        "peak_freq_mhz": 100.27587890625,
+        "peak_power_db": 3.129823723921836,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:19",
+        "peak_freq_mhz": 100.3349609375,
+        "peak_power_db": 3.525979289833103,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:19",
+        "peak_freq_mhz": 100.29736328125,
+        "peak_power_db": 5.014673694238465,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:20",
+        "peak_freq_mhz": 100.28173828125,
+        "peak_power_db": 9.809219344597093,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:20",
+        "peak_freq_mhz": 100.28125,
+        "peak_power_db": 1.1466703326546395,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:20",
+        "peak_freq_mhz": 100.2490234375,
+        "peak_power_db": 2.2294162750469173,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:21",
+        "peak_freq_mhz": 100.33251953125,
+        "peak_power_db": 3.2091357218241754,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:22",
+        "peak_freq_mhz": 100.3134765625,
+        "peak_power_db": 7.559373184506839,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:22",
+        "peak_freq_mhz": 100.2939453125,
+        "peak_power_db": 7.873064671944345,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:23",
+        "peak_freq_mhz": 100.30224609375,
+        "peak_power_db": 3.766431066611381,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:23",
+        "peak_freq_mhz": 100.30517578125,
+        "peak_power_db": 4.17005489859723,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:23",
+        "peak_freq_mhz": 100.265625,
+        "peak_power_db": 4.513689554405878,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:24",
+        "peak_freq_mhz": 100.333984375,
+        "peak_power_db": 2.095891612607636,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:24",
+        "peak_freq_mhz": 100.31787109375,
+        "peak_power_db": 1.629904989075489,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:24",
+        "peak_freq_mhz": 100.2587890625,
+        "peak_power_db": 5.47973144865723,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:25",
+        "peak_freq_mhz": 100.3076171875,
+        "peak_power_db": 4.959475807278608,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:25",
+        "peak_freq_mhz": 100.31640625,
+        "peak_power_db": 1.5549359711432373,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:26",
+        "peak_freq_mhz": 100.28662109375,
+        "peak_power_db": 7.596052961409468,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:26",
+        "peak_freq_mhz": 100.31005859375,
+        "peak_power_db": 0.5925971129379883,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:26",
+        "peak_freq_mhz": 100.35546875,
+        "peak_power_db": 4.262579999704843,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:27",
+        "peak_freq_mhz": 100.26123046875,
+        "peak_power_db": 2.8185459232732564,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:27",
+        "peak_freq_mhz": 100.2861328125,
+        "peak_power_db": 1.0371707197518103,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:27",
+        "peak_freq_mhz": 100.30078125,
+        "peak_power_db": 1.6355047503227107,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:28",
+        "peak_freq_mhz": 100.2724609375,
+        "peak_power_db": 2.3483337198322567,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:28",
+        "peak_freq_mhz": 100.28662109375,
+        "peak_power_db": 2.5456005760548606,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:28",
+        "peak_freq_mhz": 100.28369140625,
+        "peak_power_db": 11.631158926225611,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:29",
+        "peak_freq_mhz": 100.26416015625,
+        "peak_power_db": 5.419063844542345,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:29",
+        "peak_freq_mhz": 100.29052734375,
+        "peak_power_db": 7.0376411179077785,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:29",
+        "peak_freq_mhz": 100.26904296875,
+        "peak_power_db": 1.6691195744895426,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:30",
+        "peak_freq_mhz": 100.35107421875,
+        "peak_power_db": 2.0032161741430548,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:30",
+        "peak_freq_mhz": 100.31103515625,
+        "peak_power_db": 2.545556889866161,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:31",
+        "peak_freq_mhz": 100.30419921875,
+        "peak_power_db": 0.5044205765860411,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:31",
+        "peak_freq_mhz": 100.3125,
+        "peak_power_db": 1.5184890577269567,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:31",
+        "peak_freq_mhz": 100.3115234375,
+        "peak_power_db": 3.22195831054092,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:32",
+        "peak_freq_mhz": 100.29541015625,
+        "peak_power_db": 4.1406466966288615,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:32",
+        "peak_freq_mhz": 100.26220703125,
+        "peak_power_db": 3.4958589998113476,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:32",
+        "peak_freq_mhz": 100.30810546875,
+        "peak_power_db": 2.6215798283006713,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:33",
+        "peak_freq_mhz": 100.29833984375,
+        "peak_power_db": 0.2769043101495373,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:34",
+        "peak_freq_mhz": 100.28515625,
+        "peak_power_db": 3.7490290496223926,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:34",
+        "peak_freq_mhz": 100.310546875,
+        "peak_power_db": 1.453156756970547,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:34",
+        "peak_freq_mhz": 100.3232421875,
+        "peak_power_db": 1.0334595807981266,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:35",
+        "peak_freq_mhz": 100.29052734375,
+        "peak_power_db": 7.645143627622685,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:35",
+        "peak_freq_mhz": 100.283203125,
+        "peak_power_db": 7.004535482271773,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:36",
+        "peak_freq_mhz": 100.306640625,
+        "peak_power_db": 1.8443626817734582,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:36",
+        "peak_freq_mhz": 100.30224609375,
+        "peak_power_db": 7.917070197828794,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:37",
+        "peak_freq_mhz": 100.31298828125,
+        "peak_power_db": 0.5691378577857297,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:37",
+        "peak_freq_mhz": 100.27392578125,
+        "peak_power_db": 4.142636277110404,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:37",
+        "peak_freq_mhz": 100.3134765625,
+        "peak_power_db": 3.9115946734503932,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:38",
+        "peak_freq_mhz": 100.30322265625,
+        "peak_power_db": 3.5465117257101335,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:38",
+        "peak_freq_mhz": 100.29931640625,
+        "peak_power_db": 0.4205291668919378,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:38",
+        "peak_freq_mhz": 100.30224609375,
+        "peak_power_db": 3.86520649793334,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:39",
+        "peak_freq_mhz": 100.29443359375,
+        "peak_power_db": 6.415156098193464,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:39",
+        "peak_freq_mhz": 100.28466796875,
+        "peak_power_db": 1.3056233976889866,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:40",
+        "peak_freq_mhz": 100.33251953125,
+        "peak_power_db": 3.2605676598855227,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:40",
+        "peak_freq_mhz": 100.31396484375,
+        "peak_power_db": 3.587533547880998,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:40",
+        "peak_freq_mhz": 100.279296875,
+        "peak_power_db": 1.5200785080120693,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:41",
+        "peak_freq_mhz": 100.29345703125,
+        "peak_power_db": 1.868969352743163,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:41",
+        "peak_freq_mhz": 100.29345703125,
+        "peak_power_db": 2.3030354044491315,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:42",
+        "peak_freq_mhz": 100.35009765625,
+        "peak_power_db": 3.540808353017325,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:43",
+        "peak_freq_mhz": 100.33056640625,
+        "peak_power_db": 2.1761080206085945,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:44",
+        "peak_freq_mhz": 100.29638671875,
+        "peak_power_db": 0.23421472008105929,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:44",
+        "peak_freq_mhz": 100.29736328125,
+        "peak_power_db": 0.9550844819681631,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:45",
+        "peak_freq_mhz": 100.28955078125,
+        "peak_power_db": 0.647468943563343,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:45",
+        "peak_freq_mhz": 100.3076171875,
+        "peak_power_db": 9.040324415101008,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:45",
+        "peak_freq_mhz": 100.2587890625,
+        "peak_power_db": 2.033766718988603,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:46",
+        "peak_freq_mhz": 100.32958984375,
+        "peak_power_db": 0.4765027691077205,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:47",
+        "peak_freq_mhz": 100.29833984375,
+        "peak_power_db": 3.0198117408754346,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:47",
+        "peak_freq_mhz": 100.30126953125,
+        "peak_power_db": 4.814971309885021,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:47",
+        "peak_freq_mhz": 100.30322265625,
+        "peak_power_db": 1.1621472915715936,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:48",
+        "peak_freq_mhz": 100.26123046875,
+        "peak_power_db": 1.2373003402870322,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:48",
+        "peak_freq_mhz": 100.34912109375,
+        "peak_power_db": 0.7837231444375821,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:48",
+        "peak_freq_mhz": 100.30029296875,
+        "peak_power_db": 8.142889422575687,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:49",
+        "peak_freq_mhz": 100.30078125,
+        "peak_power_db": 0.5371882949222693,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:49",
+        "peak_freq_mhz": 100.2822265625,
+        "peak_power_db": 2.0548708023585154,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:50",
+        "peak_freq_mhz": 100.28955078125,
+        "peak_power_db": 2.582350116295099,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:50",
+        "peak_freq_mhz": 100.3056640625,
+        "peak_power_db": 1.1850066875112817,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:51",
+        "peak_freq_mhz": 100.30712890625,
+        "peak_power_db": 7.382484465493928,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:51",
+        "peak_freq_mhz": 100.23046875,
+        "peak_power_db": 1.5799890258013152,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:52",
+        "peak_freq_mhz": 100.3193359375,
+        "peak_power_db": 3.342885921199157,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:52",
+        "peak_freq_mhz": 100.29736328125,
+        "peak_power_db": 3.3534829505422357,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:53",
+        "peak_freq_mhz": 100.29443359375,
+        "peak_power_db": 6.8032608860413015,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:53",
+        "peak_freq_mhz": 100.2490234375,
+        "peak_power_db": 0.43593541901417393,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:54",
+        "peak_freq_mhz": 100.2900390625,
+        "peak_power_db": 4.376166840557042,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:54",
+        "peak_freq_mhz": 100.28515625,
+        "peak_power_db": 5.269189269890498,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:54",
+        "peak_freq_mhz": 100.29296875,
+        "peak_power_db": 5.769417088948035,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:55",
+        "peak_freq_mhz": 100.29638671875,
+        "peak_power_db": 2.807095385298513,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:55",
+        "peak_freq_mhz": 100.2900390625,
+        "peak_power_db": 3.4572902119642506,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:55",
+        "peak_freq_mhz": 100.314453125,
+        "peak_power_db": 1.2811483368414802,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:55",
+        "peak_freq_mhz": 100.296875,
+        "peak_power_db": 2.2181624580280292,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:56",
+        "peak_freq_mhz": 100.3076171875,
+        "peak_power_db": 1.7430299042098307,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:56",
+        "peak_freq_mhz": 100.29296875,
+        "peak_power_db": 5.261795266781991,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:56",
+        "peak_freq_mhz": 100.2919921875,
+        "peak_power_db": 9.036044011716967,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:57",
+        "peak_freq_mhz": 100.29833984375,
+        "peak_power_db": 3.522204324258529,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:57",
+        "peak_freq_mhz": 100.310546875,
+        "peak_power_db": 7.22207116335945,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:58",
+        "peak_freq_mhz": 100.29345703125,
+        "peak_power_db": 10.71800207214801,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:58",
+        "peak_freq_mhz": 100.29052734375,
+        "peak_power_db": 7.031205003758537,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:59",
+        "peak_freq_mhz": 100.25390625,
+        "peak_power_db": 9.735971809967985,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:59",
+        "peak_freq_mhz": 100.2802734375,
+        "peak_power_db": 0.1483516568842122,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:27:59",
+        "peak_freq_mhz": 100.29541015625,
+        "peak_power_db": 7.005255151216469,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:00",
+        "peak_freq_mhz": 100.3046875,
+        "peak_power_db": 6.290825232916358,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:00",
+        "peak_freq_mhz": 100.3134765625,
+        "peak_power_db": 1.2189895269027253,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:00",
+        "peak_freq_mhz": 100.31591796875,
+        "peak_power_db": 4.933255806703093,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:01",
+        "peak_freq_mhz": 100.33935546875,
+        "peak_power_db": 1.1998109508703942,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:01",
+        "peak_freq_mhz": 100.27099609375,
+        "peak_power_db": 5.909778672333712,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:02",
+        "peak_freq_mhz": 100.294921875,
+        "peak_power_db": 4.810495117379907,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:02",
+        "peak_freq_mhz": 100.3310546875,
+        "peak_power_db": 2.9290615238691324,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:03",
+        "peak_freq_mhz": 100.27783203125,
+        "peak_power_db": 0.7623182955903668,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:03",
+        "peak_freq_mhz": 100.28564453125,
+        "peak_power_db": 4.081864682528998,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:04",
+        "peak_freq_mhz": 100.29833984375,
+        "peak_power_db": 6.67963557211543,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:04",
+        "peak_freq_mhz": 100.25927734375,
+        "peak_power_db": 2.8051238883242386,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:05",
+        "peak_freq_mhz": 100.2958984375,
+        "peak_power_db": 6.405863570869775,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:05",
+        "peak_freq_mhz": 100.30712890625,
+        "peak_power_db": 3.6532221251113786,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:05",
+        "peak_freq_mhz": 100.2626953125,
+        "peak_power_db": 3.0932522475065922,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:06",
+        "peak_freq_mhz": 100.29736328125,
+        "peak_power_db": 4.2181620492504575,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:06",
+        "peak_freq_mhz": 100.31982421875,
+        "peak_power_db": 6.020555491232399,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:06",
+        "peak_freq_mhz": 100.32080078125,
+        "peak_power_db": 1.5507368188256196,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:07",
+        "peak_freq_mhz": 100.298828125,
+        "peak_power_db": 1.529232778610735,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:07",
+        "peak_freq_mhz": 100.28515625,
+        "peak_power_db": 4.282929811426972,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:08",
+        "peak_freq_mhz": 100.30810546875,
+        "peak_power_db": 4.675365590339041,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:09",
+        "peak_freq_mhz": 100.2666015625,
+        "peak_power_db": 0.8078292782555573,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:09",
+        "peak_freq_mhz": 100.3037109375,
+        "peak_power_db": 11.29923397908785,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:10",
+        "peak_freq_mhz": 100.29833984375,
+        "peak_power_db": 10.865662541212641,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:10",
+        "peak_freq_mhz": 100.2802734375,
+        "peak_power_db": 4.762548559307824,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:10",
+        "peak_freq_mhz": 100.29541015625,
+        "peak_power_db": 2.086607505638918,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:12",
+        "peak_freq_mhz": 100.31298828125,
+        "peak_power_db": 0.9515777761856637,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:12",
+        "peak_freq_mhz": 100.27880859375,
+        "peak_power_db": 0.9548252921723664,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:13",
+        "peak_freq_mhz": 100.29052734375,
+        "peak_power_db": 0.2225283293988729,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:14",
+        "peak_freq_mhz": 100.306640625,
+        "peak_power_db": 2.934930720808881,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:14",
+        "peak_freq_mhz": 100.30126953125,
+        "peak_power_db": 9.313912178496459,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:14",
+        "peak_freq_mhz": 100.31103515625,
+        "peak_power_db": 1.1435899385502541,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:15",
+        "peak_freq_mhz": 100.28515625,
+        "peak_power_db": 1.9278570686068899,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:15",
+        "peak_freq_mhz": 100.30615234375,
+        "peak_power_db": 2.0765754547451385,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:16",
+        "peak_freq_mhz": 100.31494140625,
+        "peak_power_db": 1.1861277423495136,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:16",
+        "peak_freq_mhz": 100.28857421875,
+        "peak_power_db": 0.8595538450790223,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:17",
+        "peak_freq_mhz": 100.29736328125,
+        "peak_power_db": 4.625238771842117,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:17",
+        "peak_freq_mhz": 100.3115234375,
+        "peak_power_db": 0.6584109265951859,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:18",
+        "peak_freq_mhz": 100.3359375,
+        "peak_power_db": 0.6825005350312328,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:19",
+        "peak_freq_mhz": 100.30126953125,
+        "peak_power_db": 4.341955141850681,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:19",
+        "peak_freq_mhz": 100.3056640625,
+        "peak_power_db": 1.4729258436148085,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:20",
+        "peak_freq_mhz": 100.31591796875,
+        "peak_power_db": 0.6730257255623007,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:21",
+        "peak_freq_mhz": 100.2822265625,
+        "peak_power_db": 0.06833052372464606,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:22",
+        "peak_freq_mhz": 100.2919921875,
+        "peak_power_db": 1.3280442344263044,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:23",
+        "peak_freq_mhz": 100.2919921875,
+        "peak_power_db": 8.216938647621033,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:23",
+        "peak_freq_mhz": 100.2705078125,
+        "peak_power_db": 0.13668290580702824,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:24",
+        "peak_freq_mhz": 100.26318359375,
+        "peak_power_db": 0.3521731768129641,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:24",
+        "peak_freq_mhz": 100.23779296875,
+        "peak_power_db": 0.8644941724019638,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:25",
+        "peak_freq_mhz": 100.30078125,
+        "peak_power_db": 1.694328124582357,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:25",
+        "peak_freq_mhz": 100.3193359375,
+        "peak_power_db": 1.2001808159765885,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:26",
+        "peak_freq_mhz": 100.3017578125,
+        "peak_power_db": 5.914226210260271,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:26",
+        "peak_freq_mhz": 100.29150390625,
+        "peak_power_db": 2.9325180814630087,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:26",
+        "peak_freq_mhz": 100.3232421875,
+        "peak_power_db": 5.506240975731728,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:27",
+        "peak_freq_mhz": 100.306640625,
+        "peak_power_db": 1.8619649335345103,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:27",
+        "peak_freq_mhz": 100.29638671875,
+        "peak_power_db": 9.552167070227437,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:27",
+        "peak_freq_mhz": 100.3154296875,
+        "peak_power_db": 2.1282998107423365,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:28",
+        "peak_freq_mhz": 100.30126953125,
+        "peak_power_db": 0.5747248241058245,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:28",
+        "peak_freq_mhz": 100.29296875,
+        "peak_power_db": 4.543879479892629,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:28",
+        "peak_freq_mhz": 100.31005859375,
+        "peak_power_db": 4.675107449982358,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:29",
+        "peak_freq_mhz": 100.26513671875,
+        "peak_power_db": 3.351973673516925,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:29",
+        "peak_freq_mhz": 100.29296875,
+        "peak_power_db": 1.3769830933885874,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:29",
+        "peak_freq_mhz": 100.30810546875,
+        "peak_power_db": 8.693749895101968,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:30",
+        "peak_freq_mhz": 100.31298828125,
+        "peak_power_db": 2.218016967155977,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:30",
+        "peak_freq_mhz": 100.29638671875,
+        "peak_power_db": 0.03445066589866121,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:30",
+        "peak_freq_mhz": 100.31005859375,
+        "peak_power_db": 7.033086930834439,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:31",
+        "peak_freq_mhz": 100.3203125,
+        "peak_power_db": 1.3966354110972956,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:31",
+        "peak_freq_mhz": 100.29443359375,
+        "peak_power_db": 7.3117994492946226,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:32",
+        "peak_freq_mhz": 100.3095703125,
+        "peak_power_db": 1.5753368343406042,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:32",
+        "peak_freq_mhz": 100.30419921875,
+        "peak_power_db": 2.9213212611140897,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:33",
+        "peak_freq_mhz": 100.28857421875,
+        "peak_power_db": 7.7845364932898935,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:33",
+        "peak_freq_mhz": 100.30322265625,
+        "peak_power_db": 9.095809691725115,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:34",
+        "peak_freq_mhz": 100.29638671875,
+        "peak_power_db": 1.419868639363351,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:34",
+        "peak_freq_mhz": 100.29931640625,
+        "peak_power_db": 1.1864042632894514,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:35",
+        "peak_freq_mhz": 100.30712890625,
+        "peak_power_db": 4.765927119853551,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:36",
+        "peak_freq_mhz": 100.30029296875,
+        "peak_power_db": 2.963801126483327,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:36",
+        "peak_freq_mhz": 100.296875,
+        "peak_power_db": 0.8449931818550888,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:37",
+        "peak_freq_mhz": 100.3037109375,
+        "peak_power_db": 2.9181350909847614,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:38",
+        "peak_freq_mhz": 100.29638671875,
+        "peak_power_db": 6.832237999533216,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:38",
+        "peak_freq_mhz": 100.2900390625,
+        "peak_power_db": 7.373329161253446,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:38",
+        "peak_freq_mhz": 100.29638671875,
+        "peak_power_db": 3.3576147028543666,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:39",
+        "peak_freq_mhz": 100.28857421875,
+        "peak_power_db": 6.6007417783082545,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:39",
+        "peak_freq_mhz": 100.30126953125,
+        "peak_power_db": 8.372073323835455,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:39",
+        "peak_freq_mhz": 100.29541015625,
+        "peak_power_db": 11.518620534693625,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:40",
+        "peak_freq_mhz": 100.30078125,
+        "peak_power_db": 6.926169644807219,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:40",
+        "peak_freq_mhz": 100.3115234375,
+        "peak_power_db": 5.718846611003165,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:40",
+        "peak_freq_mhz": 100.28125,
+        "peak_power_db": 3.164970164033389,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:41",
+        "peak_freq_mhz": 100.29541015625,
+        "peak_power_db": 0.3357359889089176,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:41",
+        "peak_freq_mhz": 100.3173828125,
+        "peak_power_db": 2.366213081437661,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:42",
+        "peak_freq_mhz": 100.2783203125,
+        "peak_power_db": 3.03393034787897,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:42",
+        "peak_freq_mhz": 100.2919921875,
+        "peak_power_db": 3.739661783320965,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:43",
+        "peak_freq_mhz": 100.28564453125,
+        "peak_power_db": 4.85198148651669,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:43",
+        "peak_freq_mhz": 100.31689453125,
+        "peak_power_db": 3.922720261872893,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:43",
+        "peak_freq_mhz": 100.30419921875,
+        "peak_power_db": 4.8988539554121875,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:44",
+        "peak_freq_mhz": 100.2978515625,
+        "peak_power_db": 4.5323122729104535,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:44",
+        "peak_freq_mhz": 100.306640625,
+        "peak_power_db": 9.198508267679639,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:44",
+        "peak_freq_mhz": 100.30224609375,
+        "peak_power_db": 2.7268045639379324,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:45",
+        "peak_freq_mhz": 100.30859375,
+        "peak_power_db": 1.612525319669602,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:45",
+        "peak_freq_mhz": 100.29931640625,
+        "peak_power_db": 2.5279230055348623,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:45",
+        "peak_freq_mhz": 100.2939453125,
+        "peak_power_db": 0.293932397453497,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:46",
+        "peak_freq_mhz": 100.29248046875,
+        "peak_power_db": 2.1783640519733716,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:46",
+        "peak_freq_mhz": 100.28466796875,
+        "peak_power_db": 1.524485182772874,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:47",
+        "peak_freq_mhz": 100.2763671875,
+        "peak_power_db": 5.83609651885264,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:47",
+        "peak_freq_mhz": 100.30419921875,
+        "peak_power_db": 0.23069516110367064,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:47",
+        "peak_freq_mhz": 100.2978515625,
+        "peak_power_db": 0.2459931506835757,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:48",
+        "peak_freq_mhz": 100.27099609375,
+        "peak_power_db": 3.684628866680608,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:48",
+        "peak_freq_mhz": 100.33203125,
+        "peak_power_db": 2.945234696800098,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:48",
+        "peak_freq_mhz": 100.294921875,
+        "peak_power_db": 7.472182862814534,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:49",
+        "peak_freq_mhz": 100.28271484375,
+        "peak_power_db": 4.858009374929681,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:49",
+        "peak_freq_mhz": 100.294921875,
+        "peak_power_db": 8.044740414274433,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:50",
+        "peak_freq_mhz": 100.3046875,
+        "peak_power_db": 2.047215053602167,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:50",
+        "peak_freq_mhz": 100.33154296875,
+        "peak_power_db": 0.47268658490909055,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:50",
+        "peak_freq_mhz": 100.306640625,
+        "peak_power_db": 1.1449332524763123,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:51",
+        "peak_freq_mhz": 100.33349609375,
+        "peak_power_db": 3.262875194969591,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:51",
+        "peak_freq_mhz": 100.32861328125,
+        "peak_power_db": 2.7794278168466584,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:51",
+        "peak_freq_mhz": 100.30810546875,
+        "peak_power_db": 5.508588636208299,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:52",
+        "peak_freq_mhz": 100.29931640625,
+        "peak_power_db": 3.6921711147438563,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:52",
+        "peak_freq_mhz": 100.2353515625,
+        "peak_power_db": 2.8815602366557473,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:52",
+        "peak_freq_mhz": 100.27685546875,
+        "peak_power_db": 1.8736810954678398,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:53",
+        "peak_freq_mhz": 100.3115234375,
+        "peak_power_db": 1.5642646201400823,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:53",
+        "peak_freq_mhz": 100.3017578125,
+        "peak_power_db": 6.242400769131534,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:53",
+        "peak_freq_mhz": 100.3017578125,
+        "peak_power_db": 1.9051984329838656,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:54",
+        "peak_freq_mhz": 100.298828125,
+        "peak_power_db": 2.798561712897421,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:54",
+        "peak_freq_mhz": 100.30029296875,
+        "peak_power_db": 4.945067481955993,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:54",
+        "peak_freq_mhz": 100.2646484375,
+        "peak_power_db": 1.7208117839840003,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:55",
+        "peak_freq_mhz": 100.3095703125,
+        "peak_power_db": 2.995418842968273,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:55",
+        "peak_freq_mhz": 100.26318359375,
+        "peak_power_db": 0.7290762516945232,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:55",
+        "peak_freq_mhz": 100.28955078125,
+        "peak_power_db": 3.595985573952119,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:56",
+        "peak_freq_mhz": 100.2939453125,
+        "peak_power_db": 5.670317745269004,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:56",
+        "peak_freq_mhz": 100.275390625,
+        "peak_power_db": 2.3379839918055034,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:56",
+        "peak_freq_mhz": 100.310546875,
+        "peak_power_db": 2.2083013332575945,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:57",
+        "peak_freq_mhz": 100.26611328125,
+        "peak_power_db": 2.253374545363612,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:58",
+        "peak_freq_mhz": 100.30126953125,
+        "peak_power_db": 1.2566439071522464,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:58",
+        "peak_freq_mhz": 100.3232421875,
+        "peak_power_db": 5.04778214207081,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:58",
+        "peak_freq_mhz": 100.291015625,
+        "peak_power_db": 10.732769999505063,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:59",
+        "peak_freq_mhz": 100.31494140625,
+        "peak_power_db": 2.7363863051626316,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:28:59",
+        "peak_freq_mhz": 100.30029296875,
+        "peak_power_db": 6.99468238435518,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:00",
+        "peak_freq_mhz": 100.3125,
+        "peak_power_db": 2.3614480378264817,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:00",
+        "peak_freq_mhz": 100.271484375,
+        "peak_power_db": 7.504168236248948,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:00",
+        "peak_freq_mhz": 100.35302734375,
+        "peak_power_db": 1.1697562495912424,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:01",
+        "peak_freq_mhz": 100.302734375,
+        "peak_power_db": 2.2430620674936987,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:02",
+        "peak_freq_mhz": 100.33251953125,
+        "peak_power_db": 6.535250227311399,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:02",
+        "peak_freq_mhz": 100.29736328125,
+        "peak_power_db": 4.371955388599977,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:03",
+        "peak_freq_mhz": 100.31396484375,
+        "peak_power_db": 3.26717839350594,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:03",
+        "peak_freq_mhz": 100.2958984375,
+        "peak_power_db": 6.706009804251072,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:03",
+        "peak_freq_mhz": 100.29931640625,
+        "peak_power_db": 9.002301672069324,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:04",
+        "peak_freq_mhz": 100.27490234375,
+        "peak_power_db": 1.72836895282279,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:04",
+        "peak_freq_mhz": 100.3095703125,
+        "peak_power_db": 6.1274882995993085,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:04",
+        "peak_freq_mhz": 100.2939453125,
+        "peak_power_db": 4.943981474831624,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:05",
+        "peak_freq_mhz": 100.29638671875,
+        "peak_power_db": 2.7775277830035576,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:05",
+        "peak_freq_mhz": 100.306640625,
+        "peak_power_db": 2.2252493246078426,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:05",
+        "peak_freq_mhz": 100.31103515625,
+        "peak_power_db": 1.2625207581617934,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:06",
+        "peak_freq_mhz": 100.32421875,
+        "peak_power_db": 1.4557292529687227,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:06",
+        "peak_freq_mhz": 100.30517578125,
+        "peak_power_db": 7.643816927230027,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:07",
+        "peak_freq_mhz": 100.3046875,
+        "peak_power_db": 3.70339059877748,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:08",
+        "peak_freq_mhz": 100.2978515625,
+        "peak_power_db": 2.636788234460697,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:08",
+        "peak_freq_mhz": 100.30615234375,
+        "peak_power_db": 1.6671800364208957,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:09",
+        "peak_freq_mhz": 100.255859375,
+        "peak_power_db": 0.5193850846798096,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:09",
+        "peak_freq_mhz": 100.33447265625,
+        "peak_power_db": 3.032951655149568,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:09",
+        "peak_freq_mhz": 99.8984375,
+        "peak_power_db": 0.9479594432895054,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:10",
+        "peak_freq_mhz": 100.26953125,
+        "peak_power_db": 6.20363377519221,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:10",
+        "peak_freq_mhz": 100.29833984375,
+        "peak_power_db": 1.2987757672113736,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:11",
+        "peak_freq_mhz": 100.2998046875,
+        "peak_power_db": 0.6303894291078371,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:11",
+        "peak_freq_mhz": 100.27685546875,
+        "peak_power_db": 4.206293220948039,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:12",
+        "peak_freq_mhz": 100.2666015625,
+        "peak_power_db": 3.352732367895622,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:12",
+        "peak_freq_mhz": 100.30126953125,
+        "peak_power_db": 3.180161870496296,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:13",
+        "peak_freq_mhz": 100.291015625,
+        "peak_power_db": 0.8951762970001205,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:13",
+        "peak_freq_mhz": 100.314453125,
+        "peak_power_db": 0.7673032103205764,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:14",
+        "peak_freq_mhz": 100.30224609375,
+        "peak_power_db": 3.252990014582586,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:15",
+        "peak_freq_mhz": 100.30615234375,
+        "peak_power_db": 0.6321382936339913,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:15",
+        "peak_freq_mhz": 100.294921875,
+        "peak_power_db": 2.3061677925397674,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:16",
+        "peak_freq_mhz": 100.2822265625,
+        "peak_power_db": 1.1145054530344054,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:17",
+        "peak_freq_mhz": 100.2822265625,
+        "peak_power_db": 6.448785008839439,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:18",
+        "peak_freq_mhz": 100.27001953125,
+        "peak_power_db": 0.8316315892472468,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:18",
+        "peak_freq_mhz": 100.2939453125,
+        "peak_power_db": 9.57022387834003,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:19",
+        "peak_freq_mhz": 100.29736328125,
+        "peak_power_db": 9.922325611495934,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:20",
+        "peak_freq_mhz": 100.2880859375,
+        "peak_power_db": 0.614470598906267,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:21",
+        "peak_freq_mhz": 100.28515625,
+        "peak_power_db": 3.750741442865099,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:21",
+        "peak_freq_mhz": 100.28515625,
+        "peak_power_db": 4.509561565120399,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:21",
+        "peak_freq_mhz": 100.28076171875,
+        "peak_power_db": 3.557009808123385,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:22",
+        "peak_freq_mhz": 100.30810546875,
+        "peak_power_db": 2.8953892479973864,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:23",
+        "peak_freq_mhz": 100.29541015625,
+        "peak_power_db": 3.7339288216641515,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:23",
+        "peak_freq_mhz": 100.3359375,
+        "peak_power_db": 0.7448459750216017,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:24",
+        "peak_freq_mhz": 100.28564453125,
+        "peak_power_db": 3.0176932589851435,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:24",
+        "peak_freq_mhz": 100.32666015625,
+        "peak_power_db": 1.6278204347318503,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:25",
+        "peak_freq_mhz": 100.29931640625,
+        "peak_power_db": 2.7342576594439234,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:26",
+        "peak_freq_mhz": 100.30322265625,
+        "peak_power_db": 8.771885817936779,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:26",
+        "peak_freq_mhz": 100.30859375,
+        "peak_power_db": 1.3323029392653605,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:26",
+        "peak_freq_mhz": 100.2822265625,
+        "peak_power_db": 1.318811138301175,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:27",
+        "peak_freq_mhz": 100.2958984375,
+        "peak_power_db": 7.8037708501875525,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:27",
+        "peak_freq_mhz": 100.2919921875,
+        "peak_power_db": 1.288475517298574,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:27",
+        "peak_freq_mhz": 100.28271484375,
+        "peak_power_db": 4.15378619447153,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:28",
+        "peak_freq_mhz": 100.310546875,
+        "peak_power_db": 4.928344916449856,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:28",
+        "peak_freq_mhz": 100.3046875,
+        "peak_power_db": 9.309110638650386,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:29",
+        "peak_freq_mhz": 100.30712890625,
+        "peak_power_db": 4.285602932872445,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:30",
+        "peak_freq_mhz": 100.294921875,
+        "peak_power_db": 1.4311620631389557,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:30",
+        "peak_freq_mhz": 100.28466796875,
+        "peak_power_db": 3.7626346627020624,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:31",
+        "peak_freq_mhz": 100.337890625,
+        "peak_power_db": 3.3305409376511297,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:31",
+        "peak_freq_mhz": 100.30810546875,
+        "peak_power_db": 2.769046145077451,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:31",
+        "peak_freq_mhz": 100.30419921875,
+        "peak_power_db": 8.565468038549565,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:32",
+        "peak_freq_mhz": 100.30615234375,
+        "peak_power_db": 1.243225542867526,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:33",
+        "peak_freq_mhz": 100.30615234375,
+        "peak_power_db": 6.301793995039723,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:34",
+        "peak_freq_mhz": 100.28466796875,
+        "peak_power_db": 5.527394040098976,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:34",
+        "peak_freq_mhz": 100.32666015625,
+        "peak_power_db": 0.17025826066438518,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:35",
+        "peak_freq_mhz": 100.29541015625,
+        "peak_power_db": 0.04487779977509787,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:36",
+        "peak_freq_mhz": 100.29736328125,
+        "peak_power_db": 1.0888859089041767,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:37",
+        "peak_freq_mhz": 100.275390625,
+        "peak_power_db": 1.5211392832971522,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:37",
+        "peak_freq_mhz": 100.29833984375,
+        "peak_power_db": 1.8137228131712968,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:38",
+        "peak_freq_mhz": 100.33544921875,
+        "peak_power_db": 1.7620588409116222,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:38",
+        "peak_freq_mhz": 100.2861328125,
+        "peak_power_db": 1.235741704961726,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:39",
+        "peak_freq_mhz": 100.31103515625,
+        "peak_power_db": 3.599681936790172,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:39",
+        "peak_freq_mhz": 100.29931640625,
+        "peak_power_db": 1.6775096945984047,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:40",
+        "peak_freq_mhz": 100.291015625,
+        "peak_power_db": 0.27855696810086755,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:40",
+        "peak_freq_mhz": 100.30029296875,
+        "peak_power_db": 1.3132438122414842,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:41",
+        "peak_freq_mhz": 100.31982421875,
+        "peak_power_db": 1.0734752594521522,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:41",
+        "peak_freq_mhz": 100.29248046875,
+        "peak_power_db": 0.19015479254060944,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:41",
+        "peak_freq_mhz": 100.28662109375,
+        "peak_power_db": 0.22289150935912505,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:42",
+        "peak_freq_mhz": 100.3408203125,
+        "peak_power_db": 1.3465050159272605,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:43",
+        "peak_freq_mhz": 100.2900390625,
+        "peak_power_db": 1.6933837474221227,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:43",
+        "peak_freq_mhz": 100.291015625,
+        "peak_power_db": 0.47237887840241016,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:44",
+        "peak_freq_mhz": 100.310546875,
+        "peak_power_db": 1.056482723460772,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:45",
+        "peak_freq_mhz": 100.29638671875,
+        "peak_power_db": 0.02390775002666077,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:46",
+        "peak_freq_mhz": 100.28955078125,
+        "peak_power_db": 6.626737409594783,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:47",
+        "peak_freq_mhz": 100.30029296875,
+        "peak_power_db": 3.2801220175104624,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:47",
+        "peak_freq_mhz": 100.32177734375,
+        "peak_power_db": 2.5388878191944726,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:47",
+        "peak_freq_mhz": 100.30419921875,
+        "peak_power_db": 0.16853194427655438,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:48",
+        "peak_freq_mhz": 100.333984375,
+        "peak_power_db": 3.279601679356107,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:48",
+        "peak_freq_mhz": 100.30419921875,
+        "peak_power_db": 2.670361335680247,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:49",
+        "peak_freq_mhz": 100.30908203125,
+        "peak_power_db": 0.7549610575697592,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:49",
+        "peak_freq_mhz": 100.29833984375,
+        "peak_power_db": 5.6584907361257875,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:50",
+        "peak_freq_mhz": 100.29443359375,
+        "peak_power_db": 0.4070786458497099,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:53",
+        "peak_freq_mhz": 100.28173828125,
+        "peak_power_db": 2.488102250760953,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:54",
+        "peak_freq_mhz": 100.306640625,
+        "peak_power_db": 2.8407182065536922,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:54",
+        "peak_freq_mhz": 100.2978515625,
+        "peak_power_db": 0.23182968647239627,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:55",
+        "peak_freq_mhz": 100.2958984375,
+        "peak_power_db": 4.887461520671231,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:55",
+        "peak_freq_mhz": 100.3095703125,
+        "peak_power_db": 1.0053633919741563,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:56",
+        "peak_freq_mhz": 100.2978515625,
+        "peak_power_db": 6.868257040257788,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:56",
+        "peak_freq_mhz": 100.31201171875,
+        "peak_power_db": 2.4240837375063755,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:57",
+        "peak_freq_mhz": 100.31005859375,
+        "peak_power_db": 2.3883250548123836,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:57",
+        "peak_freq_mhz": 100.3076171875,
+        "peak_power_db": 2.801686809190995,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:58",
+        "peak_freq_mhz": 100.3115234375,
+        "peak_power_db": 0.6916312004755345,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:58",
+        "peak_freq_mhz": 100.296875,
+        "peak_power_db": 1.473270056047368,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:29:58",
+        "peak_freq_mhz": 100.263671875,
+        "peak_power_db": 1.936328895426027,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:00",
+        "peak_freq_mhz": 100.29150390625,
+        "peak_power_db": 1.7600684167428007,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:01",
+        "peak_freq_mhz": 100.3056640625,
+        "peak_power_db": 0.597853388836572,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:02",
+        "peak_freq_mhz": 100.291015625,
+        "peak_power_db": 0.37751339063588363,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:02",
+        "peak_freq_mhz": 100.2998046875,
+        "peak_power_db": 4.278759484111169,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:03",
+        "peak_freq_mhz": 100.30126953125,
+        "peak_power_db": 0.15565231732880333,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:03",
+        "peak_freq_mhz": 100.29541015625,
+        "peak_power_db": 4.061129449790274,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:03",
+        "peak_freq_mhz": 100.26806640625,
+        "peak_power_db": 1.2741839432779842,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:04",
+        "peak_freq_mhz": 100.31005859375,
+        "peak_power_db": 0.06710943690456629,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:06",
+        "peak_freq_mhz": 100.31884765625,
+        "peak_power_db": 0.8364340711885682,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:07",
+        "peak_freq_mhz": 100.26806640625,
+        "peak_power_db": 2.713613113556172,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:07",
+        "peak_freq_mhz": 100.3076171875,
+        "peak_power_db": 5.274768205660244,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:08",
+        "peak_freq_mhz": 100.31494140625,
+        "peak_power_db": 1.3502287384074552,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:08",
+        "peak_freq_mhz": 100.25634765625,
+        "peak_power_db": 0.6907868192333462,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:08",
+        "peak_freq_mhz": 100.3466796875,
+        "peak_power_db": 0.021828012606121522,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:09",
+        "peak_freq_mhz": 100.31298828125,
+        "peak_power_db": 2.994667477350043,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:10",
+        "peak_freq_mhz": 100.28125,
+        "peak_power_db": 1.7261870161294577,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:13",
+        "peak_freq_mhz": 100.30029296875,
+        "peak_power_db": 2.7771710245057015,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:13",
+        "peak_freq_mhz": 100.3017578125,
+        "peak_power_db": 1.7435996905735647,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:13",
+        "peak_freq_mhz": 100.29345703125,
+        "peak_power_db": 1.492820219936821,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:14",
+        "peak_freq_mhz": 100.302734375,
+        "peak_power_db": 1.156651360120216,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:16",
+        "peak_freq_mhz": 100.3076171875,
+        "peak_power_db": 0.32124294636807926,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:17",
+        "peak_freq_mhz": 100.29833984375,
+        "peak_power_db": 0.4198796450207384,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:18",
+        "peak_freq_mhz": 100.28369140625,
+        "peak_power_db": 2.1097333799225595,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:18",
+        "peak_freq_mhz": 100.30078125,
+        "peak_power_db": 1.572803803575551,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:20",
+        "peak_freq_mhz": 100.310546875,
+        "peak_power_db": 0.3611704382890257,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:21",
+        "peak_freq_mhz": 100.29541015625,
+        "peak_power_db": 0.6370776293370833,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:22",
+        "peak_freq_mhz": 100.30517578125,
+        "peak_power_db": 1.1178022409757402,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:23",
+        "peak_freq_mhz": 100.31201171875,
+        "peak_power_db": 0.8876101529862724,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:24",
+        "peak_freq_mhz": 100.30712890625,
+        "peak_power_db": 0.11609224094162056,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:24",
+        "peak_freq_mhz": 100.2783203125,
+        "peak_power_db": 0.3128688526182735,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:25",
+        "peak_freq_mhz": 100.3125,
+        "peak_power_db": 1.6743266838591033,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:26",
+        "peak_freq_mhz": 100.30419921875,
+        "peak_power_db": 1.194418868056411,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:27",
+        "peak_freq_mhz": 100.3056640625,
+        "peak_power_db": 3.275985147876526,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:28",
+        "peak_freq_mhz": 100.3125,
+        "peak_power_db": 0.7266393562674973,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:28",
+        "peak_freq_mhz": 100.2890625,
+        "peak_power_db": 2.475562807911552,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:29",
+        "peak_freq_mhz": 100.2880859375,
+        "peak_power_db": 4.115251924398357,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:29",
+        "peak_freq_mhz": 100.2841796875,
+        "peak_power_db": 3.099435037784548,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:29",
+        "peak_freq_mhz": 100.28271484375,
+        "peak_power_db": 2.2061780044797867,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:30",
+        "peak_freq_mhz": 100.31982421875,
+        "peak_power_db": 0.8605326587992028,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:30",
+        "peak_freq_mhz": 100.30712890625,
+        "peak_power_db": 1.4210933548492295,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:30",
+        "peak_freq_mhz": 100.3037109375,
+        "peak_power_db": 2.4899583536804073,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:31",
+        "peak_freq_mhz": 100.28173828125,
+        "peak_power_db": 2.2355313688382275,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:32",
+        "peak_freq_mhz": 100.28955078125,
+        "peak_power_db": 0.07096990313117149,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:33",
+        "peak_freq_mhz": 100.30126953125,
+        "peak_power_db": 0.7728571983723318,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:34",
+        "peak_freq_mhz": 100.3251953125,
+        "peak_power_db": 2.039574330725285,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:34",
+        "peak_freq_mhz": 100.31640625,
+        "peak_power_db": 0.26346175221652246,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:34",
+        "peak_freq_mhz": 100.29736328125,
+        "peak_power_db": 4.140689822407204,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:35",
+        "peak_freq_mhz": 100.296875,
+        "peak_power_db": 2.23363636319233,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:36",
+        "peak_freq_mhz": 100.2919921875,
+        "peak_power_db": 2.3817369986695924,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:37",
+        "peak_freq_mhz": 100.3095703125,
+        "peak_power_db": 0.4668785660794764,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:37",
+        "peak_freq_mhz": 100.30517578125,
+        "peak_power_db": 3.9963839550725764,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:39",
+        "peak_freq_mhz": 100.30419921875,
+        "peak_power_db": 2.575688499061327,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:40",
+        "peak_freq_mhz": 100.28076171875,
+        "peak_power_db": 1.461070957373494,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:44",
+        "peak_freq_mhz": 100.2978515625,
+        "peak_power_db": 1.7703250343755583,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:45",
+        "peak_freq_mhz": 100.28271484375,
+        "peak_power_db": 0.3132746047784562,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:45",
+        "peak_freq_mhz": 100.29541015625,
+        "peak_power_db": 5.2415770625816105,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:46",
+        "peak_freq_mhz": 100.28466796875,
+        "peak_power_db": 2.2295678863752046,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:46",
+        "peak_freq_mhz": 100.25927734375,
+        "peak_power_db": 2.147976256222279,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:47",
+        "peak_freq_mhz": 100.30712890625,
+        "peak_power_db": 3.249785597280617,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:48",
+        "peak_freq_mhz": 100.31201171875,
+        "peak_power_db": 0.660250885991774,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:50",
+        "peak_freq_mhz": 100.3017578125,
+        "peak_power_db": 0.5466067824175244,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:51",
+        "peak_freq_mhz": 100.296875,
+        "peak_power_db": 3.3400892602348673,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:52",
+        "peak_freq_mhz": 100.29443359375,
+        "peak_power_db": 5.727024101647387,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:53",
+        "peak_freq_mhz": 100.28564453125,
+        "peak_power_db": 0.7999047801149577,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:54",
+        "peak_freq_mhz": 100.30224609375,
+        "peak_power_db": 0.37234878424940043,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:55",
+        "peak_freq_mhz": 100.29931640625,
+        "peak_power_db": 1.4536639801301305,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:56",
+        "peak_freq_mhz": 100.30126953125,
+        "peak_power_db": 0.16756566135902054,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:58",
+        "peak_freq_mhz": 100.296875,
+        "peak_power_db": 2.255193498748159,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:58",
+        "peak_freq_mhz": 100.2861328125,
+        "peak_power_db": 0.7257589804154816,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:58",
+        "peak_freq_mhz": 100.28564453125,
+        "peak_power_db": 1.2828961714268585,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:30:59",
+        "peak_freq_mhz": 100.294921875,
+        "peak_power_db": 3.338665597851776,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:02",
+        "peak_freq_mhz": 100.28369140625,
+        "peak_power_db": 0.6664339484357673,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:02",
+        "peak_freq_mhz": 100.296875,
+        "peak_power_db": 2.5507626422669105,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:02",
+        "peak_freq_mhz": 100.296875,
+        "peak_power_db": 1.7649416163452787,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:03",
+        "peak_freq_mhz": 100.31591796875,
+        "peak_power_db": 2.3657185198707804,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:04",
+        "peak_freq_mhz": 100.29443359375,
+        "peak_power_db": 0.43137508602960795,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:04",
+        "peak_freq_mhz": 100.294921875,
+        "peak_power_db": 0.7754821360315887,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:04",
+        "peak_freq_mhz": 100.3017578125,
+        "peak_power_db": 1.0357766843626526,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:05",
+        "peak_freq_mhz": 100.30126953125,
+        "peak_power_db": 5.611058397733764,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:08",
+        "peak_freq_mhz": 100.3076171875,
+        "peak_power_db": 3.0143955533261506,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:13",
+        "peak_freq_mhz": 100.30859375,
+        "peak_power_db": 1.3383817775789961,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:13",
+        "peak_freq_mhz": 100.3017578125,
+        "peak_power_db": 4.952444362796966,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:14",
+        "peak_freq_mhz": 100.29443359375,
+        "peak_power_db": 4.808025470610874,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:14",
+        "peak_freq_mhz": 100.29833984375,
+        "peak_power_db": 0.7428967874202276,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:17",
+        "peak_freq_mhz": 100.2890625,
+        "peak_power_db": 0.42941496733169626,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:18",
+        "peak_freq_mhz": 100.27099609375,
+        "peak_power_db": 2.216982194729999,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:21",
+        "peak_freq_mhz": 100.2900390625,
+        "peak_power_db": 2.3611010604008165,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:21",
+        "peak_freq_mhz": 100.28125,
+        "peak_power_db": 1.4743094151769154,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:24",
+        "peak_freq_mhz": 100.30810546875,
+        "peak_power_db": 6.163423028101595,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:27",
+        "peak_freq_mhz": 100.2998046875,
+        "peak_power_db": 5.21351152756819,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:27",
+        "peak_freq_mhz": 100.2783203125,
+        "peak_power_db": 0.08709564942944954,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:28",
+        "peak_freq_mhz": 100.29052734375,
+        "peak_power_db": 0.3265272742671713,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:28",
+        "peak_freq_mhz": 100.3037109375,
+        "peak_power_db": 3.3740179568609268,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:29",
+        "peak_freq_mhz": 100.30517578125,
+        "peak_power_db": 4.331863113985099,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:30",
+        "peak_freq_mhz": 100.29150390625,
+        "peak_power_db": 3.048460389215826,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:31",
+        "peak_freq_mhz": 100.26318359375,
+        "peak_power_db": 1.0982533864261725,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:31",
+        "peak_freq_mhz": 100.28564453125,
+        "peak_power_db": 1.465254890564462,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:32",
+        "peak_freq_mhz": 100.28955078125,
+        "peak_power_db": 0.08791148121152087,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:32",
+        "peak_freq_mhz": 100.3046875,
+        "peak_power_db": 4.580745325655971,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:33",
+        "peak_freq_mhz": 100.2646484375,
+        "peak_power_db": 2.634269224009398,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:33",
+        "peak_freq_mhz": 100.349609375,
+        "peak_power_db": 4.032032461121925,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:34",
+        "peak_freq_mhz": 100.2919921875,
+        "peak_power_db": 5.980302677972431,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:34",
+        "peak_freq_mhz": 100.2880859375,
+        "peak_power_db": 0.24349161243396078,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:34",
+        "peak_freq_mhz": 100.310546875,
+        "peak_power_db": 2.4400393924174884,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:36",
+        "peak_freq_mhz": 100.283203125,
+        "peak_power_db": 0.40407929904785556,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:37",
+        "peak_freq_mhz": 100.27685546875,
+        "peak_power_db": 0.9599200385441321,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:37",
+        "peak_freq_mhz": 100.2958984375,
+        "peak_power_db": 1.6364964843974912,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:38",
+        "peak_freq_mhz": 100.30029296875,
+        "peak_power_db": 5.962012496222568,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:38",
+        "peak_freq_mhz": 100.2822265625,
+        "peak_power_db": 5.448869200446431,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:39",
+        "peak_freq_mhz": 100.28125,
+        "peak_power_db": 3.1183113651212397,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:40",
+        "peak_freq_mhz": 100.30908203125,
+        "peak_power_db": 3.9814056344053435,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:40",
+        "peak_freq_mhz": 100.29833984375,
+        "peak_power_db": 3.4012499707817168,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:41",
+        "peak_freq_mhz": 100.30908203125,
+        "peak_power_db": 0.8854864728656163,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:41",
+        "peak_freq_mhz": 100.26904296875,
+        "peak_power_db": 0.1928246975945694,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:42",
+        "peak_freq_mhz": 100.2890625,
+        "peak_power_db": 4.655678463427336,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:42",
+        "peak_freq_mhz": 100.24072265625,
+        "peak_power_db": 0.8354388911679518,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:43",
+        "peak_freq_mhz": 100.28564453125,
+        "peak_power_db": 6.934291941949898,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:44",
+        "peak_freq_mhz": 100.29052734375,
+        "peak_power_db": 1.3957350759977891,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:44",
+        "peak_freq_mhz": 100.30810546875,
+        "peak_power_db": 1.7956474193742915,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:44",
+        "peak_freq_mhz": 100.33056640625,
+        "peak_power_db": 4.39254580200164,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:45",
+        "peak_freq_mhz": 100.2998046875,
+        "peak_power_db": 7.973441254362903,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:45",
+        "peak_freq_mhz": 100.27734375,
+        "peak_power_db": 1.4806112315157387,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:46",
+        "peak_freq_mhz": 100.2724609375,
+        "peak_power_db": 1.4213204226204768,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:46",
+        "peak_freq_mhz": 100.27001953125,
+        "peak_power_db": 0.5846750867380707,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:47",
+        "peak_freq_mhz": 100.326171875,
+        "peak_power_db": 2.065615631287872,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:47",
+        "peak_freq_mhz": 100.29443359375,
+        "peak_power_db": 1.9564094271135901,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:48",
+        "peak_freq_mhz": 100.2734375,
+        "peak_power_db": 0.3401918436734275,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:49",
+        "peak_freq_mhz": 100.29443359375,
+        "peak_power_db": 0.3099550859623057,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:50",
+        "peak_freq_mhz": 100.30810546875,
+        "peak_power_db": 9.015556874563357,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:50",
+        "peak_freq_mhz": 100.3251953125,
+        "peak_power_db": 1.2236557575821863,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:58",
+        "peak_freq_mhz": 100.29541015625,
+        "peak_power_db": 2.280674492613376,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:31:59",
+        "peak_freq_mhz": 100.29248046875,
+        "peak_power_db": 3.7624201293266646,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:00",
+        "peak_freq_mhz": 100.279296875,
+        "peak_power_db": 0.3661284344324097,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:00",
+        "peak_freq_mhz": 100.302734375,
+        "peak_power_db": 4.5453237151039,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:02",
+        "peak_freq_mhz": 100.29931640625,
+        "peak_power_db": 2.789403749134742,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:06",
+        "peak_freq_mhz": 100.27685546875,
+        "peak_power_db": 0.333273811370019,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:16",
+        "peak_freq_mhz": 100.2919921875,
+        "peak_power_db": 2.081568717860886,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:16",
+        "peak_freq_mhz": 100.2978515625,
+        "peak_power_db": 4.297583356639521,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:18",
+        "peak_freq_mhz": 100.30029296875,
+        "peak_power_db": 4.235227632639424,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:20",
+        "peak_freq_mhz": 100.29248046875,
+        "peak_power_db": 0.0349785470559926,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:20",
+        "peak_freq_mhz": 100.318359375,
+        "peak_power_db": 0.015282218236949825,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:21",
+        "peak_freq_mhz": 100.29052734375,
+        "peak_power_db": 1.8858808827425548,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:22",
+        "peak_freq_mhz": 100.302734375,
+        "peak_power_db": 2.1023994720823893,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:23",
+        "peak_freq_mhz": 100.29931640625,
+        "peak_power_db": 5.026202624529809,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:23",
+        "peak_freq_mhz": 100.28466796875,
+        "peak_power_db": 1.5209377029157913,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:24",
+        "peak_freq_mhz": 100.30078125,
+        "peak_power_db": 5.379751158681307,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:24",
+        "peak_freq_mhz": 100.2958984375,
+        "peak_power_db": 1.282193130454512,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:27",
+        "peak_freq_mhz": 100.30078125,
+        "peak_power_db": 4.259217526305431,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:28",
+        "peak_freq_mhz": 100.28662109375,
+        "peak_power_db": 0.721794378842664,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:31",
+        "peak_freq_mhz": 100.2998046875,
+        "peak_power_db": 2.7820221456336736,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:35",
+        "peak_freq_mhz": 100.31396484375,
+        "peak_power_db": 5.272729639354637,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:35",
+        "peak_freq_mhz": 100.29931640625,
+        "peak_power_db": 1.7112444523458092,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:58",
+        "peak_freq_mhz": 100.2978515625,
+        "peak_power_db": 0.627594464199974,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:59",
+        "peak_freq_mhz": 100.2666015625,
+        "peak_power_db": 1.0100616747476174,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:32:59",
+        "peak_freq_mhz": 100.3134765625,
+        "peak_power_db": 2.200238460747765,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:33:00",
+        "peak_freq_mhz": 100.30615234375,
+        "peak_power_db": 2.9679506792350763,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:33:00",
+        "peak_freq_mhz": 100.27734375,
+        "peak_power_db": 3.5938882601331312,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    },
+    {
+        "time": "2026-07-02 09:33:01",
+        "peak_freq_mhz": 100.28369140625,
+        "peak_power_db": 0.8115654966347395,
+        "threshold_db": 0.0,
+        "center_freq_mhz": 100.0,
+        "sample_rate_mhz": 2.0
+    }
+]
