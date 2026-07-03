@@ -6,6 +6,7 @@ import uhd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from backend.gsm_classifier import classify_gsm
 
 
 # =========================
@@ -256,6 +257,7 @@ def get_spectrum():
     peak_index = int(np.argmax(power_db))
     peak_frequency_mhz = float(frequency_axis_mhz[peak_index])
     peak_power_db = float(power_db[peak_index])
+    gsm_candidate = classify_gsm(peak_frequency_mhz)
 
     step = max(1, len(power_db) // DISPLAY_POINTS)
 
@@ -281,5 +283,8 @@ def get_spectrum():
             "above_threshold": bool(
                 peak_power_db > config["threshold_db"]
             ),
+        },
+        "classification": {
+            "gsm": gsm_candidate,
         },
     }
