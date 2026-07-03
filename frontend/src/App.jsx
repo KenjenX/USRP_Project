@@ -58,6 +58,7 @@ function App() {
   });
 
   const [peak, setPeak] = useState(null);
+  const [gsmCandidate, setGsmCandidate] = useState(null);
   const [statusMessage, setStatusMessage] = useState(
     "Masukkan konfigurasi lalu tekan START SCAN."
   );
@@ -113,6 +114,7 @@ function App() {
 
         setSpectrum(data.spectrum);
         setPeak(data.peak);
+        setGsmCandidate(data.classification?.gsm ?? null);
         setScanConfig(data.config);
         setErrorMessage("");
 
@@ -135,7 +137,7 @@ function App() {
       }
 
       if (!cancelled) {
-        timeoutId = window.setTimeout(pollSpectrum, 50);
+        timeoutId = window.setTimeout(pollSpectrum, 500);
       }
     }
 
@@ -251,6 +253,7 @@ function App() {
         power_db: [],
       });
       setPeak(null);
+      setGsmCandidate(null);
       setIsScanning(true);
       setStatusMessage("Scan USRP dimulai. Menunggu data spectrum...");
     } catch (error) {
@@ -261,7 +264,7 @@ function App() {
     }
   }
 
-  const detectedCount = peak?.above_threshold ? 1 : 0;
+  const detectedCount = peak ? 1 : 0;
 
   return (
     <main className="app-shell">
@@ -340,6 +343,54 @@ function App() {
             {scanConfig.end_frequency_mhz} MHz
           </span>
         </section>
+        <section className="sidebar-live-peak">
+        <div className="sidebar-peak-heading">
+          <span>LIVE PEAK SIGNAL</span>
+
+          {peak && (
+            <span
+              className={
+                peak.above_threshold
+                  ? "sidebar-peak-state warning"
+                  : "sidebar-peak-state normal"
+              }
+            >
+              {peak.above_threshold ? "WARNING" : "NORMAL"}
+            </span>
+          )}
+        </div>
+
+        {peak ? (
+          <>
+            <h3>USRP B210 · RX2</h3>
+
+            <div className="sidebar-peak-detail">
+              <span>PEAK FREQUENCY</span>
+              <strong>{formatMHz(peak.frequency_mhz)}</strong>
+            </div>
+
+            <div className="sidebar-peak-detail">
+              <span>PEAK POWER</span>
+              <strong>{formatDb(peak.power_db)}</strong>
+            </div>
+
+            <div className="sidebar-peak-detail">
+              <span>THRESHOLD</span>
+              <strong>{scanConfig.threshold_db} dB</strong>
+            </div>
+          </>
+        ) : (
+          <p className="sidebar-empty-peak">
+            Belum ada peak signal.
+          </p>
+        )}
+      </section>
+
+      <p className="sidebar-live-message">{statusMessage}</p>
+
+      {errorMessage && (
+        <p className="sidebar-error-message">{errorMessage}</p>
+      )}
       </aside>
 
       <section className="dashboard">
@@ -451,53 +502,56 @@ function App() {
               </div>
             </section>
 
-            <section className="detected-section">
+            <section className="detected-section classification-section">
               <div className="panel-heading">
                 <div>
                   <p className="section-kicker">SCAN RESULT</p>
-                  <h3>Frequency Detected</h3>
+                  <h3>Frequency Classification</h3>
                 </div>
 
                 <div className="detected-count">
-                  <strong>{detectedCount}</strong>
-                  <span>Peak Above Threshold</span>
+                  <strong>{gsmCandidate ? 1 : 0}</strong>
+                  <span>GSM Candidate</span>
                 </div>
               </div>
 
               {peak ? (
-                <div className="frequency-grid">
-                  <article className="frequency-card">
-                    <div className="card-top">
-                      <span className="technology-tag">LIVE PEAK SIGNAL</span>
-
-                      <span
-                        className={
-                          peak.above_threshold
-                            ? "result-status detected"
-                            : "result-status candidate"
-                        }
-                      >
-                        {peak.above_threshold ? "WARNING" : "NORMAL"}
-                      </span>
+                <div className="classification-grid">
+                  {gsmCandidate ? (
+                  <article className="gsm-frequency-card">
+                    <div className="gsm-frequency-header">
+                      <span>Frequency:</span>
+                      <span className="gsm-candidate-status">CANDIDATE</span>
                     </div>
 
-                    <h4>USRP B210 · RX2</h4>
-
-                    <div className="frequency-detail">
-                      <span>PEAK FREQUENCY</span>
-                      <strong>{formatMHz(peak.frequency_mhz)}</strong>
+                    <div className="gsm-frequency-pair">
+                      <strong>DL : {formatMHz(gsmCandidate.freq_dl_mhz)}</strong>
+                      <strong>UL : {formatMHz(gsmCandidate.freq_ul_mhz)}</strong>
                     </div>
 
-                    <div className="frequency-detail">
-                      <span>PEAK POWER</span>
-                      <strong>{formatDb(peak.power_db)}</strong>
-                    </div>
+                    <div className="gsm-band-badge">
+                      <span className="gsm-radio-symbol">((•))</span>
 
-                    <div className="frequency-detail">
-                      <span>THRESHOLD</span>
-                      <strong>{scanConfig.threshold_db} dB</strong>
+                      <div>
+                        <strong>
+                          {`${gsmCandidate.mode}-${gsmCandidate.band.replace("GSM ", "")}`}
+                        </strong>
+
+                        <span>
+                          {gsmCandidate.band_code} : [ {gsmCandidate.arfcn} ]
+                        </span>
+                      </div>
                     </div>
                   </article>
+                ) : (
+                  <article className="gsm-frequency-card gsm-no-match-card">
+                    <p>GSM CLASSIFICATION</p>
+                    <strong>No GSM band match</strong>
+                    <span>
+                      Peak: {formatMHz(peak.frequency_mhz)}
+                    </span>
+                  </article>
+                )}
                 </div>
               ) : (
                 <div className="empty-state">

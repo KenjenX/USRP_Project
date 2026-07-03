@@ -631,3 +631,187 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+.gsm-frequency-card {
+  min-height: 170px;
+  padding: 16px;
+  border: 1px solid rgba(92, 210, 255, 0.28);
+  background: rgba(7, 31, 50, 0.92);
+}
+
+.gsm-frequency-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #effbff;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.gsm-candidate-status {
+  padding: 4px 7px;
+  color: #ffcf89;
+  background: rgba(255, 179, 87, 0.12);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+}
+
+.gsm-frequency-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 8px;
+  color: #dff8ff;
+  font-size: 0.76rem;
+}
+
+.gsm-band-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 10px;
+  border: 1px solid rgba(102, 191, 255, 0.65);
+  border-radius: 7px;
+  background: linear-gradient(
+    180deg,
+    rgba(38, 91, 163, 0.95),
+    rgba(15, 47, 96, 0.95)
+  );
+}
+
+.gsm-radio-symbol {
+  min-width: 38px;
+  padding: 8px 4px;
+  border-radius: 6px;
+  color: #e7f7ff;
+  background: rgba(203, 229, 255, 0.2);
+  text-align: center;
+  font-size: 0.78rem;
+}
+
+.gsm-band-badge strong {
+  display: block;
+  color: #ffffff;
+  font-size: 0.78rem;
+}
+
+.gsm-band-badge div span {
+  display: block;
+  margin-top: 4px;
+  color: #d7edff;
+  font-size: 0.72rem;
+}
+
+.gsm-no-match-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  border-style: dashed;
+  color: #9bc5d2;
+}
+
+.gsm-no-match-card p {
+  margin: 0;
+  color: #75a5b5;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+}
+
+.gsm-no-match-card strong {
+  color: #ffcf89;
+  font-size: 0.9rem;
+}
+
+.gsm-no-match-card span {
+  font-size: 0.76rem;
+}
+
+.sidebar-live-peak {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid rgba(92, 210, 255, 0.25);
+  background: rgba(5, 25, 38, 0.72);
+}
+
+.sidebar-peak-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #69ddfa;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+}
+
+.sidebar-peak-state {
+  padding: 4px 6px;
+  font-size: 0.58rem;
+  letter-spacing: 0.07em;
+}
+
+.sidebar-peak-state.normal {
+  color: #ffcf89;
+  background: rgba(255, 179, 87, 0.12);
+}
+
+.sidebar-peak-state.warning {
+  color: #ffb5b5;
+  background: rgba(255, 76, 76, 0.15);
+}
+
+.sidebar-live-peak h3 {
+  margin: 14px 0 10px;
+  color: #effbff;
+  font-size: 0.9rem;
+}
+
+.sidebar-peak-detail {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(108, 205, 239, 0.1);
+}
+
+.sidebar-peak-detail span {
+  color: #75a5b5;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+}
+
+.sidebar-peak-detail strong {
+  color: #dff8ff;
+  font-size: 0.65rem;
+  text-align: right;
+}
+
+.sidebar-empty-peak,
+.sidebar-live-message,
+.sidebar-error-message {
+  margin: 12px 0 0;
+  color: #8eb9c7;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.sidebar-error-message {
+  padding: 10px;
+  border: 1px solid rgba(255, 110, 110, 0.35);
+  color: #ffc3c3;
+  background: rgba(255, 76, 76, 0.09);
+}
+
+.classification-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 330px));
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.classification-section .gsm-frequency-card {
+  width: 100%;
+}
