@@ -3,11 +3,27 @@ import "./App.css";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
-const CHART_MIN_DB = -80;
-const CHART_MAX_DB = 10;
+const SPECTRUM_REFRESH_MS = 50;
+
+const CHART_SVG_HEIGHT = 260;
+const CHART_TICK_STEP_DB = 10;
+const THRESHOLD_TARGET_TOP_RATIO = 1 / 3;
+
+// Batas bawah display dibuat tetap agar skala tidak bergerak
+// setiap spectrum baru diterima. Nilai spectrum di bawah -100 dB
+// akan tetap terlihat pada baseline chart.
+const CHART_REFERENCE_MIN_DB = -100;
 
 function clamp(value, minimum, maximum) {
   return Math.min(Math.max(value, minimum), maximum);
+}
+
+function roundDownToStep(value, step) {
+  return Math.floor(value / step) * step;
+}
+
+function roundUpToStep(value, step) {
+  return Math.ceil(value / step) * step;
 }
 
 function formatMHz(value) {
@@ -137,7 +153,7 @@ function App() {
       }
 
       if (!cancelled) {
-        timeoutId = window.setTimeout(pollSpectrum, 500);
+        timeoutId = window.setTimeout(pollSpectrum, SPECTRUM_REFRESH_MS);
       }
     }
 
@@ -174,23 +190,63 @@ function App() {
     });
   }, [scanConfig]);
 
-  // Label sumbu Y mengikuti skala yang sama dengan perhitungan titik SVG.
+  // Skala Y hanya dihitung ulang saat threshold scan berubah.
+  // Spectrum baru setiap 500 ms tidak boleh mengubah skala.
+  // Dengan batas bawah tetap -100 dB, threshold berada tepat
+  // sekitar 1/3 dari atas chart.
+  const chartScale = useMemo(() => {
+    const thresholdValue = Number(scanConfig.threshold_db);
+    const safeThreshold = Number.isFinite(thresholdValue)
+      ? thresholdValue
+      : 0;
+
+    const minDb = CHART_REFERENCE_MIN_DB;
+    const maxDb =
+      (safeThreshold - THRESHOLD_TARGET_TOP_RATIO * minDb) /
+      (1 - THRESHOLD_TARGET_TOP_RATIO);
+
+    return { minDb, maxDb };
+  }, [scanConfig.threshold_db]);
+
+  // Label sumbu Y mengikuti skala threshold yang stabil.
   const chartDbTicks = useMemo(() => {
-    const stepDb = 10;
-    const tickCount = (CHART_MAX_DB - CHART_MIN_DB) / stepDb;
+    const thresholdValue = Number(scanConfig.threshold_db);
+    const safeThreshold = Number.isFinite(thresholdValue)
+      ? thresholdValue
+      : 0;
 
-    return Array.from({ length: tickCount + 1 }, (_, index) => {
-      const value = CHART_MAX_DB - index * stepDb;
+    const firstTick = Math.ceil(chartScale.minDb / 50) * 50;
+    const lastTick = Math.floor(chartScale.maxDb / 50) * 50;
 
-      return {
-        value,
+    const values = [];
+
+    for (let value = lastTick; value >= firstTick; value -= 50) {
+      values.push(value);
+    }
+
+    const thresholdAlreadyExists = values.some(
+      (value) => Math.abs(value - safeThreshold) < 0.001
+    );
+
+    if (
+      !thresholdAlreadyExists &&
+      safeThreshold >= chartScale.minDb &&
+      safeThreshold <= chartScale.maxDb
+    ) {
+      values.push(safeThreshold);
+    }
+
+    return values
+      .sort((a, b) => b - a)
+      .map((value) => ({
+        value: Number(value.toFixed(1)),
         position:
-          ((CHART_MAX_DB - value) /
-            (CHART_MAX_DB - CHART_MIN_DB)) *
+          ((chartScale.maxDb - value) /
+            (chartScale.maxDb - chartScale.minDb)) *
           100,
-      };
-    });
-  }, []);
+        isThreshold: Math.abs(value - safeThreshold) < 0.001,
+      }));
+  }, [chartScale, scanConfig.threshold_db]);
 
   // Ubah power_db dari backend menjadi titik SVG.
   const spectrumPoints = useMemo(() => {
@@ -208,16 +264,16 @@ function App() {
             : (index / (powerValues.length - 1)) * 1000;
 
         const normalizedY =
-          ((CHART_MAX_DB - Number(powerValue)) /
-            (CHART_MAX_DB - CHART_MIN_DB)) *
-          260;
+          ((chartScale.maxDb - Number(powerValue)) /
+            (chartScale.maxDb - chartScale.minDb)) *
+          CHART_SVG_HEIGHT;
 
-        const y = clamp(normalizedY, 0, 260);
+        const y = clamp(normalizedY, 0, CHART_SVG_HEIGHT);
 
         return `${x.toFixed(2)},${y.toFixed(2)}`;
       })
       .join(" ");
-  }, [spectrum]);
+  }, [chartScale, spectrum]);
 
   // Area transparan hanya mengisi bagian bawah garis spectrum.
   // Nilai titik garis sendiri tidak diubah.
@@ -226,7 +282,7 @@ function App() {
       return "";
     }
 
-    return `0,260 ${spectrumPoints} 1000,260`;
+    return `0,${CHART_SVG_HEIGHT} ${spectrumPoints} 1000,${CHART_SVG_HEIGHT}`;
   }, [spectrumPoints]);
 
   // Posisi garis threshold pada grafik.
@@ -234,10 +290,12 @@ function App() {
     const value = Number(scanConfig.threshold_db);
 
     const position =
-      ((CHART_MAX_DB - value) / (CHART_MAX_DB - CHART_MIN_DB)) * 100;
+      ((chartScale.maxDb - value) /
+        (chartScale.maxDb - chartScale.minDb)) *
+      100;
 
     return clamp(position, 0, 100);
-  }, [scanConfig]);
+  }, [chartScale, scanConfig.threshold_db]);
 
   async function handleScan() {
     setErrorMessage("");
@@ -457,7 +515,7 @@ function App() {
           </div>
         </header>
 
-        <nav className="tabs">
+        {/* <nav className="tabs">
           <button
             type="button"
             className={activeTab === "general" ? "tab active-tab" : "tab"}
@@ -473,7 +531,7 @@ function App() {
           >
             Specific
           </button>
-        </nav>
+        </nav> */}
 
         {activeTab === "general" ? (
           <>
@@ -499,14 +557,15 @@ function App() {
 
               <div className="spectrum-chart">
                 <div className="chart-y-axis" aria-hidden="true">
-                  {chartDbTicks.map(({ value, position }) => (
-                    <span
-                      key={value}
-                      style={{ top: `${position}%` }}
-                    >
-                      {value} dB
-                    </span>
-                  ))}
+                {chartDbTicks.map(({ value, position, isThreshold }) => (
+                  <span
+                    key={value}
+                    className={isThreshold ? "threshold-y-tick" : ""}
+                    style={{ top: `${position}%` }}
+                  >
+                    {value} dB
+                  </span>
+                ))}
                 </div>
 
                 <div className="chart-plot">
@@ -536,7 +595,7 @@ function App() {
                   {spectrumPoints ? (
                     <svg
                       className="spectrum-svg"
-                      viewBox="0 0 1000 260"
+                      viewBox={`0 0 1000 ${CHART_SVG_HEIGHT}`}
                       preserveAspectRatio="none"
                       aria-label="USRP realtime spectrum"
                     >
@@ -588,11 +647,6 @@ function App() {
                 <div>
                   <p className="section-kicker">SCAN RESULT</p>
                   <h3>Frequency Classification</h3>
-                </div>
-
-                <div className="detected-count">
-                  <strong>{gsmCandidate ? 1 : 0}</strong>
-                  <span>GSM Candidate</span>
                 </div>
               </div>
 

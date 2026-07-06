@@ -761,3 +761,8 @@ button {
     display: none;
   }
 }
+
+.chart-y-axis .threshold-y-tick {
+  color: #ffca8a;
+  font-weight: 800;
+}
