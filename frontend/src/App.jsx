@@ -149,16 +149,48 @@ function App() {
     };
   }, [isScanning]);
 
-  // Buat angka sumbu X berdasarkan konfigurasi scan asli.
+  // Buat label sumbu X berdasarkan konfigurasi scan asli.
+  // Sepuluh interval memberi label setiap 0.2 MHz saat lebar scan 2 MHz.
   const frequencyTicks = useMemo(() => {
     const start = Number(scanConfig.start_frequency_mhz);
     const end = Number(scanConfig.end_frequency_mhz);
+    const tickCount = 10;
 
-    return Array.from({ length: 5 }, (_, index) => {
-      const value = start + ((end - start) / 4) * index;
-      return `${Number(value.toFixed(2))} MHz`;
+    if (
+      !Number.isFinite(start) ||
+      !Number.isFinite(end) ||
+      start >= end
+    ) {
+      return [];
+    }
+
+    return Array.from({ length: tickCount + 1 }, (_, index) => {
+      const value = start + ((end - start) / tickCount) * index;
+
+      return {
+        label: Number(value.toFixed(2)).toString(),
+        position: (index / tickCount) * 100,
+      };
     });
   }, [scanConfig]);
+
+  // Label sumbu Y mengikuti skala yang sama dengan perhitungan titik SVG.
+  const chartDbTicks = useMemo(() => {
+    const stepDb = 10;
+    const tickCount = (CHART_MAX_DB - CHART_MIN_DB) / stepDb;
+
+    return Array.from({ length: tickCount + 1 }, (_, index) => {
+      const value = CHART_MAX_DB - index * stepDb;
+
+      return {
+        value,
+        position:
+          ((CHART_MAX_DB - value) /
+            (CHART_MAX_DB - CHART_MIN_DB)) *
+          100,
+      };
+    });
+  }, []);
 
   // Ubah power_db dari backend menjadi titik SVG.
   const spectrumPoints = useMemo(() => {
@@ -186,6 +218,16 @@ function App() {
       })
       .join(" ");
   }, [spectrum]);
+
+  // Area transparan hanya mengisi bagian bawah garis spectrum.
+  // Nilai titik garis sendiri tidak diubah.
+  const spectrumAreaPoints = useMemo(() => {
+    if (!spectrumPoints) {
+      return "";
+    }
+
+    return `0,260 ${spectrumPoints} 1000,260`;
+  }, [spectrumPoints]);
 
   // Posisi garis threshold pada grafik.
   const thresholdTop = useMemo(() => {
@@ -456,48 +498,87 @@ function App() {
               </div>
 
               <div className="spectrum-chart">
-                <div className="chart-y-label top">{CHART_MAX_DB} dB</div>
-                <div className="chart-y-label middle">
-                  {(CHART_MAX_DB + CHART_MIN_DB) / 2} dB
-                </div>
-                <div className="chart-y-label bottom">{CHART_MIN_DB} dB</div>
-
-                <div className="grid-line grid-1" />
-                <div className="grid-line grid-2" />
-                <div className="grid-line grid-3" />
-                <div className="grid-line grid-4" />
-
-                <div
-                  className="threshold-visual"
-                  style={{ top: `${thresholdTop}%` }}
-                />
-
-                {spectrumPoints ? (
-                  <svg
-                    className="spectrum-svg"
-                    viewBox="0 0 1000 260"
-                    preserveAspectRatio="none"
-                    aria-label="USRP realtime spectrum"
-                  >
-                    <polyline
-                      points={spectrumPoints}
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                    />
-                  </svg>
-                ) : (
-                  <div className="chart-placeholder">
-                    {isScanning
-                      ? "Menerima IQ sample dari USRP..."
-                      : "Tekan START SCAN untuk melihat spectrum."}
-                  </div>
-                )}
-
-                <div className="chart-x-axis">
-                  {frequencyTicks.map((frequency) => (
-                    <span key={frequency}>{frequency}</span>
+                <div className="chart-y-axis" aria-hidden="true">
+                  {chartDbTicks.map(({ value, position }) => (
+                    <span
+                      key={value}
+                      style={{ top: `${position}%` }}
+                    >
+                      {value} dB
+                    </span>
                   ))}
+                </div>
+
+                <div className="chart-plot">
+                  {chartDbTicks.map(({ value, position }) => (
+                    <div
+                      key={`horizontal-grid-${value}`}
+                      className="chart-h-grid-line"
+                      style={{ top: `${position}%` }}
+                    />
+                  ))}
+
+                  {frequencyTicks.map(({ label, position }) => (
+                    <div
+                      key={`vertical-grid-${label}-${position}`}
+                      className="chart-v-grid-line"
+                      style={{ left: `${position}%` }}
+                    />
+                  ))}
+
+                  <div
+                    className="threshold-visual"
+                    style={{ top: `${thresholdTop}%` }}
+                  >
+                    <span>Threshold {scanConfig.threshold_db} dB</span>
+                  </div>
+
+                  {spectrumPoints ? (
+                    <svg
+                      className="spectrum-svg"
+                      viewBox="0 0 1000 260"
+                      preserveAspectRatio="none"
+                      aria-label="USRP realtime spectrum"
+                    >
+                      <polygon
+                        points={spectrumAreaPoints}
+                        className="spectrum-area"
+                      />
+
+                      <polyline
+                        points={spectrumPoints}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                      />
+                    </svg>
+                  ) : (
+                    <div className="chart-placeholder">
+                      {isScanning
+                        ? "Menerima IQ sample dari USRP..."
+                        : "Tekan START SCAN untuk melihat spectrum."}
+                    </div>
+                  )}
+                </div>
+
+                <div className="chart-x-axis" aria-hidden="true">
+                  {frequencyTicks.map(({ label, position }, index) => (
+                    <span
+                      key={`${label}-${position}`}
+                      className={
+                        index === 0
+                          ? "first-x-label"
+                          : index === frequencyTicks.length - 1
+                            ? "last-x-label"
+                            : ""
+                      }
+                      style={{ left: `${position}%` }}
+                    >
+                      {label}
+                    </span>
+                  ))}
+
+                  <small className="chart-x-unit">MHz</small>
                 </div>
               </div>
             </section>
