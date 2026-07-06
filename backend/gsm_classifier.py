@@ -1,136 +1,197 @@
-from typing import Optional
+from __future__ import annotations
+
+from math import floor
+from typing import Any, Optional
+
+from backend.gsm_band_registry import (
+    CHANNEL_SPACING_MHZ,
+    DYNAMIC_BANDS,
+    FIXED_CHANNEL_BLOCKS,
+)
 
 
-CHANNEL_SPACING_MHZ = 0.2
 MAX_CHANNEL_OFFSET_MHZ = 0.1
 
 
 def _nearest_integer(value: float) -> int:
-    """Membulatkan ke channel terdekat."""
-    return int(value + 0.5)
+    """Membulatkan ke channel frekuensi terdekat."""
+    return floor(value + 0.5)
 
 
 def _build_result(
     *,
     raw_dl_mhz: float,
-    band: str,
+    family: str,
     band_code: str,
-    arfcn: int,
+    arfcn: int | str,
     channel_dl_mhz: float,
-    duplex_spacing_mhz: float,
-) -> dict:
-    channel_ul_mhz = channel_dl_mhz - duplex_spacing_mhz
+    ul_offset_from_dl_mhz: float,
+    possible_profiles: list[str],
+    arfcn_type: str,
+) -> dict[str, Any]:
+    """
+    Membentuk hasil klasifikasi yang dikirim ke main.py dan React.
+    """
+
+    channel_ul_mhz = channel_dl_mhz + ul_offset_from_dl_mhz
 
     return {
         "mode": "2G GSM",
-        "band": band,
+        "band": family,
         "band_code": band_code,
         "arfcn": arfcn,
         "fcn": arfcn,
         "fcn_ul": arfcn,
+        "arfcn_type": arfcn_type,
+        "possible_profiles": possible_profiles,
+        "direction": "Downlink",
         "detected_freq_dl_mhz": round(raw_dl_mhz, 6),
         "freq_dl_mhz": round(channel_dl_mhz, 6),
         "freq_ul_mhz": round(channel_ul_mhz, 6),
-        "duplex_spacing_mhz": duplex_spacing_mhz,
+        "duplex_spacing_mhz": abs(ul_offset_from_dl_mhz),
+        "uplink_offset_from_dl_mhz": ul_offset_from_dl_mhz,
+        "channel_spacing_mhz": CHANNEL_SPACING_MHZ,
         "channel_offset_khz": round(
             (raw_dl_mhz - channel_dl_mhz) * 1000,
             3,
         ),
-        "classification_note": "Frequency-based GSM candidate",
+        "classification_note": (
+            "Frequency-based GSM downlink candidate"
+        ),
     }
 
 
-def _classify_gsm_900(freq_dl_mhz: float) -> Optional[dict]:
+def _find_fixed_matches(freq_dl_mhz: float) -> list[dict[str, Any]]:
     """
-    Label disederhanakan menjadi GSM 900.
+    Mencari semua blok fixed-ARFCN yang cocok.
 
-    Mencakup:
-    - ARFCN 0–124   : DL 935.0–959.8 MHz
-    - ARFCN 975–1023: DL 925.2–934.8 MHz
+    Satu frekuensi dapat cocok dengan beberapa profile,
+    contohnya P-GSM/E-GSM/R-GSM/ER-GSM 900.
     """
 
-    # Bagian utama GSM 900 / E-GSM 900.
-    arfcn = _nearest_integer(
-        (freq_dl_mhz - 935.0) / CHANNEL_SPACING_MHZ
-    )
+    matches: list[dict[str, Any]] = []
 
-    if 0 <= arfcn <= 124:
-        channel_dl_mhz = 935.0 + (
-            arfcn * CHANNEL_SPACING_MHZ
+    for block in FIXED_CHANNEL_BLOCKS:
+        arfcn = _nearest_integer(
+            block["arfcn_base"]
+            + (
+                (freq_dl_mhz - block["dl_base_mhz"])
+                / CHANNEL_SPACING_MHZ
+            )
         )
 
-        if abs(freq_dl_mhz - channel_dl_mhz) <= MAX_CHANNEL_OFFSET_MHZ:
-            return _build_result(
-                raw_dl_mhz=freq_dl_mhz,
-                band="GSM 900",
-                band_code="B8",
-                arfcn=arfcn,
-                channel_dl_mhz=channel_dl_mhz,
-                duplex_spacing_mhz=45.0,
-            )
+        if not block["arfcn_min"] <= arfcn <= block["arfcn_max"]:
+            continue
 
-    # Bagian tambahan E-GSM 900.
-    arfcn = _nearest_integer(
-        1024 + ((freq_dl_mhz - 935.0) / CHANNEL_SPACING_MHZ)
-    )
-
-    if 975 <= arfcn <= 1023:
-        channel_dl_mhz = 935.0 + (
-            (arfcn - 1024) * CHANNEL_SPACING_MHZ
+        channel_dl_mhz = block["dl_base_mhz"] + (
+            (arfcn - block["arfcn_base"])
+            * CHANNEL_SPACING_MHZ
         )
 
-        if abs(freq_dl_mhz - channel_dl_mhz) <= MAX_CHANNEL_OFFSET_MHZ:
-            return _build_result(
-                raw_dl_mhz=freq_dl_mhz,
-                band="GSM 900",
-                band_code="B8",
-                arfcn=arfcn,
-                channel_dl_mhz=channel_dl_mhz,
-                duplex_spacing_mhz=45.0,
-            )
+        if abs(freq_dl_mhz - channel_dl_mhz) > MAX_CHANNEL_OFFSET_MHZ:
+            continue
+
+        matches.append(
+            {
+                **block,
+                "arfcn": arfcn,
+                "channel_dl_mhz": channel_dl_mhz,
+            }
+        )
+
+    return matches
+
+
+def _classify_fixed_band(
+    freq_dl_mhz: float,
+) -> Optional[dict[str, Any]]:
+    """Membuat hasil klasifikasi untuk band dengan ARFCN tetap."""
+
+    matches = _find_fixed_matches(freq_dl_mhz)
+
+    if not matches:
+        return None
+
+    first_match = matches[0]
+
+    # Menghapus profile duplikat, tetapi urutan tetap dipertahankan.
+    possible_profiles = list(
+        dict.fromkeys(
+            match["profile"]
+            for match in matches
+        )
+    )
+
+    return _build_result(
+        raw_dl_mhz=freq_dl_mhz,
+        family=first_match["family"],
+        band_code=first_match["display_code"],
+        arfcn=first_match["arfcn"],
+        channel_dl_mhz=first_match["channel_dl_mhz"],
+        ul_offset_from_dl_mhz=(
+            first_match["ul_offset_from_dl_mhz"]
+        ),
+        possible_profiles=possible_profiles,
+        arfcn_type="Fixed",
+    )
+
+
+def _classify_dynamic_band(
+    freq_dl_mhz: float,
+) -> Optional[dict[str, Any]]:
+    """
+    Mencocokkan band dengan ARFCN Dynamic.
+
+    Nomor ARFCN tidak dihitung karena tabel Sqimway
+    memang menandainya sebagai Dynamic.
+    """
+
+    for band in DYNAMIC_BANDS:
+        channel_index = _nearest_integer(
+            (freq_dl_mhz - band["dl_low_mhz"])
+            / CHANNEL_SPACING_MHZ
+        )
+
+        channel_dl_mhz = band["dl_low_mhz"] + (
+            channel_index * CHANNEL_SPACING_MHZ
+        )
+
+        if not (
+            band["dl_low_mhz"]
+            <= channel_dl_mhz
+            <= band["dl_high_mhz"]
+        ):
+            continue
+
+        if abs(freq_dl_mhz - channel_dl_mhz) > MAX_CHANNEL_OFFSET_MHZ:
+            continue
+
+        return _build_result(
+            raw_dl_mhz=freq_dl_mhz,
+            family=band["family"],
+            band_code=band["display_code"],
+            arfcn=band["arfcn"],
+            channel_dl_mhz=channel_dl_mhz,
+            ul_offset_from_dl_mhz=(
+                band["ul_offset_from_dl_mhz"]
+            ),
+            possible_profiles=[band["profile"]],
+            arfcn_type="Dynamic",
+        )
 
     return None
 
 
-def _classify_gsm_1800(freq_dl_mhz: float) -> Optional[dict]:
+def classify_gsm(
+    freq_dl_mhz: float,
+) -> Optional[dict[str, Any]]:
     """
-    DCS 1800 / GSM 1800:
-    ARFCN 512–885
-    DL 1805.2–1879.8 MHz
-    UL 1710.2–1784.8 MHz
-    """
-
-    arfcn = _nearest_integer(
-        512 + ((freq_dl_mhz - 1805.2) / CHANNEL_SPACING_MHZ)
-    )
-
-    if not 512 <= arfcn <= 885:
-        return None
-
-    channel_dl_mhz = 1805.2 + (
-        (arfcn - 512) * CHANNEL_SPACING_MHZ
-    )
-
-    if abs(freq_dl_mhz - channel_dl_mhz) > MAX_CHANNEL_OFFSET_MHZ:
-        return None
-
-    return _build_result(
-        raw_dl_mhz=freq_dl_mhz,
-        band="GSM 1800",
-        band_code="B3",
-        arfcn=arfcn,
-        channel_dl_mhz=channel_dl_mhz,
-        duplex_spacing_mhz=95.0,
-    )
-
-
-def classify_gsm(freq_dl_mhz: float) -> Optional[dict]:
-    """
-    Mencocokkan frekuensi downlink terhadap band GSM 900 atau GSM 1800.
+    Mencocokkan satu peak frekuensi downlink dengan registry GSM.
 
     Catatan:
-    Hasil ini hanya klasifikasi berdasarkan lokasi frekuensi.
-    Ini belum membuktikan sinyal tersebut benar-benar GSM.
+    - Mode saat ini hanya Downlink, BTS -> perangkat.
+    - Hasil adalah kandidat berdasarkan lokasi frekuensi.
+    - Hasil belum membuktikan sinyal tersebut benar-benar GSM.
     """
 
     try:
@@ -141,9 +202,9 @@ def classify_gsm(freq_dl_mhz: float) -> Optional[dict]:
     if frequency <= 0:
         return None
 
-    result = _classify_gsm_900(frequency)
+    fixed_result = _classify_fixed_band(frequency)
 
-    if result is not None:
-        return result
+    if fixed_result is not None:
+        return fixed_result
 
-    return _classify_gsm_1800(frequency)
+    return _classify_dynamic_band(frequency)

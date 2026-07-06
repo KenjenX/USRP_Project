@@ -520,7 +520,7 @@ function App() {
                   {gsmCandidate ? (
                   <article className="gsm-frequency-card">
                     <div className="gsm-frequency-header">
-                      <span>Frequency:</span>
+                      <span>Frequency Classification</span>
                       <span className="gsm-candidate-status">CANDIDATE</span>
                     </div>
 
@@ -532,14 +532,24 @@ function App() {
                     <div className="gsm-band-badge">
                       <span className="gsm-radio-symbol">((•))</span>
 
-                      <div>
-                        <strong>
-                          {`${gsmCandidate.mode}-${gsmCandidate.band.replace("GSM ", "")}`}
-                        </strong>
+                      <div className="gsm-band-info">
+                        <strong>{gsmCandidate.band}</strong>
 
-                        <span>
-                          {gsmCandidate.band_code} : [ {gsmCandidate.arfcn} ]
+                        <span className="gsm-arfcn">
+                          {gsmCandidate.arfcn === "Dynamic"
+                            ? "ARFCN : Dynamic"
+                            : `ARFCN : [ ${gsmCandidate.arfcn} ]`}
                         </span>
+                      </div>
+                    </div>
+
+                    <div className="gsm-profiles">
+                      <span>Possible Profiles</span>
+
+                      <div className="gsm-profile-list">
+                        {(gsmCandidate.possible_profiles ?? []).map((profile) => (
+                          <span key={profile}>{profile}</span>
+                        ))}
                       </div>
                     </div>
                   </article>
