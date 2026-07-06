@@ -398,95 +398,141 @@ button {
 /* Spectrum chart */
 .spectrum-chart {
   position: relative;
-  height: 300px;
+  height: 330px;
   margin-top: 28px;
-  padding: 14px 14px 30px 52px;
   overflow: hidden;
   border: 1px solid rgba(97, 206, 247, 0.13);
-  background:
-    linear-gradient(rgba(69, 157, 194, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(69, 157, 194, 0.08) 1px, transparent 1px),
-    #061923;
-  background-size: 44px 44px;
+  background: #061923;
+}
+
+.chart-plot {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  bottom: 40px;
+  left: 58px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(98, 205, 245, 0.28);
+  border-left: 1px solid rgba(98, 205, 245, 0.2);
+  background: #061923;
+}
+
+.chart-y-axis {
+  position: absolute;
+  top: 14px;
+  bottom: 40px;
+  left: 0;
+  width: 54px;
+}
+
+.chart-y-axis span {
+  position: absolute;
+  right: 8px;
+  color: #78a8b8;
+  font-size: 0.62rem;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+.chart-y-axis span:first-child {
+  transform: translateY(0);
+}
+
+.chart-y-axis span:last-child {
+  transform: translateY(-100%);
+}
+
+.chart-h-grid-line {
+  position: absolute;
+  right: 0;
+  left: 0;
+  border-top: 1px solid rgba(98, 205, 245, 0.12);
+}
+
+.chart-v-grid-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid rgba(98, 205, 245, 0.1);
 }
 
 .spectrum-svg {
   position: absolute;
-  inset: 14px 14px 30px 52px;
-  width: calc(100% - 66px);
-  height: calc(100% - 44px);
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
   color: #56dcff;
   filter: drop-shadow(0 0 6px rgba(86, 220, 255, 0.65));
 }
 
+.spectrum-area {
+  fill: currentColor;
+  opacity: 0.16;
+}
+
 .threshold-visual {
   position: absolute;
-  right: 14px;
-  left: 52px;
+  z-index: 3;
+  right: 0;
+  left: 0;
   border-top: 1px dashed #ffac54;
+  pointer-events: none;
 }
 
-.grid-line {
+.threshold-visual span {
   position: absolute;
-  right: 14px;
-  left: 52px;
-  border-top: 1px solid rgba(98, 205, 245, 0.12);
-}
-
-.grid-1 {
-  top: 24%;
-}
-
-.grid-2 {
-  top: 49%;
-}
-
-.grid-3 {
-  top: 74%;
-}
-
-.grid-4 {
-  bottom: 30px;
-}
-
-.chart-y-label {
-  position: absolute;
-  left: 10px;
-  color: #78a8b8;
-  font-size: 0.68rem;
-}
-
-.chart-y-label.top {
-  top: 12px;
-}
-
-.chart-y-label.middle {
-  top: 48%;
-}
-
-.chart-y-label.bottom {
-  bottom: 35px;
-}
-
-.chart-x-axis {
-  position: absolute;
-  right: 14px;
-  bottom: 8px;
-  left: 52px;
-  display: flex;
-  justify-content: space-between;
-  color: #78a8b8;
-  font-size: 0.66rem;
+  top: 4px;
+  right: 6px;
+  padding: 3px 6px;
+  color: #ffd29d;
+  background: rgba(6, 25, 35, 0.9);
+  font-size: 0.6rem;
+  white-space: nowrap;
 }
 
 .chart-placeholder {
   position: absolute;
-  inset: 14px 14px 30px 52px;
+  inset: 0;
+  z-index: 4;
   display: grid;
   place-items: center;
   color: #8eb9c7;
   font-size: 0.78rem;
   text-align: center;
+}
+
+.chart-x-axis {
+  position: absolute;
+  right: 14px;
+  bottom: 4px;
+  left: 58px;
+  height: 30px;
+  color: #78a8b8;
+  font-size: 0.58rem;
+}
+
+.chart-x-axis span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.chart-x-axis .first-x-label {
+  transform: translateX(0);
+}
+
+.chart-x-axis .last-x-label {
+  transform: translateX(-100%);
+}
+
+.chart-x-unit {
+  position: absolute;
+  top: 14px;
+  right: 0;
+  color: #78a8b8;
+  font-size: 0.58rem;
 }
 
 /* Frequency classification */
@@ -711,8 +757,7 @@ button {
     height: 240px;
   }
 
-  .chart-x-axis span:nth-child(2),
-  .chart-x-axis span:nth-child(4) {
+  .chart-x-axis span:nth-child(even) {
     display: none;
   }
 }
