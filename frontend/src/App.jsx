@@ -14,6 +14,16 @@ const THRESHOLD_TARGET_TOP_RATIO = 1 / 3;
 // akan tetap terlihat pada baseline chart.
 const CHART_REFERENCE_MIN_DB = -100;
 
+// Warna marker pada grafik. Urutan warna sama dengan urutan Signal 01, 02, 03, dan seterusnya.
+const DETECTION_MARKER_COLORS = [
+  "#6dffba",
+  "#ffd166",
+  "#c792ff",
+  "#ff8e8e",
+  "#58c7ff",
+  "#ff9f68",
+];
+
 function clamp(value, minimum, maximum) {
   return Math.min(Math.max(value, minimum), maximum);
 }
@@ -299,6 +309,58 @@ function App() {
     return clamp(position, 0, 100);
   }, [chartScale, scanConfig.threshold_db]);
 
+  // Satu marker dibuat untuk setiap detection akhir dari backend.
+  // Marker ini menunjukkan peak yang dipakai untuk klasifikasi band,
+  // bukan seluruh titik FFT yang berada di atas threshold.
+  const detectionMarkers = useMemo(() => {
+    const start = Number(scanConfig.start_frequency_mhz);
+    const end = Number(scanConfig.end_frequency_mhz);
+
+    if (
+      !Number.isFinite(start) ||
+      !Number.isFinite(end) ||
+      end <= start
+    ) {
+      return [];
+    }
+
+    return detections
+      .map((detection, index) => {
+        const frequency = Number(detection.frequency_mhz);
+        const power = Number(detection.power_db);
+
+        if (!Number.isFinite(frequency) || !Number.isFinite(power)) {
+          return null;
+        }
+
+        const horizontalPosition =
+          ((frequency - start) / (end - start)) * 100;
+
+        // Jangan tampilkan marker bila frequency berada di luar range scan.
+        if (horizontalPosition < 0 || horizontalPosition > 100) {
+          return null;
+        }
+
+        const verticalPosition =
+          ((chartScale.maxDb - power) /
+            (chartScale.maxDb - chartScale.minDb)) *
+          100;
+
+        return {
+          id: `${frequency}-${index}`,
+          label: String(index + 1).padStart(2, "0"),
+          x: clamp(horizontalPosition, 0, 100),
+          y: clamp(verticalPosition, 0, 100),
+          color:
+            DETECTION_MARKER_COLORS[
+              index % DETECTION_MARKER_COLORS.length
+            ],
+          alignRight: horizontalPosition > 86,
+        };
+      })
+      .filter(Boolean);
+  }, [chartScale, detections, scanConfig]);
+
   async function handleScan() {
     setErrorMessage("");
     setIsBusy(true);
@@ -554,6 +616,11 @@ function App() {
                     <i className="legend-line threshold-line" />
                     Threshold {scanConfig.threshold_db} dB
                   </span>
+
+                  <span>
+                    <i className="legend-detection-marker" />
+                    Detected Peak
+                  </span>
                 </div>
               </div>
 
@@ -595,24 +662,53 @@ function App() {
                   </div>
 
                   {spectrumPoints ? (
-                    <svg
-                      className="spectrum-svg"
-                      viewBox={`0 0 1000 ${CHART_SVG_HEIGHT}`}
-                      preserveAspectRatio="none"
-                      aria-label="USRP realtime spectrum"
-                    >
-                      <polygon
-                        points={spectrumAreaPoints}
-                        className="spectrum-area"
-                      />
+                    <>
+                      <svg
+                        className="spectrum-svg"
+                        viewBox={`0 0 1000 ${CHART_SVG_HEIGHT}`}
+                        preserveAspectRatio="none"
+                        aria-label="USRP realtime spectrum"
+                      >
+                        <polygon
+                          points={spectrumAreaPoints}
+                          className="spectrum-area"
+                        />
 
-                      <polyline
-                        points={spectrumPoints}
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                      />
-                    </svg>
+                        <polyline
+                          points={spectrumPoints}
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                        />
+                      </svg>
+
+                      {detectionMarkers.map((marker) => (
+                        <div
+                          className={`spectrum-detection-marker ${
+                            marker.alignRight ? "marker-align-right" : ""
+                          }`}
+                          key={marker.id}
+                          style={{
+                            left: `${marker.x}%`,
+                            "--marker-color": marker.color,
+                          }}
+                        >
+                          <span className="spectrum-detection-guide" />
+
+                          <span
+                            className="spectrum-detection-dot"
+                            style={{ top: `${marker.y}%` }}
+                          />
+
+                          <span
+                            className="spectrum-detection-label"
+                            style={{ top: `${marker.y}%` }}
+                          >
+                            {marker.label}
+                          </span>
+                        </div>
+                      ))}
+                    </>
                   ) : (
                     <div className="chart-placeholder">
                       {isScanning
@@ -696,10 +792,16 @@ function App() {
                     const primaryCandidate =
                       technologyCandidates[0] ?? null;
 
+                    const signalColor =
+                      DETECTION_MARKER_COLORS[
+                        index % DETECTION_MARKER_COLORS.length
+                      ];
+
                     return (
                       <article
                         className="signal-detection-card"
                         key={`${detection.frequency_mhz}-${index}`}
+                        style={{ "--signal-color": signalColor }}
                       >
                         <header className="signal-detection-header">
                           <div>
