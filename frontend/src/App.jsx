@@ -3,7 +3,7 @@ import "./App.css";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
-const SPECTRUM_REFRESH_MS = 50;
+const SPECTRUM_REFRESH_MS = 250;
 
 const CHART_SVG_HEIGHT = 260;
 const CHART_TICK_STEP_DB = 10;
@@ -74,7 +74,7 @@ function App() {
   });
 
   const [peak, setPeak] = useState(null);
-  const [gsmCandidate, setGsmCandidate] = useState(null);
+  const [detections, setDetections] = useState([]);
   const [statusMessage, setStatusMessage] = useState(
     "Masukkan konfigurasi lalu tekan START SCAN."
   );
@@ -106,7 +106,7 @@ function App() {
     checkDevice();
   }, []);
 
-  // Ambil data spectrum baru setiap 500 ms saat scan berjalan.
+  // Ambil data spectrum baru setiap 250 ms saat scan berjalan.
   useEffect(() => {
     if (!isScanning) {
       return undefined;
@@ -130,7 +130,9 @@ function App() {
 
         setSpectrum(data.spectrum);
         setPeak(data.peak);
-        setGsmCandidate(data.classification?.gsm ?? null);
+        setDetections(
+          Array.isArray(data.detections) ? data.detections : []
+        );
         setScanConfig(data.config);
         setErrorMessage("");
 
@@ -353,7 +355,7 @@ function App() {
         power_db: [],
       });
       setPeak(null);
-      setGsmCandidate(null);
+      setDetections([]);
       setIsScanning(true);
       setStatusMessage("Scan USRP dimulai. Menunggu data spectrum...");
     } catch (error) {
@@ -364,7 +366,7 @@ function App() {
     }
   }
 
-  const detectedCount = peak ? 1 : 0;
+  const detectedCount = detections.length;
 
   return (
     <main className="app-shell">
@@ -648,59 +650,118 @@ function App() {
                   <p className="section-kicker">SCAN RESULT</p>
                   <h3>Frequency Classification</h3>
                 </div>
+
+                <div className="detected-count">
+                  <strong>{detectedCount}</strong>
+                  <span>
+                    {detectedCount === 1
+                      ? "SIGNAL ABOVE THRESHOLD"
+                      : "SIGNALS ABOVE THRESHOLD"}
+                  </span>
+                </div>
               </div>
 
-              {peak ? (
-                <div className="classification-grid">
-                  {gsmCandidate ? (
-                  <article className="gsm-frequency-card">
-                    <div className="gsm-frequency-header">
-                      <span>Frequency Classification</span>
-                      <span className="gsm-candidate-status">CANDIDATE</span>
-                    </div>
-
-                    <div className="gsm-frequency-pair">
-                      <strong>DL : {formatMHz(gsmCandidate.freq_dl_mhz)}</strong>
-                      <strong>UL : {formatMHz(gsmCandidate.freq_ul_mhz)}</strong>
-                    </div>
-
-                    <div className="gsm-band-badge">
-                      <span className="gsm-radio-symbol">((•))</span>
-
-                      <div className="gsm-band-info">
-                        <strong>{gsmCandidate.band}</strong>
-
-                        <span className="gsm-arfcn">
-                          {gsmCandidate.arfcn === "Dynamic"
-                            ? "ARFCN : Dynamic"
-                            : `ARFCN : [ ${gsmCandidate.arfcn} ]`}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="gsm-profiles">
-                      <span>Possible Profiles</span>
-
-                      <div className="gsm-profile-list">
-                        {(gsmCandidate.possible_profiles ?? []).map((profile) => (
-                          <span key={profile}>{profile}</span>
-                        ))}
-                      </div>
-                    </div>
-                  </article>
-                ) : (
-                  <article className="gsm-frequency-card gsm-no-match-card">
-                    <p>GSM CLASSIFICATION</p>
-                    <strong>No GSM band match</strong>
-                    <span>
-                      Peak: {formatMHz(peak.frequency_mhz)}
-                    </span>
-                  </article>
-                )}
+              {!peak ? (
+                <div className="empty-state">
+                  {isScanning
+                    ? "Menerima data spectrum dari USRP..."
+                    : "Belum ada peak dari USRP. Jalankan scan terlebih dahulu."}
+                </div>
+              ) : detections.length === 0 ? (
+                <div className="empty-state">
+                  Tidak ada sinyal yang menyentuh atau melewati threshold.
                 </div>
               ) : (
-                <div className="empty-state">
-                  Belum ada peak dari USRP. Jalankan scan terlebih dahulu.
+                <div className="classification-grid">
+                  {detections.map((detection, index) => {
+                    const gsmCandidate = detection.gsm;
+
+                    // Nanti UMTS, LTE, dan NR dapat ditambahkan ke array
+                    // ini dengan format data card yang sama.
+                    const technologyCandidates = [
+                      gsmCandidate && {
+                        type: "gsm",
+                        label: "2G",
+                        name: gsmCandidate.band,
+                        detail:
+                          gsmCandidate.arfcn === "Dynamic"
+                            ? "ARFCN : Dynamic"
+                            : `ARFCN : [ ${gsmCandidate.arfcn} ]`,
+                        dlMhz: gsmCandidate.freq_dl_mhz,
+                        ulMhz: gsmCandidate.freq_ul_mhz,
+                        profiles: gsmCandidate.possible_profiles ?? [],
+                      },
+                    ].filter(Boolean);
+
+                    const primaryCandidate =
+                      technologyCandidates[0] ?? null;
+
+                    return (
+                      <article
+                        className="signal-detection-card"
+                        key={`${detection.frequency_mhz}-${index}`}
+                      >
+                        <header className="signal-detection-header">
+                          <div>
+                            <p className="signal-detection-label">
+                              SIGNAL {String(index + 1).padStart(2, "0")} ·
+                              DETECTED ABOVE THRESHOLD
+                            </p>
+
+                            <h4>
+                              {formatMHz(detection.frequency_mhz)}
+                            </h4>
+                          </div>
+
+                          <span className="signal-detection-power">
+                            {formatDb(detection.power_db)}
+                          </span>
+                        </header>
+
+                        {primaryCandidate && (
+                          <div className="signal-frequency-pair">
+                            <span>
+                              DL: {formatMHz(primaryCandidate.dlMhz)}
+                            </span>
+
+                            <span>
+                              UL: {formatMHz(primaryCandidate.ulMhz)}
+                            </span>
+                          </div>
+                        )}
+
+                        <p className="technology-candidate-title">
+                          TECHNOLOGY CANDIDATES
+                        </p>
+
+                        {technologyCandidates.length > 0 ? (
+                          <div className="technology-candidate-grid">
+                            {technologyCandidates.map((candidate) => (
+                              <article
+                                className={`technology-mini-card ${candidate.type}`}
+                                key={`${candidate.type}-${candidate.name}`}
+                              >
+                                <div className="technology-mini-header">
+                                  <span className="technology-mini-icon">
+                                    {candidate.label}
+                                  </span>
+
+                                  <div className="technology-mini-info">
+                                    <strong>{candidate.name}</strong>
+                                    <span>{candidate.detail}</span>
+                                  </div>
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="no-technology-match">
+                            No GSM candidate match for this signal.
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
               )}
 
