@@ -18,6 +18,9 @@ RX_ANTENNA = "RX2"
 GAIN_DB = 35
 NUM_SAMPS = 4096
 DISPLAY_POINTS = 512
+# Jarak maksimum antar cluster kecil agar masih dianggap
+# berasal dari satu sinyal yang sama.
+CLUSTER_MERGE_GAP_MHZ = 0.05
 
 # Versi awal hanya scan satu window spectrum.
 # Sesuai konfigurasi awal Anda: maksimal 2 MHz.
@@ -114,6 +117,109 @@ def get_usrp():
 def get_current_state():
     with state_lock:
         return scan_state["running"], scan_state["config"].copy()
+    
+def find_threshold_detections(
+    frequency_axis_mhz,
+    power_db,
+    threshold_db,
+):
+    """
+    Mencari peak dari setiap sinyal yang memenuhi threshold.
+
+    Tahap:
+    1. Cari cluster awal: titik FFT berurutan dengan power >= threshold.
+    2. Gabungkan cluster kecil yang sangat dekat agar satu sinyal
+       tidak terpecah akibat noise.
+    3. Ambil satu peak tertinggi dari setiap cluster akhir.
+    """
+
+    raw_clusters = []
+    index = 0
+
+    # Tahap 1: buat cluster awal berdasarkan threshold.
+    while index < len(power_db):
+        if power_db[index] < threshold_db:
+            index += 1
+            continue
+
+        cluster_start = index
+
+        while (
+            index + 1 < len(power_db)
+            and power_db[index + 1] >= threshold_db
+        ):
+            index += 1
+
+        cluster_end = index
+
+        raw_clusters.append(
+            (cluster_start, cluster_end)
+        )
+
+        index += 1
+
+    if not raw_clusters:
+        return []
+
+    # Tahap 2: gabungkan cluster yang dipisahkan oleh gap kecil.
+    merged_clusters = []
+
+    current_start, current_end = raw_clusters[0]
+
+    for next_start, next_end in raw_clusters[1:]:
+        gap_mhz = float(
+            frequency_axis_mhz[next_start]
+            - frequency_axis_mhz[current_end]
+        )
+
+        if gap_mhz <= CLUSTER_MERGE_GAP_MHZ:
+            current_end = next_end
+        else:
+            merged_clusters.append(
+                (current_start, current_end)
+            )
+            current_start = next_start
+            current_end = next_end
+
+    merged_clusters.append(
+        (current_start, current_end)
+    )
+
+    # Tahap 3: ambil peak tertinggi dari setiap cluster akhir.
+    detections = []
+
+    for cluster_start, cluster_end in merged_clusters:
+        cluster_power = power_db[
+            cluster_start:cluster_end + 1
+        ]
+
+        local_peak_offset = int(
+            np.argmax(cluster_power)
+        )
+
+        peak_index = (
+            cluster_start + local_peak_offset
+        )
+
+        detected_frequency_mhz = float(
+            frequency_axis_mhz[peak_index]
+        )
+
+        detected_power_db = float(
+            power_db[peak_index]
+        )
+
+        detections.append(
+            {
+                "frequency_mhz": detected_frequency_mhz,
+                "power_db": detected_power_db,
+                "gsm": classify_gsm(
+                    detected_frequency_mhz
+                ),
+            }
+        )
+
+    return detections
 
 
 @app.get("/")
@@ -202,6 +308,7 @@ def get_spectrum():
                 "power_db": [],
             },
             "peak": None,
+            "detections": [],
         }
 
     center_frequency_hz = config["center_frequency_mhz"] * 1e6
@@ -257,7 +364,12 @@ def get_spectrum():
     peak_index = int(np.argmax(power_db))
     peak_frequency_mhz = float(frequency_axis_mhz[peak_index])
     peak_power_db = float(power_db[peak_index])
-    gsm_candidate = classify_gsm(peak_frequency_mhz)
+
+    detections = find_threshold_detections(
+        frequency_axis_mhz,
+        power_db,
+        config["threshold_db"],
+    )
 
     step = max(1, len(power_db) // DISPLAY_POINTS)
 
@@ -281,10 +393,8 @@ def get_spectrum():
             "frequency_mhz": peak_frequency_mhz,
             "power_db": peak_power_db,
             "above_threshold": bool(
-                peak_power_db > config["threshold_db"]
+                peak_power_db >= config["threshold_db"]
             ),
         },
-        "classification": {
-            "gsm": gsm_candidate,
-        },
+        "detections": detections,
     }
