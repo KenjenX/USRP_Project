@@ -556,141 +556,143 @@ button {
 .classification-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 330px));
-  gap: 16px;
-  margin-top: 22px;
+  gap: 12px;
+  margin-top: 20px;
 }
 
-.classification-section .gsm-frequency-card {
-  width: 100%;
-}
-
-.gsm-frequency-card {
-  min-height: 0;
-  padding: 16px;
+.signal-detection-card {
+  overflow: hidden;
   border: 1px solid rgba(92, 210, 255, 0.28);
   background: rgba(7, 31, 50, 0.92);
 }
 
-.gsm-frequency-header {
+.signal-detection-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+  padding: 11px 12px 9px;
+  border-bottom: 1px solid rgba(108, 205, 239, 0.12);
+}
+
+.signal-detection-label {
+  margin: 0 0 5px;
+  color: #8ed8ea;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.signal-detection-header h4 {
+  margin: 0;
   color: #effbff;
-  font-size: 0.78rem;
+  font-size: 0.88rem;
+}
+
+.signal-detection-power {
+  flex-shrink: 0;
+  padding: 5px 6px;
+  border: 1px solid rgba(99, 244, 165, 0.24);
+  color: #baffd5;
+  background: rgba(99, 244, 165, 0.08);
+  font-size: 0.62rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.signal-frequency-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(108, 205, 239, 0.1);
+  color: #dff8ff;
+  font-size: 0.59rem;
   font-weight: 700;
 }
 
-.gsm-candidate-status {
-  padding: 4px 7px;
-  color: #ffcf89;
-  background: rgba(255, 179, 87, 0.12);
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
+.technology-candidate-title {
+  margin: 0;
+  padding: 10px 12px 7px;
+  color: #83b9ca;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
 }
 
-.gsm-frequency-pair {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  margin-top: 8px;
-  color: #dff8ff;
-  font-size: 0.76rem;
+.technology-candidate-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  padding: 0 12px 12px;
 }
 
-.gsm-band-badge {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 16px;
-  padding: 11px;
-  border: 1px solid rgba(102, 191, 255, 0.65);
-  border-radius: 7px;
+.technology-mini-card {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(106, 187, 255, 0.35);
   background: linear-gradient(
     180deg,
-    rgba(38, 91, 163, 0.95),
-    rgba(15, 47, 96, 0.95)
+    rgba(38, 91, 163, 0.78),
+    rgba(15, 47, 96, 0.82)
   );
 }
 
-.gsm-radio-symbol {
-  min-width: 38px;
-  padding: 8px 4px;
-  border-radius: 6px;
-  color: #e7f7ff;
-  background: rgba(203, 229, 255, 0.2);
-  text-align: center;
-  font-size: 0.78rem;
+.technology-mini-card.gsm {
+  border-color: rgba(255, 200, 92, 0.58);
+  background: linear-gradient(
+    180deg,
+    rgba(146, 104, 26, 0.72),
+    rgba(79, 53, 10, 0.78)
+  );
 }
 
-.gsm-band-info {
+.technology-mini-header {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 7px;
 }
 
-.gsm-band-info strong {
+.technology-mini-icon {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 5px;
+  color: #fff6de;
+  background: rgba(255, 241, 202, 0.16);
+  font-size: 0.63rem;
+  font-weight: 900;
+}
+
+.technology-mini-info {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.technology-mini-info strong {
+  overflow: hidden;
   color: #ffffff;
-  font-size: 0.84rem;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.gsm-arfcn {
-  color: #d7edff;
-  font-size: 0.72rem;
+.technology-mini-info span {
+  color: #fff2cf;
+  font-size: 0.59rem;
 }
 
-.gsm-profiles {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(108, 205, 239, 0.12);
-}
-
-.gsm-profiles > span {
-  color: #75a5b5;
-  font-size: 0.62rem;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.gsm-profile-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.gsm-profile-list span {
-  padding: 5px 7px;
-  border: 1px solid rgba(92, 210, 255, 0.22);
-  border-radius: 4px;
-  color: #c6eefb;
-  background: rgba(58, 140, 180, 0.12);
-  font-size: 0.64rem;
-}
-
-.gsm-no-match-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 8px;
-  border-style: dashed;
+.no-technology-match {
+  margin: 0 12px 12px;
+  padding: 10px;
+  border: 1px dashed rgba(92, 210, 255, 0.28);
   color: #9bc5d2;
-}
-
-.gsm-no-match-card p {
-  margin: 0;
-  color: #75a5b5;
-  font-size: 0.66rem;
-  letter-spacing: 0.08em;
-}
-
-.gsm-no-match-card strong {
-  color: #ffcf89;
-  font-size: 0.9rem;
-}
-
-.gsm-no-match-card span {
-  font-size: 0.76rem;
+  background: rgba(5, 25, 38, 0.45);
+  font-size: 0.7rem;
 }
 
 .empty-state,
