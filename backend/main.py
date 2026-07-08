@@ -16,7 +16,7 @@ USRP_SERIAL = "8004374"
 CHANNEL = 0
 RX_ANTENNA = "RX2"
 GAIN_DB = 35
-NUM_SAMPS = 4096
+NUM_SAMPS = 1024
 DISPLAY_POINTS = NUM_SAMPS
 # Merge gap dinonaktifkan agar cluster lebih sederhana:
 # cluster hanya terbentuk dari titik FFT yang benar-benar berurutan
