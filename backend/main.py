@@ -6,6 +6,7 @@ import uhd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from backend.gsm_classifier import classify_gsm
 
 
 # =========================
@@ -16,7 +17,11 @@ CHANNEL = 0
 RX_ANTENNA = "RX2"
 GAIN_DB = 35
 NUM_SAMPS = 4096
-DISPLAY_POINTS = 512
+DISPLAY_POINTS = NUM_SAMPS
+# Merge gap dinonaktifkan agar cluster lebih sederhana:
+# cluster hanya terbentuk dari titik FFT yang benar-benar berurutan
+# dan berada di atas threshold.
+CLUSTER_MERGE_GAP_MHZ = 0.0
 
 # Versi awal hanya scan satu window spectrum.
 # Sesuai konfigurasi awal Anda: maksimal 2 MHz.
@@ -113,7 +118,181 @@ def get_usrp():
 def get_current_state():
     with state_lock:
         return scan_state["running"], scan_state["config"].copy()
+    
+def build_threshold_clusters(
+    frequency_axis_mhz,
+    power_db,
+    threshold_db,
+):
+    """
+    Membuat cluster threshold aktual.
 
+    raw_clusters:
+        titik FFT berurutan dengan power >= threshold.
+
+    merged_clusters:
+        saat merge gap dinonaktifkan, nilainya sama dengan raw_clusters.
+    """
+
+    raw_clusters = []
+    index = 0
+
+    while index < len(power_db):
+        if power_db[index] < threshold_db:
+            index += 1
+            continue
+
+        cluster_start = index
+
+        while (
+            index + 1 < len(power_db)
+            and power_db[index + 1] >= threshold_db
+        ):
+            index += 1
+
+        cluster_end = index
+
+        raw_clusters.append(
+            (cluster_start, cluster_end)
+        )
+
+        index += 1
+
+    # Merge gap dinonaktifkan.
+    # Artinya cluster akhir sama dengan raw cluster:
+    # jika sinyal turun di bawah threshold, cluster langsung berhenti.
+    merged_clusters = raw_clusters.copy()
+
+    return raw_clusters, merged_clusters
+
+
+def build_detections_from_clusters(
+    frequency_axis_mhz,
+    power_db,
+    merged_clusters,
+):
+    detections = []
+
+    for cluster_start, cluster_end in merged_clusters:
+        cluster_power = power_db[
+            cluster_start:cluster_end + 1
+        ]
+
+        local_peak_offset = int(
+            np.argmax(cluster_power)
+        )
+
+        peak_index = (
+            cluster_start + local_peak_offset
+        )
+
+        detected_frequency_mhz = float(
+            frequency_axis_mhz[peak_index]
+        )
+
+        detected_power_db = float(
+            power_db[peak_index]
+        )
+
+        detections.append(
+            {
+                "frequency_mhz": detected_frequency_mhz,
+                "power_db": detected_power_db,
+                "gsm": classify_gsm(
+                    detected_frequency_mhz
+                ),
+            }
+        )
+
+    return detections
+
+
+def build_cluster_debug_items(
+    frequency_axis_mhz,
+    power_db,
+    clusters,
+):
+    debug_items = []
+
+    for index, (cluster_start, cluster_end) in enumerate(clusters):
+        cluster_power = power_db[
+            cluster_start:cluster_end + 1
+        ]
+
+        local_peak_offset = int(
+            np.argmax(cluster_power)
+        )
+
+        peak_index = (
+            cluster_start + local_peak_offset
+        )
+
+        start_mhz = float(
+            frequency_axis_mhz[cluster_start]
+        )
+
+        end_mhz = float(
+            frequency_axis_mhz[cluster_end]
+        )
+
+        peak_mhz = float(
+            frequency_axis_mhz[peak_index]
+        )
+
+        peak_power_db = float(
+            power_db[peak_index]
+        )
+
+        debug_items.append(
+            {
+                "id": index + 1,
+                "start_mhz": start_mhz,
+                "end_mhz": end_mhz,
+                "peak_mhz": peak_mhz,
+                "peak_power_db": peak_power_db,
+                "width_khz": abs(end_mhz - start_mhz) * 1000,
+                "point_count": int(cluster_end - cluster_start + 1),
+            }
+        )
+
+    return debug_items
+
+
+def find_threshold_detections(
+    frequency_axis_mhz,
+    power_db,
+    threshold_db,
+):
+    """
+    Mencari peak dari setiap sinyal yang memenuhi threshold.
+    """
+
+    _, merged_clusters = build_threshold_clusters(
+        frequency_axis_mhz,
+        power_db,
+        threshold_db,
+    )
+
+    return build_detections_from_clusters(
+        frequency_axis_mhz,
+        power_db,
+        merged_clusters,
+    )
+
+
+def get_display_spectrum(
+    frequency_axis_mhz,
+    power_db,
+):
+    """
+    Mengirim data spectrum aktual dari FFT ke frontend.
+
+    Tidak memakai peak-preserving bucket dan tidak memilih peak per bagian.
+    Tujuannya agar grafik yang tampil sama dengan data FFT yang dipakai
+    untuk threshold dan cluster.
+    """
+
+    return frequency_axis_mhz, power_db
 
 @app.get("/")
 def root():
@@ -201,6 +380,12 @@ def get_spectrum():
                 "power_db": [],
             },
             "peak": None,
+            "detections": [],
+            "debug_clusters": {
+                "merge_gap_mhz": CLUSTER_MERGE_GAP_MHZ,
+                "raw_clusters": [],
+                "merged_clusters": [],
+            },
         }
 
     center_frequency_hz = config["center_frequency_mhz"] * 1e6
@@ -257,13 +442,44 @@ def get_spectrum():
     peak_frequency_mhz = float(frequency_axis_mhz[peak_index])
     peak_power_db = float(power_db[peak_index])
 
-    step = max(1, len(power_db) // DISPLAY_POINTS)
+    (
+        raw_clusters,
+        merged_clusters,
+    ) = build_threshold_clusters(
+        frequency_axis_mhz,
+        power_db,
+        config["threshold_db"],
+    )
 
-    display_frequency_mhz = frequency_axis_mhz[::step][
-        :DISPLAY_POINTS
-    ]
+    detections = build_detections_from_clusters(
+        frequency_axis_mhz,
+        power_db,
+        merged_clusters,
+    )
 
-    display_power_db = power_db[::step][:DISPLAY_POINTS]
+    debug_clusters = {
+        "merge_gap_mhz": CLUSTER_MERGE_GAP_MHZ,
+        "raw_clusters": build_cluster_debug_items(
+            frequency_axis_mhz,
+            power_db,
+            raw_clusters,
+        ),
+        "merged_clusters": build_cluster_debug_items(
+            frequency_axis_mhz,
+            power_db,
+            merged_clusters,
+        ),
+    }
+
+    # Grafik frontend menampilkan data FFT aktual yang sama
+    # dengan data yang dipakai untuk threshold, cluster, dan detection.
+    (
+        display_frequency_mhz,
+        display_power_db,
+    ) = get_display_spectrum(
+        frequency_axis_mhz,
+        power_db,
+    )
 
     return {
         "running": True,
@@ -279,7 +495,9 @@ def get_spectrum():
             "frequency_mhz": peak_frequency_mhz,
             "power_db": peak_power_db,
             "above_threshold": bool(
-                peak_power_db > config["threshold_db"]
+                peak_power_db >= config["threshold_db"]
             ),
         },
+        "detections": detections,
+        "debug_clusters": debug_clusters,
     }
