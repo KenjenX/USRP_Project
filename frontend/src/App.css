@@ -404,6 +404,24 @@ button {
   box-shadow: 0 0 8px rgba(109, 255, 186, 0.7);
 }
 
+.legend-merge-gap {
+  display: inline-block;
+  width: 26px;
+  height: 8px;
+  border-top: 2px solid #ffd166;
+  border-right: 1px solid #ffd166;
+  border-left: 1px solid #ffd166;
+  opacity: 0.9;
+}
+
+.legend-cluster {
+  display: inline-block;
+  width: 24px;
+  height: 10px;
+  border: 1px solid rgba(109, 255, 186, 0.75);
+  background: rgba(109, 255, 186, 0.14);
+}
+
 /* Spectrum chart */
 .spectrum-chart {
   position: relative;
@@ -472,7 +490,9 @@ button {
   width: 100%;
   height: 100%;
   color: #56dcff;
-  filter: drop-shadow(0 0 6px rgba(86, 220, 255, 0.65));
+  /* Garis dibuat tipis dan glow dikurangi agar tidak terlihat
+     melewati threshold hanya karena ketebalan visual. */
+  filter: drop-shadow(0 0 2px rgba(86, 220, 255, 0.32));
 }
 
 .spectrum-area {
@@ -516,38 +536,104 @@ button {
   bottom: 0;
   left: 0;
   border-left: 1px dashed var(--marker-color);
-  opacity: 0.88;
+  opacity: 0.62;
 }
 
 .spectrum-detection-dot {
   position: absolute;
   left: 0;
-  width: 12px;
-  height: 12px;
-  border: 2px solid #effbff;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid var(--marker-color);
   border-radius: 50%;
-  background: var(--marker-color);
-  box-shadow: 0 0 12px var(--marker-color);
+  background: rgba(6, 25, 35, 0.25);
+  box-shadow: 0 0 5px var(--marker-color);
   transform: translate(-50%, -50%);
 }
 
 .spectrum-detection-label {
   position: absolute;
-  left: 8px;
-  padding: 3px 5px;
+  left: 6px;
+  padding: 2px 4px;
   border: 1px solid var(--marker-color);
   color: #effbff;
-  background: rgba(6, 25, 35, 0.92);
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-  font-size: 0.58rem;
+  background: rgba(6, 25, 35, 0.9);
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.22);
+  font-size: 0.48rem;
   font-weight: 900;
-  letter-spacing: 0.08em;
-  transform: translateY(calc(-100% - 7px));
+  line-height: 1;
+  letter-spacing: 0.06em;
+  transform: translateY(calc(-100% - 5px));
 }
 
 .marker-align-right .spectrum-detection-label {
   right: 8px;
   left: auto;
+}
+
+/* TEMP DEBUG: area cluster tanpa merge gap.
+   Area ini hanya menutupi bagian yang benar-benar berurutan di atas threshold. */
+.cluster-area {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  bottom: 0;
+  min-width: 6px;
+  border-right: 1px solid var(--cluster-color);
+  border-left: 1px solid var(--cluster-color);
+  background: rgba(109, 255, 186, 0.07);
+  box-shadow: inset 0 0 0 999px rgba(109, 255, 186, 0.015);
+  opacity: 0.68;
+  pointer-events: none;
+}
+
+.cluster-area span {
+  position: absolute;
+  top: 5px;
+  left: 4px;
+  padding: 2px 4px;
+  color: var(--cluster-color);
+  background: rgba(6, 25, 35, 0.9);
+  font-size: 0.52rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.merge-gap-debug-ruler {
+  position: absolute;
+  z-index: 5;
+  height: 11px;
+  border-top: 2px solid var(--marker-color);
+  border-right: 1px solid var(--marker-color);
+  border-left: 1px solid var(--marker-color);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.merge-gap-debug-ruler span {
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  padding: 2px 4px;
+  color: var(--marker-color);
+  background: rgba(6, 25, 35, 0.9);
+  font-size: 0.52rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.merge-gap-debug-ruler.left span {
+  right: 0;
+  left: auto;
+  transform: translateX(0);
+}
+
+.merge-gap-debug-ruler.right span {
+  left: 0;
+  transform: translateX(0);
 }
 
 .chart-placeholder {

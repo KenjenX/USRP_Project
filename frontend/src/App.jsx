@@ -24,6 +24,11 @@ const DETECTION_MARKER_COLORS = [
   "#ff9f68",
 ];
 
+// TEMPORARY DEBUG VISUAL.
+// 0.05 MHz = 50 kHz. Matikan dengan mengubah true menjadi false.
+const SHOW_MERGE_GAP_DEBUG = false;
+const MERGE_GAP_DEBUG_MHZ = 0.05;
+
 function clamp(value, minimum, maximum) {
   return Math.min(Math.max(value, minimum), maximum);
 }
@@ -85,6 +90,11 @@ function App() {
 
   const [peak, setPeak] = useState(null);
   const [detections, setDetections] = useState([]);
+  const [debugClusters, setDebugClusters] = useState({
+    merge_gap_mhz: 0.05,
+    raw_clusters: [],
+    merged_clusters: [],
+  });
   const [statusMessage, setStatusMessage] = useState(
     "Masukkan konfigurasi lalu tekan START SCAN."
   );
@@ -142,6 +152,13 @@ function App() {
         setPeak(data.peak);
         setDetections(
           Array.isArray(data.detections) ? data.detections : []
+        );
+        setDebugClusters(
+          data.debug_clusters ?? {
+            merge_gap_mhz: 0.05,
+            raw_clusters: [],
+            merged_clusters: [],
+          }
         );
         setScanConfig(data.config);
         setErrorMessage("");
@@ -260,42 +277,78 @@ function App() {
       }));
   }, [chartScale, scanConfig.threshold_db]);
 
-  // Ubah power_db dari backend menjadi titik SVG.
-  const spectrumPoints = useMemo(() => {
-    const powerValues = spectrum.power_db;
+  // Ubah pasangan frequency_mhz + power_db dari backend menjadi titik SVG.
+  // Posisi X memakai frekuensi asli, bukan nomor/index data display.
+  const spectrumChart = useMemo(() => {
+    const frequencyValues = spectrum.frequency_mhz ?? [];
+    const powerValues = spectrum.power_db ?? [];
+    const start = Number(scanConfig.start_frequency_mhz);
+    const end = Number(scanConfig.end_frequency_mhz);
 
-    if (!powerValues || powerValues.length === 0) {
-      return "";
+    const pointCount = Math.min(
+      frequencyValues.length,
+      powerValues.length
+    );
+
+    if (
+      pointCount === 0 ||
+      !Number.isFinite(start) ||
+      !Number.isFinite(end) ||
+      end <= start
+    ) {
+      return {
+        linePoints: "",
+        areaPoints: "",
+      };
     }
 
-    return powerValues
-      .map((powerValue, index) => {
-        const x =
-          powerValues.length === 1
-            ? 0
-            : (index / (powerValues.length - 1)) * 1000;
+    const chartPoints = [];
 
-        const normalizedY =
-          ((chartScale.maxDb - Number(powerValue)) /
-            (chartScale.maxDb - chartScale.minDb)) *
-          CHART_SVG_HEIGHT;
+    for (let index = 0; index < pointCount; index += 1) {
+      const frequency = Number(frequencyValues[index]);
+      const power = Number(powerValues[index]);
 
-        const y = clamp(normalizedY, 0, CHART_SVG_HEIGHT);
+      if (!Number.isFinite(frequency) || !Number.isFinite(power)) {
+        continue;
+      }
 
-        return `${x.toFixed(2)},${y.toFixed(2)}`;
-      })
+      const normalizedX =
+        ((frequency - start) / (end - start)) * 1000;
+
+      const normalizedY =
+        ((chartScale.maxDb - power) /
+          (chartScale.maxDb - chartScale.minDb)) *
+        CHART_SVG_HEIGHT;
+
+      chartPoints.push({
+        x: clamp(normalizedX, 0, 1000),
+        y: clamp(normalizedY, 0, CHART_SVG_HEIGHT),
+      });
+    }
+
+    if (chartPoints.length === 0) {
+      return {
+        linePoints: "",
+        areaPoints: "",
+      };
+    }
+
+    const linePoints = chartPoints
+      .map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`)
       .join(" ");
-  }, [chartScale, spectrum]);
 
-  // Area transparan hanya mengisi bagian bawah garis spectrum.
-  // Nilai titik garis sendiri tidak diubah.
-  const spectrumAreaPoints = useMemo(() => {
-    if (!spectrumPoints) {
-      return "";
-    }
+    const firstPoint = chartPoints[0];
+    const lastPoint = chartPoints[chartPoints.length - 1];
 
-    return `0,${CHART_SVG_HEIGHT} ${spectrumPoints} 1000,${CHART_SVG_HEIGHT}`;
-  }, [spectrumPoints]);
+    return {
+      linePoints,
+      areaPoints: [
+        `${firstPoint.x.toFixed(2)},${CHART_SVG_HEIGHT}`,
+        linePoints,
+        `${lastPoint.x.toFixed(2)},${CHART_SVG_HEIGHT}`,
+      ].join(" "),
+    };
+  }, [chartScale, scanConfig, spectrum]);
 
   // Posisi garis threshold pada grafik.
   const thresholdTop = useMemo(() => {
@@ -361,6 +414,94 @@ function App() {
       .filter(Boolean);
   }, [chartScale, detections, scanConfig]);
 
+  // TEMPORARY DEBUG VISUAL.
+  // Menampilkan area cluster akhir aktual dari backend.
+  // Area ini menunjukkan bagian threshold yang sudah digabung
+  // dan menghasilkan satu detection/card.
+  const clusterAreas = useMemo(() => {
+    const start = Number(scanConfig.start_frequency_mhz);
+    const end = Number(scanConfig.end_frequency_mhz);
+    const scanWidthMhz = end - start;
+
+    if (
+      !Number.isFinite(scanWidthMhz) ||
+      scanWidthMhz <= 0 ||
+      !Array.isArray(debugClusters.merged_clusters)
+    ) {
+      return [];
+    }
+
+    return debugClusters.merged_clusters
+      .map((cluster, index) => {
+        const clusterStart = Number(cluster.start_mhz);
+        const clusterEnd = Number(cluster.end_mhz);
+
+        if (
+          !Number.isFinite(clusterStart) ||
+          !Number.isFinite(clusterEnd)
+        ) {
+          return null;
+        }
+
+        const left =
+          ((clusterStart - start) / scanWidthMhz) * 100;
+
+        const right =
+          ((clusterEnd - start) / scanWidthMhz) * 100;
+
+        const width = Math.max(right - left, 0.35);
+
+        return {
+          id: `cluster-${cluster.id ?? index}`,
+          label: `C${index + 1}`,
+          left: clamp(left, 0, 100),
+          width: clamp(width, 0.35, 100),
+          color:
+            DETECTION_MARKER_COLORS[
+              index % DETECTION_MARKER_COLORS.length
+            ],
+          widthKHz: Number(cluster.width_khz),
+        };
+      })
+      .filter(Boolean);
+  }, [debugClusters, scanConfig]);
+
+  // TEMPORARY DEBUG VISUAL.
+  // Menampilkan lebar 50 kHz pada grafik agar mudah melihat
+  // seberapa dekat dua cluster sebelum digabung.
+  const mergeGapDebugRulers = useMemo(() => {
+    const start = Number(scanConfig.start_frequency_mhz);
+    const end = Number(scanConfig.end_frequency_mhz);
+    const scanWidthMhz = end - start;
+
+    if (
+      !SHOW_MERGE_GAP_DEBUG ||
+      !Number.isFinite(scanWidthMhz) ||
+      scanWidthMhz <= 0
+    ) {
+      return [];
+    }
+
+    const widthPercent =
+      (MERGE_GAP_DEBUG_MHZ / scanWidthMhz) * 100;
+
+    return detectionMarkers.map((marker, index) => {
+      const useLeftSide = marker.x + widthPercent > 100;
+      const left = useLeftSide
+        ? marker.x - widthPercent
+        : marker.x;
+
+      return {
+        id: `merge-gap-${marker.id}`,
+        left: clamp(left, 0, 100),
+        width: clamp(widthPercent, 0, 100),
+        color: marker.color,
+        rowOffsetPx: 10 + (index % 4) * 15,
+        direction: useLeftSide ? "left" : "right",
+      };
+    });
+  }, [detectionMarkers, scanConfig]);
+
   async function handleScan() {
     setErrorMessage("");
     setIsBusy(true);
@@ -418,6 +559,11 @@ function App() {
       });
       setPeak(null);
       setDetections([]);
+      setDebugClusters({
+        merge_gap_mhz: 0.05,
+        raw_clusters: [],
+        merged_clusters: [],
+      });
       setIsScanning(true);
       setStatusMessage("Scan USRP dimulai. Menunggu data spectrum...");
     } catch (error) {
@@ -621,6 +767,18 @@ function App() {
                     <i className="legend-detection-marker" />
                     Detected Peak
                   </span>
+
+                  <span>
+                    <i className="legend-merged-cluster" />
+                    Cluster
+                  </span>
+
+                  {SHOW_MERGE_GAP_DEBUG && (
+                    <span>
+                      <i className="legend-merge-gap" />
+                      50 kHz Debug
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -661,7 +819,7 @@ function App() {
                     <span>Threshold {scanConfig.threshold_db} dB</span>
                   </div>
 
-                  {spectrumPoints ? (
+                  {spectrumChart.linePoints ? (
                     <>
                       <svg
                         className="spectrum-svg"
@@ -670,17 +828,40 @@ function App() {
                         aria-label="USRP realtime spectrum"
                       >
                         <polygon
-                          points={spectrumAreaPoints}
+                          points={spectrumChart.areaPoints}
                           className="spectrum-area"
                         />
 
                         <polyline
-                          points={spectrumPoints}
+                          points={spectrumChart.linePoints}
                           fill="none"
                           stroke="currentColor"
-                          strokeWidth="3"
+                          strokeWidth="1.35"
+                          vectorEffect="non-scaling-stroke"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          shapeRendering="geometricPrecision"
                         />
                       </svg>
+
+                      {clusterAreas.map((cluster) => (
+                        <div
+                          className="cluster-area"
+                          key={cluster.id}
+                          style={{
+                            left: `${cluster.left}%`,
+                            width: `${cluster.width}%`,
+                            "--cluster-color": cluster.color,
+                          }}
+                        >
+                          <span>
+                            {cluster.label}
+                            {Number.isFinite(cluster.widthKHz)
+                              ? ` · ${cluster.widthKHz.toFixed(1)} kHz`
+                              : ""}
+                          </span>
+                        </div>
+                      ))}
 
                       {detectionMarkers.map((marker) => (
                         <div
@@ -706,6 +887,21 @@ function App() {
                           >
                             {marker.label}
                           </span>
+                        </div>
+                      ))}
+
+                      {mergeGapDebugRulers.map((ruler) => (
+                        <div
+                          className={`merge-gap-debug-ruler ${ruler.direction}`}
+                          key={ruler.id}
+                          style={{
+                            left: `${ruler.left}%`,
+                            width: `${ruler.width}%`,
+                            bottom: `${ruler.rowOffsetPx}px`,
+                            "--marker-color": ruler.color,
+                          }}
+                        >
+                          <span>50 kHz</span>
                         </div>
                       ))}
                     </>
