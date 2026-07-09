@@ -803,6 +803,15 @@ button {
   );
 }
 
+.technology-mini-card.lte {
+  border-color: rgba(114, 255, 181, 0.58);
+  background: linear-gradient(
+    180deg,
+    rgba(25, 128, 86, 0.74),
+    rgba(9, 73, 54, 0.84)
+  );
+}
+
 .technology-mini-header {
   display: flex;
   align-items: center;
@@ -839,7 +848,8 @@ button {
 
 .technology-mini-info span {
   color: #fff2cf;
-  font-size: 0.59rem;
+  font-size: 0.58rem;
+  white-space: nowrap;
 }
 
 .no-technology-match {
