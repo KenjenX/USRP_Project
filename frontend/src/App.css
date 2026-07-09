@@ -793,6 +793,16 @@ button {
   );
 }
 
+
+.technology-mini-card.umts {
+  border-color: rgba(142, 199, 255, 0.58);
+  background: linear-gradient(
+    180deg,
+    rgba(31, 91, 154, 0.76),
+    rgba(10, 46, 96, 0.84)
+  );
+}
+
 .technology-mini-header {
   display: flex;
   align-items: center;

@@ -42,6 +42,10 @@ function roundUpToStep(value, step) {
 }
 
 function formatMHz(value) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+
   if (!Number.isFinite(Number(value))) {
     return "-";
   }
@@ -967,8 +971,11 @@ function App() {
                 <div className="classification-grid">
                   {detections.map((detection, index) => {
                     const gsmCandidate = detection.gsm;
+                    const umtsCandidates = Array.isArray(detection.umts)
+                      ? detection.umts
+                      : [];
 
-                    // Nanti UMTS, LTE, dan NR dapat ditambahkan ke array
+                    // Nanti LTE dan NR dapat ditambahkan ke array
                     // ini dengan format data card yang sama.
                     const technologyCandidates = [
                       gsmCandidate && {
@@ -983,6 +990,19 @@ function App() {
                         ulMhz: gsmCandidate.freq_ul_mhz,
                         profiles: gsmCandidate.possible_profiles ?? [],
                       },
+                      ...umtsCandidates.map((candidate) => ({
+                        type: "umts",
+                        label: "3G",
+                        name: candidate.band,
+                        detail:
+                          candidate.uarfcn_dl === null ||
+                          candidate.uarfcn_dl === undefined
+                            ? "UARFCN : -"
+                            : `UARFCN : [ ${candidate.uarfcn_dl} ]`,
+                        dlMhz: candidate.freq_dl_mhz,
+                        ulMhz: candidate.freq_ul_mhz,
+                        profiles: [candidate.name].filter(Boolean),
+                      })),
                     ].filter(Boolean);
 
                     const primaryCandidate =
@@ -1054,7 +1074,7 @@ function App() {
                           </div>
                         ) : (
                           <div className="no-technology-match">
-                            No GSM candidate match for this signal.
+                            No 2G/3G candidate match for this signal.
                           </div>
                         )}
                       </article>
