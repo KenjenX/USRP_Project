@@ -61,6 +61,28 @@ function formatDb(value) {
   return `${Number(value).toFixed(2)} dB`;
 }
 
+function buildLteDetail(candidate) {
+  const direction = candidate.direction ?? "DL";
+
+  const earfcn =
+    direction === "UL"
+      ? candidate.earfcn_ul ?? candidate.earfcn
+      : candidate.earfcn_dl ?? candidate.earfcn;
+
+  const label =
+    direction === "UL"
+      ? "UL EARFCN"
+      : direction === "TDD"
+        ? "EARFCN"
+        : "DL EARFCN";
+
+  if (earfcn === null || earfcn === undefined) {
+    return `${label} : -`;
+  }
+
+  return `${label} : [ ${earfcn} ]`;
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState("general");
 
@@ -974,9 +996,12 @@ function App() {
                     const umtsCandidates = Array.isArray(detection.umts)
                       ? detection.umts
                       : [];
+                    const lteCandidates = Array.isArray(detection.lte)
+                      ? detection.lte
+                      : [];
 
-                    // Nanti LTE dan NR dapat ditambahkan ke array
-                    // ini dengan format data card yang sama.
+                    // NR/5G nanti dapat ditambahkan ke array ini
+                    // dengan format data card yang sama.
                     const technologyCandidates = [
                       gsmCandidate && {
                         type: "gsm",
@@ -1007,6 +1032,21 @@ function App() {
                         dlMhz: candidate.freq_dl_mhz,
                         ulMhz: candidate.freq_ul_mhz,
                         profiles: [candidate.band_code].filter(Boolean),
+                      })),
+                      ...lteCandidates.map((candidate) => ({
+                        type: "lte",
+                        label: "4G",
+                        name:
+                          candidate.name ??
+                          candidate.band ??
+                          "LTE Candidate",
+                        detail: buildLteDetail(candidate),
+                        dlMhz: candidate.freq_dl_mhz,
+                        ulMhz: candidate.freq_ul_mhz,
+                        profiles: [
+                          candidate.band_code,
+                          candidate.direction,
+                        ].filter(Boolean),
                       })),
                     ].filter(Boolean);
 
@@ -1079,7 +1119,7 @@ function App() {
                           </div>
                         ) : (
                           <div className="no-technology-match">
-                            No 2G/3G candidate match for this signal.
+                            No 2G/3G/4G candidate match for this signal.
                           </div>
                         )}
                       </article>

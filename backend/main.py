@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from backend.gsm_classifier import classify_gsm
 from backend.umts_classifier import classify_umts
+from backend.lte_classifier import classify_lte
 
 
 # =========================
@@ -203,6 +204,9 @@ def build_detections_from_clusters(
                     detected_frequency_mhz
                 ),
                 "umts": classify_umts(
+                    detected_frequency_mhz
+                ),
+                "lte": classify_lte(
                     detected_frequency_mhz
                 ),
             }
