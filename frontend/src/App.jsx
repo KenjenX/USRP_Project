@@ -993,7 +993,12 @@ function App() {
                       ...umtsCandidates.map((candidate) => ({
                         type: "umts",
                         label: "3G",
-                        name: candidate.band,
+                        // Tampilkan nama asli dari tabel Sqimway,
+                        // contoh: "900 GSM", bukan "UMTS Band 8".
+                        name:
+                          candidate.name ??
+                          candidate.band ??
+                          "UMTS Candidate",
                         detail:
                           candidate.uarfcn_dl === null ||
                           candidate.uarfcn_dl === undefined
@@ -1001,7 +1006,7 @@ function App() {
                             : `UARFCN : [ ${candidate.uarfcn_dl} ]`,
                         dlMhz: candidate.freq_dl_mhz,
                         ulMhz: candidate.freq_ul_mhz,
-                        profiles: [candidate.name].filter(Boolean),
+                        profiles: [candidate.band_code].filter(Boolean),
                       })),
                     ].filter(Boolean);
 

@@ -379,8 +379,12 @@ def _build_result(
         "mode": "3G UMTS",
         "technology": "UMTS",
         "generation": "3G",
-        "band": f"UMTS Band {band['band']}",
+        # Nama utama dibuat mengikuti nama asli dari tabel Sqimway,
+        # contoh: "900 GSM", "2100", "2600".
+        "band": band["name"],
+        "band_number": band["band"],
         "band_code": f"B{band['band']}",
+        "standard_band": f"UMTS Band {band['band']}",
         "name": band["name"],
         "duplex_mode": band["mode"],
         "direction": "Downlink",
