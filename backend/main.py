@@ -14,7 +14,7 @@ from backend.lte_classifier import classify_lte
 # =========================
 # KONFIGURASI USRP
 # =========================
-USRP_SERIAL = "8004374"
+USRP_SERIAL = "000000929"
 CHANNEL = 0
 RX_ANTENNA = "RX2"
 GAIN_DB = 35
