@@ -64,23 +64,31 @@ function formatDb(value) {
 function buildLteDetail(candidate) {
   const direction = candidate.direction ?? "DL";
 
-  const earfcn =
-    direction === "UL"
-      ? candidate.earfcn_ul ?? candidate.earfcn
-      : candidate.earfcn_dl ?? candidate.earfcn;
+  if (direction === "TDD") {
+    const earfcn = candidate.earfcn ?? candidate.earfcn_dl;
 
-  const label =
-    direction === "UL"
-      ? "UL EARFCN"
-      : direction === "TDD"
-        ? "EARFCN"
-        : "DL EARFCN";
-
-  if (earfcn === null || earfcn === undefined) {
-    return `${label} : -`;
+    return [
+      earfcn === null || earfcn === undefined
+        ? "EARFCN : -"
+        : `EARFCN : [ ${earfcn} ]`,
+    ];
   }
 
-  return `${label} : [ ${earfcn} ]`;
+  const details = [];
+
+  if (candidate.earfcn_dl !== null && candidate.earfcn_dl !== undefined) {
+    details.push(`DL EARFCN : [ ${candidate.earfcn_dl} ]`);
+  }
+
+  if (candidate.earfcn_ul !== null && candidate.earfcn_ul !== undefined) {
+    details.push(`UL EARFCN : [ ${candidate.earfcn_ul} ]`);
+  }
+
+  if (details.length === 0) {
+    return ["EARFCN : -"];
+  }
+
+  return details;
 }
 
 function App() {
@@ -1111,7 +1119,13 @@ function App() {
 
                                   <div className="technology-mini-info">
                                     <strong>{candidate.name}</strong>
+                                    {Array.isArray(candidate.detail) ? (
+                                    candidate.detail.map((detailLine) => (
+                                      <span key={detailLine}>{detailLine}</span>
+                                    ))
+                                  ) : (
                                     <span>{candidate.detail}</span>
+                                  )}
                                   </div>
                                 </div>
                               </article>
