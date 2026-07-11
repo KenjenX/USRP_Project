@@ -812,6 +812,15 @@ button {
   );
 }
 
+.technology-mini-card.nr {
+  border-color: rgba(201, 151, 255, 0.62);
+  background: linear-gradient(
+    180deg,
+    rgba(87, 53, 155, 0.76),
+    rgba(45, 27, 96, 0.86)
+  );
+}
+
 .technology-mini-header {
   display: flex;
   align-items: center;
@@ -850,6 +859,24 @@ button {
   color: #fff2cf;
   font-size: 0.58rem;
   white-space: nowrap;
+}
+
+/* Khusus 5G NR: ARFCN lebih panjang, jadi teks boleh turun baris
+   agar tidak keluar dari mini card. */
+.technology-mini-card.nr {
+  min-height: 66px;
+}
+
+.technology-mini-card.nr .technology-mini-header {
+  align-items: flex-start;
+}
+
+.technology-mini-card.nr .technology-mini-info span {
+  font-size: 0.52rem;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .no-technology-match {
@@ -932,5 +959,12 @@ button {
 
 .chart-y-axis .threshold-y-tick {
   color: #ffca8a;
+  font-weight: 800;
+}
+
+/* Khusus 5G NR: baris pertama menampilkan duplex/detected side,
+   contoh "FDD · Detected DL" atau "TDD". Teks tetap boleh wrap. */
+.technology-mini-card.nr .technology-mini-info span:first-of-type {
+  color: #f3d9ff;
   font-weight: 800;
 }

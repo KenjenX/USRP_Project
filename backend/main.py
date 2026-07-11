@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from backend.gsm_classifier import classify_gsm
 from backend.umts_classifier import classify_umts
 from backend.lte_classifier import classify_lte
+from backend.nr_classifier import classify_nr
 
 
 # =========================
@@ -28,6 +29,11 @@ CLUSTER_MERGE_GAP_MHZ = 0.0
 # Versi awal hanya scan satu window spectrum.
 # Sesuai konfigurasi awal Anda: maksimal 2 MHz.
 MAX_SCAN_WINDOW_MHZ = 2.0
+
+# Batas frekuensi valid USRP B210 berdasarkan probe perangkat.
+# Input di luar range ini ditolak agar grafik web tidak menyesatkan.
+USRP_MIN_FREQUENCY_MHZ = 50.0
+USRP_MAX_FREQUENCY_MHZ = 6000.0
 
 
 app = FastAPI(title="USRP B210 Spectrum API")
@@ -79,6 +85,19 @@ def validate_scan_range(start_mhz, end_mhz):
         raise HTTPException(
             status_code=400,
             detail="End Frequency harus lebih besar dari Start Frequency.",
+        )
+
+    if (
+        start_mhz < USRP_MIN_FREQUENCY_MHZ
+        or end_mhz > USRP_MAX_FREQUENCY_MHZ
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Frekuensi di luar batas USRP B210. "
+                f"Range yang didukung: {USRP_MIN_FREQUENCY_MHZ}–"
+                f"{USRP_MAX_FREQUENCY_MHZ} MHz."
+            ),
         )
 
     scan_width_mhz = end_mhz - start_mhz
@@ -207,6 +226,9 @@ def build_detections_from_clusters(
                     detected_frequency_mhz
                 ),
                 "lte": classify_lte(
+                    detected_frequency_mhz
+                ),
+                "nr": classify_nr(
                     detected_frequency_mhz
                 ),
             }
