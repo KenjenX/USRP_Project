@@ -91,6 +91,73 @@ function buildLteDetail(candidate) {
   return details;
 }
 
+function buildNrDetail(candidate) {
+  const duplex = candidate.mode ?? "NR";
+  const direction = candidate.direction ?? duplex;
+
+  if (duplex === "TDD" || direction === "TDD") {
+    const nrArfcn = candidate.nr_arfcn ?? candidate.nr_arfcn_dl;
+
+    return [
+      "TDD",
+      nrArfcn === null || nrArfcn === undefined
+        ? "ARFCN : -"
+        : `ARFCN : [ ${nrArfcn} ]`,
+    ];
+  }
+
+  if (duplex === "SDL" || direction === "SDL") {
+    return [
+      "SDL · DL Only",
+      candidate.nr_arfcn_dl === null || candidate.nr_arfcn_dl === undefined
+        ? "DL ARFCN : -"
+        : `DL ARFCN : [ ${candidate.nr_arfcn_dl} ]`,
+    ];
+  }
+
+  if (duplex === "SUL" || direction === "SUL") {
+    return [
+      "SUL · UL Only",
+      candidate.nr_arfcn_ul === null || candidate.nr_arfcn_ul === undefined
+        ? "UL ARFCN : -"
+        : `UL ARFCN : [ ${candidate.nr_arfcn_ul} ]`,
+    ];
+  }
+
+  if (duplex === "FDD") {
+    if (direction === "UL") {
+      return [
+        "FDD · Detected UL",
+        candidate.nr_arfcn_ul === null || candidate.nr_arfcn_ul === undefined
+          ? "UL ARFCN : -"
+          : `UL ARFCN : [ ${candidate.nr_arfcn_ul} ]`,
+        candidate.nr_arfcn_dl === null || candidate.nr_arfcn_dl === undefined
+          ? "DL Pair : -"
+          : `DL Pair : [ ${candidate.nr_arfcn_dl} ]`,
+      ];
+    }
+
+    return [
+      "FDD · Detected DL",
+      candidate.nr_arfcn_dl === null || candidate.nr_arfcn_dl === undefined
+        ? "DL ARFCN : -"
+        : `DL ARFCN : [ ${candidate.nr_arfcn_dl} ]`,
+      candidate.nr_arfcn_ul === null || candidate.nr_arfcn_ul === undefined
+        ? "UL Pair : -"
+        : `UL Pair : [ ${candidate.nr_arfcn_ul} ]`,
+    ];
+  }
+
+  const nrArfcn = candidate.nr_arfcn ?? candidate.nr_arfcn_dl ?? candidate.nr_arfcn_ul;
+
+  return [
+    duplex,
+    nrArfcn === null || nrArfcn === undefined
+      ? "ARFCN : -"
+      : `ARFCN : [ ${nrArfcn} ]`,
+  ].filter(Boolean);
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState("general");
 
@@ -1007,9 +1074,10 @@ function App() {
                     const lteCandidates = Array.isArray(detection.lte)
                       ? detection.lte
                       : [];
+                    const nrCandidates = Array.isArray(detection.nr)
+                      ? detection.nr
+                      : [];
 
-                    // NR/5G nanti dapat ditambahkan ke array ini
-                    // dengan format data card yang sama.
                     const technologyCandidates = [
                       gsmCandidate && {
                         type: "gsm",
@@ -1049,6 +1117,21 @@ function App() {
                           candidate.band ??
                           "LTE Candidate",
                         detail: buildLteDetail(candidate),
+                        dlMhz: candidate.freq_dl_mhz,
+                        ulMhz: candidate.freq_ul_mhz,
+                        profiles: [
+                          candidate.band_code,
+                          candidate.direction,
+                        ].filter(Boolean),
+                      })),
+                      ...nrCandidates.map((candidate) => ({
+                        type: "nr",
+                        label: "5G",
+                        name:
+                          candidate.name ??
+                          candidate.band ??
+                          "NR Candidate",
+                        detail: buildNrDetail(candidate),
                         dlMhz: candidate.freq_dl_mhz,
                         ulMhz: candidate.freq_ul_mhz,
                         profiles: [
@@ -1107,10 +1190,10 @@ function App() {
 
                         {technologyCandidates.length > 0 ? (
                           <div className="technology-candidate-grid">
-                            {technologyCandidates.map((candidate) => (
+                            {technologyCandidates.map((candidate, candidateIndex) => (
                               <article
                                 className={`technology-mini-card ${candidate.type}`}
-                                key={`${candidate.type}-${candidate.name}`}
+                                key={`${candidate.type}-${candidate.name}-${candidateIndex}`}
                               >
                                 <div className="technology-mini-header">
                                   <span className="technology-mini-icon">
@@ -1133,7 +1216,7 @@ function App() {
                           </div>
                         ) : (
                           <div className="no-technology-match">
-                            No 2G/3G/4G candidate match for this signal.
+                            No 2G/3G/4G/5G candidate match for this signal.
                           </div>
                         )}
                       </article>
