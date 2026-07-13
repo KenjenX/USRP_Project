@@ -66,10 +66,10 @@ class ScanRequest(BaseModel):
 
 default_config = {
     "threshold_db": 0.0,
-    "start_frequency_mhz": 99.0,
-    "end_frequency_mhz": 101.0,
-    "center_frequency_mhz": 100.0,
-    "sample_rate_mhz": 2.0,
+    "start_frequency_mhz": 50.0,
+    "end_frequency_mhz": 6000.0,
+    "center_frequency_mhz": 3025.0,
+    "sample_rate_mhz": 5950.0,
     "sweep_window_mhz": SWEEP_WINDOW_MHZ,
 }
 
