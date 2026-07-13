@@ -243,6 +243,175 @@ function buildNrDetail(candidate) {
   ].filter(Boolean);
 }
 
+
+function normalizeDetailLines(detail) {
+  if (Array.isArray(detail)) {
+    return detail.filter(Boolean);
+  }
+
+  if (detail === null || detail === undefined || detail === "") {
+    return [];
+  }
+
+  return [String(detail)];
+}
+
+function formatDetailValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+
+  return String(value);
+}
+
+function buildFrequencyRows(dlMhz, ulMhz, fallbackMhz = null) {
+  const rows = [];
+
+  if (dlMhz !== null && dlMhz !== undefined) {
+    rows.push({ label: "FREQ DL", value: formatMHz(dlMhz) });
+  }
+
+  if (ulMhz !== null && ulMhz !== undefined) {
+    rows.push({ label: "FREQ UL", value: formatMHz(ulMhz) });
+  }
+
+  if (rows.length === 0 && fallbackMhz !== null && fallbackMhz !== undefined) {
+    rows.push({ label: "FREQ", value: formatMHz(fallbackMhz) });
+  }
+
+  return rows;
+}
+
+function buildLteChannelRows(candidate) {
+  const direction = candidate.direction ?? "DL";
+
+  if (direction === "TDD") {
+    return [
+      {
+        label: "EARFCN",
+        value: formatDetailValue(candidate.earfcn ?? candidate.earfcn_dl),
+      },
+    ];
+  }
+
+  const rows = [];
+
+  if (candidate.earfcn_dl !== null && candidate.earfcn_dl !== undefined) {
+    rows.push({ label: "DL EARFCN", value: formatDetailValue(candidate.earfcn_dl) });
+  }
+
+  if (candidate.earfcn_ul !== null && candidate.earfcn_ul !== undefined) {
+    rows.push({ label: "UL EARFCN", value: formatDetailValue(candidate.earfcn_ul) });
+  }
+
+  if (rows.length === 0) {
+    rows.push({ label: "EARFCN", value: formatDetailValue(candidate.earfcn) });
+  }
+
+  return rows;
+}
+
+function buildNrChannelRows(candidate) {
+  const duplex = candidate.mode ?? "NR";
+  const direction = candidate.direction ?? duplex;
+
+  if (duplex === "TDD" || direction === "TDD") {
+    return [
+      {
+        label: "NR-ARFCN",
+        value: formatDetailValue(
+          candidate.nr_arfcn ?? candidate.nr_arfcn_dl ?? candidate.nr_arfcn_ul
+        ),
+      },
+    ];
+  }
+
+  if (duplex === "SDL" || direction === "SDL") {
+    return [
+      {
+        label: "DL NR-ARFCN",
+        value: formatDetailValue(candidate.nr_arfcn_dl),
+      },
+    ];
+  }
+
+  if (duplex === "SUL" || direction === "SUL") {
+    return [
+      {
+        label: "UL NR-ARFCN",
+        value: formatDetailValue(candidate.nr_arfcn_ul),
+      },
+    ];
+  }
+
+  const rows = [];
+
+  if (candidate.nr_arfcn_dl !== null && candidate.nr_arfcn_dl !== undefined) {
+    rows.push({ label: "DL NR-ARFCN", value: formatDetailValue(candidate.nr_arfcn_dl) });
+  }
+
+  if (candidate.nr_arfcn_ul !== null && candidate.nr_arfcn_ul !== undefined) {
+    rows.push({ label: "UL NR-ARFCN", value: formatDetailValue(candidate.nr_arfcn_ul) });
+  }
+
+  if (rows.length === 0) {
+    rows.push({
+      label: "NR-ARFCN",
+      value: formatDetailValue(candidate.nr_arfcn),
+    });
+  }
+
+  return rows;
+}
+
+function buildModeTitle(type, candidate = {}) {
+  if (type === "gsm") {
+    return "2G GSM";
+  }
+
+  if (type === "umts") {
+    return "3G UMTS / WCDMA";
+  }
+
+  if (type === "lte") {
+    const mode = candidate.duplex_mode ?? candidate.direction ?? "LTE";
+
+    if (mode === "TDD" || candidate.direction === "TDD") {
+      return "4G TDD-LTE";
+    }
+
+    if (mode === "FDD" || candidate.direction === "DL" || candidate.direction === "UL") {
+      return "4G FDD-LTE";
+    }
+
+    return "4G LTE";
+  }
+
+  if (type === "nr") {
+    const mode = candidate.mode ?? candidate.direction ?? "NR";
+
+    if (mode === "TDD" || candidate.direction === "TDD") {
+      return "5G NR TDD";
+    }
+
+    if (mode === "FDD" || candidate.direction === "DL" || candidate.direction === "UL") {
+      return "5G NR FDD";
+    }
+
+    if (mode === "SDL") {
+      return "5G NR SDL";
+    }
+
+    if (mode === "SUL") {
+      return "5G NR SUL";
+    }
+
+    return "5G NR";
+  }
+
+  return "Unknown";
+}
+
 function buildTechnologyCandidates(detection) {
   const gsmCandidate = detection.gsm;
   const umtsCandidates = Array.isArray(detection.umts)
@@ -260,10 +429,23 @@ function buildTechnologyCandidates(detection) {
       type: "gsm",
       label: "2G",
       name: gsmCandidate.band,
+      modeTitle: buildModeTitle("gsm", gsmCandidate),
+      bandTitle: gsmCandidate.band,
       detail:
         gsmCandidate.arfcn === "Dynamic"
           ? "ARFCN : Dynamic"
           : `ARFCN : [ ${gsmCandidate.arfcn} ]`,
+      channelRows: [
+        {
+          label: "ARFCN",
+          value: formatDetailValue(gsmCandidate.arfcn),
+        },
+      ],
+      frequencyRows: buildFrequencyRows(
+        gsmCandidate.freq_dl_mhz,
+        gsmCandidate.freq_ul_mhz,
+        detection.frequency_mhz
+      ),
       dlMhz: gsmCandidate.freq_dl_mhz,
       ulMhz: gsmCandidate.freq_ul_mhz,
     },
@@ -271,10 +453,21 @@ function buildTechnologyCandidates(detection) {
       type: "umts",
       label: "3G",
       name: candidate.name ?? candidate.band ?? "UMTS Candidate",
+      modeTitle: buildModeTitle("umts", candidate),
+      bandTitle: candidate.name ?? candidate.band ?? "UMTS Candidate",
       detail:
         candidate.uarfcn_dl === null || candidate.uarfcn_dl === undefined
           ? "UARFCN : -"
           : `UARFCN : [ ${candidate.uarfcn_dl} ]`,
+      channelRows: [
+        { label: "UARFCN DL", value: formatDetailValue(candidate.uarfcn_dl) },
+        { label: "UARFCN UL", value: formatDetailValue(candidate.uarfcn_ul) },
+      ],
+      frequencyRows: buildFrequencyRows(
+        candidate.freq_dl_mhz,
+        candidate.freq_ul_mhz,
+        detection.frequency_mhz
+      ),
       dlMhz: candidate.freq_dl_mhz,
       ulMhz: candidate.freq_ul_mhz,
     })),
@@ -282,7 +475,17 @@ function buildTechnologyCandidates(detection) {
       type: "lte",
       label: "4G",
       name: candidate.name ?? candidate.band ?? "LTE Candidate",
+      modeTitle: buildModeTitle("lte", candidate),
+      bandTitle: candidate.band_code
+        ? `${candidate.band_code} - ${candidate.name ?? candidate.band ?? "LTE"}`
+        : candidate.name ?? candidate.band ?? "LTE Candidate",
       detail: buildLteDetail(candidate),
+      channelRows: buildLteChannelRows(candidate),
+      frequencyRows: buildFrequencyRows(
+        candidate.freq_dl_mhz,
+        candidate.freq_ul_mhz,
+        detection.frequency_mhz
+      ),
       dlMhz: candidate.freq_dl_mhz,
       ulMhz: candidate.freq_ul_mhz,
     })),
@@ -290,7 +493,17 @@ function buildTechnologyCandidates(detection) {
       type: "nr",
       label: "5G",
       name: candidate.name ?? candidate.band ?? "NR Candidate",
+      modeTitle: buildModeTitle("nr", candidate),
+      bandTitle: candidate.band_code
+        ? `${candidate.band_code} - ${candidate.band_name ?? candidate.name ?? "NR"}`
+        : candidate.name ?? candidate.band ?? "NR Candidate",
       detail: buildNrDetail(candidate),
+      channelRows: buildNrChannelRows(candidate),
+      frequencyRows: buildFrequencyRows(
+        candidate.freq_dl_mhz,
+        candidate.freq_ul_mhz,
+        detection.frequency_mhz
+      ),
       dlMhz: candidate.freq_dl_mhz,
       ulMhz: candidate.freq_ul_mhz,
     })),
@@ -406,6 +619,144 @@ function formatDateTime(value) {
   });
 }
 
+
+function SignalDetailModal({ detail, onClose }) {
+  if (!detail?.detection) {
+    return null;
+  }
+
+  const { detection, displayIndex, sourceLabel } = detail;
+  const technologyCandidates = buildTechnologyCandidates(detection);
+
+  return (
+    <div
+      className="signal-detail-backdrop"
+      role="presentation"
+      onClick={onClose}
+    >
+      <section
+        className="signal-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Signal detail"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="signal-detail-header">
+          <div>
+            <p className="signal-detail-kicker">
+              {sourceLabel ?? "SCAN POINT"}
+            </p>
+            <h3>POINT - {String(displayIndex).padStart(3, "0")}</h3>
+          </div>
+
+          <button
+            type="button"
+            className="signal-detail-close"
+            onClick={onClose}
+            aria-label="Close signal detail"
+          >
+            ×
+          </button>
+        </header>
+
+        <div className="signal-detail-status-row">
+          <span className="signal-detail-status active">ABOVE THRESHOLD</span>
+          <span>FFT INDEX: {formatDetailValue(detection.fft_index)}</span>
+          <span>WINDOW: {formatDetailValue(detection.window_index)}</span>
+        </div>
+
+        <div className="signal-detail-summary-grid">
+          <div className="signal-detail-summary-card wide">
+            <span>Detected Frequency</span>
+            <strong>{formatMHz(detection.frequency_mhz)}</strong>
+          </div>
+
+          <div className="signal-detail-summary-card">
+            <span>Power</span>
+            <strong>{formatDb(detection.power_db)}</strong>
+          </div>
+
+          <div className="signal-detail-summary-card">
+            <span>Threshold</span>
+            <strong>{formatDb(detection.threshold_db)}</strong>
+          </div>
+
+          <div className="signal-detail-summary-card wide">
+            <span>Window Range</span>
+            <strong>
+              {detection.window_label ??
+                formatWindowMHz(
+                  detection.window_start_mhz,
+                  detection.window_end_mhz
+                )}
+            </strong>
+          </div>
+        </div>
+
+        <p className="signal-detail-section-title">Technology Candidate Details</p>
+
+        {technologyCandidates.length === 0 ? (
+          <div className="signal-detail-empty">
+            No 2G/3G/4G/5G candidate match for this signal.
+          </div>
+        ) : (
+          <div className="signal-detail-candidate-list">
+            {technologyCandidates.map((candidate, index) => (
+              <article
+                className={`signal-detail-candidate-card ${candidate.type}`}
+                key={`${candidate.type}-${candidate.name}-${index}`}
+              >
+                <div className="candidate-detail-header">
+                  <span>{candidate.label}</span>
+                  <strong>{candidate.modeTitle}</strong>
+                </div>
+
+                <div className="candidate-detail-main-grid">
+                  <div>
+                    <span>Band</span>
+                    <strong>{candidate.bandTitle ?? candidate.name}</strong>
+                  </div>
+
+                  {(candidate.channelRows ?? []).map((row) => (
+                    <div key={`${candidate.type}-${row.label}-${row.value}`}>
+                      <span>{row.label}</span>
+                      <strong>{row.value}</strong>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="candidate-detail-section-label">
+                  Frequency Details
+                </div>
+
+                <div className="candidate-frequency-grid">
+                  {(candidate.frequencyRows ?? []).length > 0 ? (
+                    candidate.frequencyRows.map((row) => (
+                      <div key={`${candidate.type}-${row.label}-${row.value}`}>
+                        <span>{row.label}</span>
+                        <strong>{row.value}</strong>
+                      </div>
+                    ))
+                  ) : (
+                    <div>
+                      <span>FREQ</span>
+                      <strong>{formatMHz(detection.frequency_mhz)}</strong>
+                    </div>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
+        <footer className="signal-detail-footer">
+          <button type="button" onClick={onClose}>Close</button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState("general");
 
@@ -449,6 +800,7 @@ function App() {
   const [currentScanHistory, setCurrentScanHistory] = useState([]);
   const [scanSessions, setScanSessions] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [selectedDetectionDetail, setSelectedDetectionDetail] = useState(null);
 
   const currentScanHistoryRef = useRef([]);
   const activeScanMetaRef = useRef(null);
@@ -465,6 +817,22 @@ function App() {
     "Masukkan konfigurasi lalu tekan START SCAN."
   );
   const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    if (!selectedDetectionDetail) {
+      return undefined;
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setSelectedDetectionDetail(null);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedDetectionDetail]);
 
   // Cek apakah backend bisa mendeteksi USRP.
   useEffect(() => {
@@ -1555,8 +1923,27 @@ function App() {
 
                       return (
                         <article
-                          className="scan-history-row"
+                          className="scan-history-row clickable"
                           key={detection.history_id ?? `${detection.frequency_mhz}-${index}`}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() =>
+                            setSelectedDetectionDetail({
+                              detection,
+                              displayIndex: index + 1,
+                              sourceLabel: "CURRENT SCAN DETAIL",
+                            })
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              setSelectedDetectionDetail({
+                                detection,
+                                displayIndex: index + 1,
+                                sourceLabel: "CURRENT SCAN DETAIL",
+                              });
+                            }
+                          }}
                         >
                           <span className="scan-history-index">
                             {String(index + 1).padStart(3, "0")}
@@ -1676,8 +2063,27 @@ function App() {
 
                             return (
                               <article
-                                className="scan-history-row"
+                                className="scan-history-row clickable"
                                 key={detection.history_id ?? `${detection.frequency_mhz}-${index}`}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() =>
+                                  setSelectedDetectionDetail({
+                                    detection,
+                                    displayIndex: index + 1,
+                                    sourceLabel: selectedScanSession?.title ?? "SCAN HISTORY DETAIL",
+                                  })
+                                }
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    setSelectedDetectionDetail({
+                                      detection,
+                                      displayIndex: index + 1,
+                                      sourceLabel: selectedScanSession?.title ?? "SCAN HISTORY DETAIL",
+                                    });
+                                  }
+                                }}
                               >
                                 <span className="scan-history-index">
                                   {String(index + 1).padStart(3, "0")}
@@ -1722,6 +2128,11 @@ function App() {
           </section>
         )}
       </section>
+
+      <SignalDetailModal
+        detail={selectedDetectionDetail}
+        onClose={() => setSelectedDetectionDetail(null)}
+      />
     </main>
   );
 }
