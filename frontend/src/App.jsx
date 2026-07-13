@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
@@ -243,6 +243,116 @@ function buildNrDetail(candidate) {
   ].filter(Boolean);
 }
 
+function buildTechnologyCandidates(detection) {
+  const gsmCandidate = detection.gsm;
+  const umtsCandidates = Array.isArray(detection.umts)
+    ? detection.umts
+    : [];
+  const lteCandidates = Array.isArray(detection.lte)
+    ? detection.lte
+    : [];
+  const nrCandidates = Array.isArray(detection.nr)
+    ? detection.nr
+    : [];
+
+  return [
+    gsmCandidate && {
+      type: "gsm",
+      label: "2G",
+      name: gsmCandidate.band,
+      detail:
+        gsmCandidate.arfcn === "Dynamic"
+          ? "ARFCN : Dynamic"
+          : `ARFCN : [ ${gsmCandidate.arfcn} ]`,
+      dlMhz: gsmCandidate.freq_dl_mhz,
+      ulMhz: gsmCandidate.freq_ul_mhz,
+    },
+    ...umtsCandidates.map((candidate) => ({
+      type: "umts",
+      label: "3G",
+      name: candidate.name ?? candidate.band ?? "UMTS Candidate",
+      detail:
+        candidate.uarfcn_dl === null || candidate.uarfcn_dl === undefined
+          ? "UARFCN : -"
+          : `UARFCN : [ ${candidate.uarfcn_dl} ]`,
+      dlMhz: candidate.freq_dl_mhz,
+      ulMhz: candidate.freq_ul_mhz,
+    })),
+    ...lteCandidates.map((candidate) => ({
+      type: "lte",
+      label: "4G",
+      name: candidate.name ?? candidate.band ?? "LTE Candidate",
+      detail: buildLteDetail(candidate),
+      dlMhz: candidate.freq_dl_mhz,
+      ulMhz: candidate.freq_ul_mhz,
+    })),
+    ...nrCandidates.map((candidate) => ({
+      type: "nr",
+      label: "5G",
+      name: candidate.name ?? candidate.band ?? "NR Candidate",
+      detail: buildNrDetail(candidate),
+      dlMhz: candidate.freq_dl_mhz,
+      ulMhz: candidate.freq_ul_mhz,
+    })),
+  ].filter(Boolean);
+}
+
+function buildDetectionHistoryId(detection, fallbackIndex = 0) {
+  const windowIndex = Number(detection.window_index ?? 0);
+  const fftIndex = Number(detection.fft_index ?? fallbackIndex);
+  const frequency = Number(detection.frequency_mhz);
+
+  return [
+    windowIndex,
+    fftIndex,
+    Number.isFinite(frequency) ? frequency.toFixed(6) : fallbackIndex,
+  ].join("-");
+}
+
+function mergeDetectionHistory(previousHistory, incomingDetections) {
+  const map = new Map();
+
+  previousHistory.forEach((item) => {
+    map.set(item.history_id, item);
+  });
+
+  incomingDetections.forEach((item) => {
+    map.set(item.history_id, item);
+  });
+
+  return Array.from(map.values()).sort((a, b) => {
+    const frequencyA = Number(a.frequency_mhz);
+    const frequencyB = Number(b.frequency_mhz);
+
+    if (!Number.isFinite(frequencyA) || !Number.isFinite(frequencyB)) {
+      return 0;
+    }
+
+    return frequencyA - frequencyB;
+  });
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState("general");
 
@@ -279,6 +389,17 @@ function App() {
   const [spectrumHistory, setSpectrumHistory] = useState([]);
   const [sweepInfo, setSweepInfo] = useState(null);
   const [totalDetectionCount, setTotalDetectionCount] = useState(0);
+
+  // Single scan session history:
+  // semua titik di atas threshold pada satu sweep disimpan di sini,
+  // lalu setelah sweep selesai dibuat menjadi satu folder/session.
+  const [currentScanHistory, setCurrentScanHistory] = useState([]);
+  const [scanSessions, setScanSessions] = useState([]);
+  const [selectedSessionId, setSelectedSessionId] = useState(null);
+
+  const currentScanHistoryRef = useRef([]);
+  const activeScanMetaRef = useRef(null);
+  const scanSessionSavedRef = useRef(false);
 
   const [peak, setPeak] = useState(null);
   const [detections, setDetections] = useState([]);
@@ -348,12 +469,17 @@ function App() {
         const sweep = data.sweep ?? null;
         const frequencyValues = spectrumData.frequency_mhz ?? [];
         const powerValues = spectrumData.power_db ?? [];
+        const timestamp = data.timestamp ?? new Date().toISOString();
+        const windowDetections = Array.isArray(data.detections)
+          ? data.detections
+          : [];
+        const windowIndex = Number(
+          currentWindow?.window_index ?? sweep?.scanned_windows ?? 0
+        );
 
         setSpectrum(spectrumData);
         setPeak(data.peak);
-        setDetections(
-          Array.isArray(data.detections) ? data.detections : []
-        );
+        setDetections(windowDetections);
         setDebugClusters(
           data.debug_clusters ?? {
             merge_gap_mhz: 0.05,
@@ -366,19 +492,41 @@ function App() {
         setTotalDetectionCount(
           Number.isFinite(Number(data.detection_count))
             ? Number(data.detection_count)
-            : Array.isArray(data.detections)
-              ? data.detections.length
-              : 0
+            : windowDetections.length
         );
+
+        if (windowDetections.length > 0) {
+          const normalizedDetections = windowDetections.map(
+            (detection, detectionIndex) => ({
+              ...detection,
+              history_id: buildDetectionHistoryId(
+                detection,
+                detectionIndex
+              ),
+              captured_at: timestamp,
+              window_label: currentWindow
+                ? formatWindowMHz(
+                    currentWindow.start_frequency_mhz,
+                    currentWindow.end_frequency_mhz
+                  )
+                : "-",
+            })
+          );
+
+          const nextScanHistory = mergeDetectionHistory(
+            currentScanHistoryRef.current,
+            normalizedDetections
+          );
+
+          currentScanHistoryRef.current = nextScanHistory;
+          setCurrentScanHistory(nextScanHistory);
+        }
 
         if (
           currentWindow &&
           frequencyValues.length > 0 &&
           powerValues.length > 0
         ) {
-          const windowIndex = Number(
-            currentWindow.window_index ?? sweep?.scanned_windows ?? 0
-          );
           const segmentId = [
             windowIndex,
             currentWindow.start_frequency_mhz,
@@ -390,7 +538,7 @@ function App() {
             windowIndex,
             startFrequencyMhz: Number(currentWindow.start_frequency_mhz),
             endFrequencyMhz: Number(currentWindow.end_frequency_mhz),
-            timestamp: data.timestamp ?? new Date().toISOString(),
+            timestamp,
             frequency_mhz: frequencyValues,
             power_db: powerValues,
           };
@@ -419,12 +567,44 @@ function App() {
 
         if (!data.running) {
           setIsScanning(false);
+
+          if (data.completed && !scanSessionSavedRef.current) {
+            const historyForSession = currentScanHistoryRef.current;
+            const sessionId =
+              activeScanMetaRef.current?.id ?? `scan-${Date.now()}`;
+            const completedAt = timestamp;
+
+            const session = {
+              id: sessionId,
+              startedAt:
+                activeScanMetaRef.current?.startedAt ?? completedAt,
+              completedAt,
+              config: data.config,
+              sweep,
+              peak: data.peak,
+              detections: historyForSession,
+              detectionCount: historyForSession.length,
+            };
+
+            setSelectedSessionId(session.id);
+            setScanSessions((previousSessions) => {
+              const sessionWithTitle = {
+                ...session,
+                title: `Scan #${String(
+                  previousSessions.length + 1
+                ).padStart(3, "0")}`,
+              };
+
+              return [sessionWithTitle, ...previousSessions];
+            });
+
+            scanSessionSavedRef.current = true;
+          }
+
           setStatusMessage(
             data.completed
-              ? `Sweep selesai. Total titik di atas threshold: ${
-                  Number.isFinite(Number(data.detection_count))
-                    ? Number(data.detection_count)
-                    : 0
+              ? `Sweep selesai. Hasil scan disimpan ke Scan History. Total titik di atas threshold: ${
+                  currentScanHistoryRef.current.length
                 }.`
               : "Scan dihentikan."
           );
@@ -813,6 +993,14 @@ function App() {
         power_db: [],
       });
       setSpectrumHistory([]);
+      setCurrentScanHistory([]);
+      currentScanHistoryRef.current = [];
+      activeScanMetaRef.current = {
+        id: `scan-${Date.now()}`,
+        startedAt: new Date().toISOString(),
+        request: requestBody,
+      };
+      scanSessionSavedRef.current = false;
       setSweepInfo(data.sweep ?? null);
       setTotalDetectionCount(0);
       setPeak(null);
@@ -832,7 +1020,25 @@ function App() {
     }
   }
 
-  const detectedCount = totalDetectionCount;
+  const currentScanHistorySorted = useMemo(
+    () => [...currentScanHistory].sort(
+      (a, b) => Number(a.frequency_mhz) - Number(b.frequency_mhz)
+    ),
+    [currentScanHistory]
+  );
+
+  const selectedScanSession = useMemo(() => {
+    if (scanSessions.length === 0) {
+      return null;
+    }
+
+    return (
+      scanSessions.find((session) => session.id === selectedSessionId) ??
+      scanSessions[0]
+    );
+  }, [scanSessions, selectedSessionId]);
+
+  const detectedCount = currentScanHistorySorted.length;
 
   return (
     <main className="app-shell">
@@ -990,7 +1196,7 @@ function App() {
           </div>
         </header>
 
-        {/* <nav className="tabs">
+        <nav className="tabs">
           <button
             type="button"
             className={activeTab === "general" ? "tab active-tab" : "tab"}
@@ -1001,12 +1207,13 @@ function App() {
 
           <button
             type="button"
-            className={activeTab === "specific" ? "tab active-tab" : "tab"}
-            onClick={() => setActiveTab("specific")}
+            className={activeTab === "history" ? "tab active-tab" : "tab"}
+            onClick={() => setActiveTab("history")}
           >
-            Specific
+            Scan History
+            <span className="tab-badge">{scanSessions.length}</span>
           </button>
-        </nav> */}
+        </nav>
 
         {activeTab === "general" ? (
           <>
@@ -1246,8 +1453,8 @@ function App() {
             <section className="detected-section classification-section">
               <div className="panel-heading">
                 <div>
-                  <p className="section-kicker">SCAN RESULT</p>
-                  <h3>Frequency Classification</h3>
+                  <p className="section-kicker">CURRENT SCAN</p>
+                  <h3>Current Scan History</h3>
                 </div>
 
                 <div className="detected-count">
@@ -1260,174 +1467,82 @@ function App() {
                 </div>
               </div>
 
-              {!peak ? (
+              <div className="scan-history-toolbar">
+                <span>Sorted by frequency: 50 MHz → 6000 MHz</span>
+                <span>
+                  Backend total: {totalDetectionCount} threshold point
+                  {totalDetectionCount === 1 ? "" : "s"}
+                </span>
+                {sweepInfo && (
+                  <span>
+                    Window {sweepInfo.scanned_windows}/{sweepInfo.total_windows}
+                  </span>
+                )}
+              </div>
+
+              {currentScanHistorySorted.length === 0 ? (
                 <div className="empty-state">
                   {isScanning
-                    ? "Menerima data spectrum dari USRP..."
-                    : "Belum ada peak dari USRP. Jalankan scan terlebih dahulu."}
-                </div>
-              ) : detections.length === 0 ? (
-                <div className="empty-state">
-                  Tidak ada sinyal yang menyentuh atau melewati threshold.
+                    ? "Belum ada titik yang melewati threshold pada scan ini."
+                    : "Belum ada history scan. Tekan START SCAN untuk memulai single sweep."}
                 </div>
               ) : (
-                <div className="classification-grid">
-                  {detections.map((detection, index) => {
-                    const gsmCandidate = detection.gsm;
-                    const umtsCandidates = Array.isArray(detection.umts)
-                      ? detection.umts
-                      : [];
-                    const lteCandidates = Array.isArray(detection.lte)
-                      ? detection.lte
-                      : [];
-                    const nrCandidates = Array.isArray(detection.nr)
-                      ? detection.nr
-                      : [];
+                <div className="scan-history-table">
+                  <div className="scan-history-head">
+                    <span>#</span>
+                    <span>Frequency</span>
+                    <span>Power</span>
+                    <span>Window</span>
+                    <span>Technology candidates</span>
+                  </div>
 
-                    const technologyCandidates = [
-                      gsmCandidate && {
-                        type: "gsm",
-                        label: "2G",
-                        name: gsmCandidate.band,
-                        detail:
-                          gsmCandidate.arfcn === "Dynamic"
-                            ? "ARFCN : Dynamic"
-                            : `ARFCN : [ ${gsmCandidate.arfcn} ]`,
-                        dlMhz: gsmCandidate.freq_dl_mhz,
-                        ulMhz: gsmCandidate.freq_ul_mhz,
-                        profiles: gsmCandidate.possible_profiles ?? [],
-                      },
-                      ...umtsCandidates.map((candidate) => ({
-                        type: "umts",
-                        label: "3G",
-                        // Tampilkan nama asli dari tabel Sqimway,
-                        // contoh: "900 GSM", bukan "UMTS Band 8".
-                        name:
-                          candidate.name ??
-                          candidate.band ??
-                          "UMTS Candidate",
-                        detail:
-                          candidate.uarfcn_dl === null ||
-                          candidate.uarfcn_dl === undefined
-                            ? "UARFCN : -"
-                            : `UARFCN : [ ${candidate.uarfcn_dl} ]`,
-                        dlMhz: candidate.freq_dl_mhz,
-                        ulMhz: candidate.freq_ul_mhz,
-                        profiles: [candidate.band_code].filter(Boolean),
-                      })),
-                      ...lteCandidates.map((candidate) => ({
-                        type: "lte",
-                        label: "4G",
-                        name:
-                          candidate.name ??
-                          candidate.band ??
-                          "LTE Candidate",
-                        detail: buildLteDetail(candidate),
-                        dlMhz: candidate.freq_dl_mhz,
-                        ulMhz: candidate.freq_ul_mhz,
-                        profiles: [
-                          candidate.band_code,
-                          candidate.direction,
-                        ].filter(Boolean),
-                      })),
-                      ...nrCandidates.map((candidate) => ({
-                        type: "nr",
-                        label: "5G",
-                        name:
-                          candidate.name ??
-                          candidate.band ??
-                          "NR Candidate",
-                        detail: buildNrDetail(candidate),
-                        dlMhz: candidate.freq_dl_mhz,
-                        ulMhz: candidate.freq_ul_mhz,
-                        profiles: [
-                          candidate.band_code,
-                          candidate.direction,
-                        ].filter(Boolean),
-                      })),
-                    ].filter(Boolean);
+                  <div className="scan-history-list">
+                    {currentScanHistorySorted.map((detection, index) => {
+                      const technologyCandidates = buildTechnologyCandidates(detection);
 
-                    const primaryCandidate =
-                      technologyCandidates[0] ?? null;
+                      return (
+                        <article
+                          className="scan-history-row"
+                          key={detection.history_id ?? `${detection.frequency_mhz}-${index}`}
+                        >
+                          <span className="scan-history-index">
+                            {String(index + 1).padStart(3, "0")}
+                          </span>
 
-                    const signalColor =
-                      DETECTION_MARKER_COLORS[
-                        index % DETECTION_MARKER_COLORS.length
-                      ];
+                          <strong>{formatMHz(detection.frequency_mhz)}</strong>
 
-                    return (
-                      <article
-                        className="signal-detection-card"
-                        key={`${detection.frequency_mhz}-${index}`}
-                        style={{ "--signal-color": signalColor }}
-                      >
-                        <header className="signal-detection-header">
-                          <div>
-                            <p className="signal-detection-label">
-                              POINT {String(index + 1).padStart(2, "0")} ·
-                              ABOVE THRESHOLD
-                            </p>
-
-                            <h4>
-                              {formatMHz(detection.frequency_mhz)}
-                            </h4>
-                          </div>
-
-                          <span className="signal-detection-power">
+                          <span className="history-power">
                             {formatDb(detection.power_db)}
                           </span>
-                        </header>
 
-                        {primaryCandidate && (
-                          <div className="signal-frequency-pair">
-                            <span>
-                              DL: {formatMHz(primaryCandidate.dlMhz)}
-                            </span>
+                          <span className="history-window">
+                            {detection.window_label ??
+                              formatWindowMHz(
+                                detection.window_start_mhz,
+                                detection.window_end_mhz
+                              )}
+                          </span>
 
-                            <span>
-                              UL: {formatMHz(primaryCandidate.ulMhz)}
-                            </span>
+                          <div className="history-candidate-chips">
+                            {technologyCandidates.length > 0 ? (
+                              technologyCandidates.map((candidate, candidateIndex) => (
+                                <span
+                                  className={`history-chip ${candidate.type}`}
+                                  key={`${candidate.type}-${candidate.name}-${candidateIndex}`}
+                                >
+                                  <b>{candidate.label}</b> {candidate.name}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="history-chip unknown">
+                                No candidate
+                              </span>
+                            )}
                           </div>
-                        )}
-
-                        <p className="technology-candidate-title">
-                          TECHNOLOGY CANDIDATES
-                        </p>
-
-                        {technologyCandidates.length > 0 ? (
-                          <div className="technology-candidate-grid">
-                            {technologyCandidates.map((candidate, candidateIndex) => (
-                              <article
-                                className={`technology-mini-card ${candidate.type}`}
-                                key={`${candidate.type}-${candidate.name}-${candidateIndex}`}
-                              >
-                                <div className="technology-mini-header">
-                                  <span className="technology-mini-icon">
-                                    {candidate.label}
-                                  </span>
-
-                                  <div className="technology-mini-info">
-                                    <strong>{candidate.name}</strong>
-                                    {Array.isArray(candidate.detail) ? (
-                                    candidate.detail.map((detailLine) => (
-                                      <span key={detailLine}>{detailLine}</span>
-                                    ))
-                                  ) : (
-                                    <span>{candidate.detail}</span>
-                                  )}
-                                  </div>
-                                </div>
-                              </article>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="no-technology-match">
-                            No 2G/3G/4G/5G candidate match for this signal.
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
+                        </article>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -1438,6 +1553,137 @@ function App() {
               )}
             </section>
           </>
+        ) : activeTab === "history" ? (
+          <section className="detected-section scan-session-section">
+            <div className="panel-heading">
+              <div>
+                <p className="section-kicker">SESSION STORAGE</p>
+                <h3>Scan History Folder</h3>
+              </div>
+
+              <div className="detected-count">
+                <strong>{scanSessions.length}</strong>
+                <span>{scanSessions.length === 1 ? "SCAN SESSION" : "SCAN SESSIONS"}</span>
+              </div>
+            </div>
+
+            {scanSessions.length === 0 ? (
+              <div className="empty-state">
+                Belum ada folder scan. Jalankan satu sweep sampai selesai,
+                lalu hasilnya otomatis masuk ke halaman ini.
+              </div>
+            ) : (
+              <div className="session-history-layout">
+                <div className="session-folder-list">
+                  {scanSessions.map((session) => (
+                    <button
+                      type="button"
+                      className={`session-folder-card ${
+                        selectedScanSession?.id === session.id ? "selected" : ""
+                      }`}
+                      key={session.id}
+                      onClick={() => setSelectedSessionId(session.id)}
+                    >
+                      <span className="folder-icon">▰</span>
+                      <span>
+                        <strong>{session.title}</strong>
+                        <small>
+                          {session.config.start_frequency_mhz}–
+                          {session.config.end_frequency_mhz} MHz · {session.detectionCount} points
+                        </small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="session-detail-panel">
+                  {selectedScanSession && (
+                    <>
+                      <div className="session-summary-grid">
+                        <div>
+                          <span>Range</span>
+                          <strong>
+                            {selectedScanSession.config.start_frequency_mhz}–
+                            {selectedScanSession.config.end_frequency_mhz} MHz
+                          </strong>
+                        </div>
+                        <div>
+                          <span>Threshold</span>
+                          <strong>{selectedScanSession.config.threshold_db} dB</strong>
+                        </div>
+                        <div>
+                          <span>Total points</span>
+                          <strong>{selectedScanSession.detectionCount}</strong>
+                        </div>
+                        <div>
+                          <span>Completed</span>
+                          <strong>{formatDateTime(selectedScanSession.completedAt)}</strong>
+                        </div>
+                      </div>
+
+                      <div className="scan-history-table session-table">
+                        <div className="scan-history-head">
+                          <span>#</span>
+                          <span>Frequency</span>
+                          <span>Power</span>
+                          <span>Window</span>
+                          <span>Technology candidates</span>
+                        </div>
+
+                        <div className="scan-history-list">
+                          {selectedScanSession.detections.map((detection, index) => {
+                            const technologyCandidates = buildTechnologyCandidates(detection);
+
+                            return (
+                              <article
+                                className="scan-history-row"
+                                key={detection.history_id ?? `${detection.frequency_mhz}-${index}`}
+                              >
+                                <span className="scan-history-index">
+                                  {String(index + 1).padStart(3, "0")}
+                                </span>
+
+                                <strong>{formatMHz(detection.frequency_mhz)}</strong>
+
+                                <span className="history-power">
+                                  {formatDb(detection.power_db)}
+                                </span>
+
+                                <span className="history-window">
+                                  {detection.window_label ??
+                                    formatWindowMHz(
+                                      detection.window_start_mhz,
+                                      detection.window_end_mhz
+                                    )}
+                                </span>
+
+                                <div className="history-candidate-chips">
+                                  {technologyCandidates.length > 0 ? (
+                                    technologyCandidates.map((candidate, candidateIndex) => (
+                                      <span
+                                        className={`history-chip ${candidate.type}`}
+                                        key={`${candidate.type}-${candidate.name}-${candidateIndex}`}
+                                      >
+                                        <b>{candidate.label}</b> {candidate.name}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="history-chip unknown">
+                                      No candidate
+                                    </span>
+                                  )}
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
         ) : (
           <section className="specific-panel">
             <p className="section-kicker">COMING SOON</p>
