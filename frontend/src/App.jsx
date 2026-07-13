@@ -248,16 +248,16 @@ function App() {
 
   // Nilai input yang diketik pada web.
   const [threshold, setThreshold] = useState("0");
-  const [startFrequency, setStartFrequency] = useState("99");
-  const [endFrequency, setEndFrequency] = useState("101");
+  const [startFrequency, setStartFrequency] = useState("50");
+  const [endFrequency, setEndFrequency] = useState("6000");
 
   // Konfigurasi yang sudah benar-benar dikirim ke backend.
   const [scanConfig, setScanConfig] = useState({
     threshold_db: 0,
-    start_frequency_mhz: 99,
-    end_frequency_mhz: 101,
-    center_frequency_mhz: 100,
-    sample_rate_mhz: 2,
+    start_frequency_mhz: 50,
+    end_frequency_mhz: 6000,
+    center_frequency_mhz: 3025,
+    sample_rate_mhz: 5950,
   });
 
   const [isScanning, setIsScanning] = useState(false);
