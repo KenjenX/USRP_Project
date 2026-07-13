@@ -968,3 +968,45 @@ button {
   color: #f3d9ff;
   font-weight: 800;
 }
+
+
+/* Sweep history / Opsi 2 */
+.history-line {
+  background: rgba(78, 230, 255, 0.42);
+}
+
+.spectrum-history-svg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  color: rgba(78, 230, 255, 0.45);
+  pointer-events: none;
+}
+
+.spectrum-history-line {
+  stroke: rgba(78, 230, 255, 0.42);
+  stroke-width: 1;
+  opacity: 0.72;
+}
+
+.sweep-progress-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid rgba(92, 210, 255, 0.18);
+  color: #9dd5e4;
+  background: rgba(5, 25, 38, 0.48);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.sidebar-sweep-detail {
+  display: block;
+  margin-top: 8px;
+  color: #62ddff;
+}

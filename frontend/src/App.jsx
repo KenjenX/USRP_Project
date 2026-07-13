@@ -5,6 +5,11 @@ const API_BASE_URL = "http://127.0.0.1:8000";
 
 const SPECTRUM_REFRESH_MS = 250;
 
+// Jumlah window history yang disimpan di frontend.
+// Scan 50–6000 MHz dengan window 56 MHz butuh sekitar 107 window,
+// jadi 160 masih cukup aman untuk satu sweep penuh.
+const MAX_SPECTRUM_HISTORY_WINDOWS = 160;
+
 const CHART_SVG_HEIGHT = 260;
 const CHART_TICK_STEP_DB = 10;
 const THRESHOLD_TARGET_TOP_RATIO = 1 / 3;
@@ -59,6 +64,86 @@ function formatDb(value) {
   }
 
   return `${Number(value).toFixed(2)} dB`;
+}
+
+function buildSpectrumSvgPath({
+  frequencyValues,
+  powerValues,
+  start,
+  end,
+  chartScale,
+}) {
+  const pointCount = Math.min(
+    frequencyValues.length,
+    powerValues.length
+  );
+
+  if (
+    pointCount === 0 ||
+    !Number.isFinite(start) ||
+    !Number.isFinite(end) ||
+    end <= start
+  ) {
+    return {
+      linePoints: "",
+      areaPoints: "",
+    };
+  }
+
+  const chartPoints = [];
+
+  for (let index = 0; index < pointCount; index += 1) {
+    const frequency = Number(frequencyValues[index]);
+    const power = Number(powerValues[index]);
+
+    if (!Number.isFinite(frequency) || !Number.isFinite(power)) {
+      continue;
+    }
+
+    const normalizedX =
+      ((frequency - start) / (end - start)) * 1000;
+
+    const normalizedY =
+      ((chartScale.maxDb - power) /
+        (chartScale.maxDb - chartScale.minDb)) *
+      CHART_SVG_HEIGHT;
+
+    chartPoints.push({
+      x: clamp(normalizedX, 0, 1000),
+      y: clamp(normalizedY, 0, CHART_SVG_HEIGHT),
+    });
+  }
+
+  if (chartPoints.length === 0) {
+    return {
+      linePoints: "",
+      areaPoints: "",
+    };
+  }
+
+  const linePoints = chartPoints
+    .map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`)
+    .join(" ");
+
+  const firstPoint = chartPoints[0];
+  const lastPoint = chartPoints[chartPoints.length - 1];
+
+  return {
+    linePoints,
+    areaPoints: [
+      `${firstPoint.x.toFixed(2)},${CHART_SVG_HEIGHT}`,
+      linePoints,
+      `${lastPoint.x.toFixed(2)},${CHART_SVG_HEIGHT}`,
+    ].join(" "),
+  };
+}
+
+function formatWindowMHz(start, end) {
+  if (!Number.isFinite(Number(start)) || !Number.isFinite(Number(end))) {
+    return "-";
+  }
+
+  return `${Number(start).toFixed(2)}–${Number(end).toFixed(2)} MHz`;
 }
 
 function buildLteDetail(candidate) {
@@ -189,6 +274,12 @@ function App() {
     power_db: [],
   });
 
+  // Opsi 2: history spektrum dari window sweep yang sudah discan.
+  // Data ini membuat window 56 MHz yang bergerak meninggalkan trail di chart.
+  const [spectrumHistory, setSpectrumHistory] = useState([]);
+  const [sweepInfo, setSweepInfo] = useState(null);
+  const [totalDetectionCount, setTotalDetectionCount] = useState(0);
+
   const [peak, setPeak] = useState(null);
   const [detections, setDetections] = useState([]);
   const [debugClusters, setDebugClusters] = useState({
@@ -249,7 +340,16 @@ function App() {
           return;
         }
 
-        setSpectrum(data.spectrum);
+        const spectrumData = data.spectrum ?? {
+          frequency_mhz: [],
+          power_db: [],
+        };
+        const currentWindow = data.current_window ?? null;
+        const sweep = data.sweep ?? null;
+        const frequencyValues = spectrumData.frequency_mhz ?? [];
+        const powerValues = spectrumData.power_db ?? [];
+
+        setSpectrum(spectrumData);
         setPeak(data.peak);
         setDetections(
           Array.isArray(data.detections) ? data.detections : []
@@ -262,17 +362,89 @@ function App() {
           }
         );
         setScanConfig(data.config);
+        setSweepInfo(sweep);
+        setTotalDetectionCount(
+          Number.isFinite(Number(data.detection_count))
+            ? Number(data.detection_count)
+            : Array.isArray(data.detections)
+              ? data.detections.length
+              : 0
+        );
+
+        if (
+          currentWindow &&
+          frequencyValues.length > 0 &&
+          powerValues.length > 0
+        ) {
+          const windowIndex = Number(
+            currentWindow.window_index ?? sweep?.scanned_windows ?? 0
+          );
+          const segmentId = [
+            windowIndex,
+            currentWindow.start_frequency_mhz,
+            currentWindow.end_frequency_mhz,
+          ].join("-");
+
+          const historySegment = {
+            id: segmentId,
+            windowIndex,
+            startFrequencyMhz: Number(currentWindow.start_frequency_mhz),
+            endFrequencyMhz: Number(currentWindow.end_frequency_mhz),
+            timestamp: data.timestamp ?? new Date().toISOString(),
+            frequency_mhz: frequencyValues,
+            power_db: powerValues,
+          };
+
+          setSpectrumHistory((previousHistory) => {
+            const withoutDuplicate = previousHistory.filter(
+              (segment) => segment.id !== segmentId
+            );
+
+            const nextHistory = [
+              ...withoutDuplicate,
+              historySegment,
+            ].sort((a, b) => a.windowIndex - b.windowIndex);
+
+            if (nextHistory.length > MAX_SPECTRUM_HISTORY_WINDOWS) {
+              return nextHistory.slice(
+                nextHistory.length - MAX_SPECTRUM_HISTORY_WINDOWS
+              );
+            }
+
+            return nextHistory;
+          });
+        }
+
         setErrorMessage("");
 
         if (!data.running) {
           setIsScanning(false);
-          setStatusMessage("Scan dihentikan.");
+          setStatusMessage(
+            data.completed
+              ? `Sweep selesai. Total titik di atas threshold: ${
+                  Number.isFinite(Number(data.detection_count))
+                    ? Number(data.detection_count)
+                    : 0
+                }.`
+              : "Scan dihentikan."
+          );
           return;
         }
 
-        setStatusMessage(
-          `Spectrum diperbarui: ${data.timestamp || "realtime"}`
-        );
+        if (currentWindow && sweep) {
+          setStatusMessage(
+            `Scanning ${formatWindowMHz(
+              currentWindow.start_frequency_mhz,
+              currentWindow.end_frequency_mhz
+            )} · Window ${sweep.scanned_windows}/${sweep.total_windows} · ${
+              sweep.progress_percent
+            }%`
+          );
+        } else {
+          setStatusMessage(
+            `Spectrum diperbarui: ${data.timestamp || "realtime"}`
+          );
+        }
       } catch (error) {
         if (!cancelled) {
           setErrorMessage(`Spectrum error: ${error.message}`);
@@ -379,77 +551,59 @@ function App() {
   }, [chartScale, scanConfig.threshold_db]);
 
   // Ubah pasangan frequency_mhz + power_db dari backend menjadi titik SVG.
-  // Posisi X memakai frekuensi asli, bukan nomor/index data display.
+  // Posisi X memakai frekuensi asli pada full range scan, bukan nomor/index data.
   const spectrumChart = useMemo(() => {
-    const frequencyValues = spectrum.frequency_mhz ?? [];
-    const powerValues = spectrum.power_db ?? [];
     const start = Number(scanConfig.start_frequency_mhz);
     const end = Number(scanConfig.end_frequency_mhz);
 
-    const pointCount = Math.min(
-      frequencyValues.length,
-      powerValues.length
-    );
+    return buildSpectrumSvgPath({
+      frequencyValues: spectrum.frequency_mhz ?? [],
+      powerValues: spectrum.power_db ?? [],
+      start,
+      end,
+      chartScale,
+    });
+  }, [chartScale, scanConfig, spectrum]);
+
+  // Opsi 2: ubah seluruh history window sweep menjadi polyline SVG.
+  // Segment lama akan digambar lebih redup, sedangkan window aktif tetap memakai
+  // spectrumChart utama yang lebih terang.
+  const spectrumHistoryCharts = useMemo(() => {
+    const start = Number(scanConfig.start_frequency_mhz);
+    const end = Number(scanConfig.end_frequency_mhz);
 
     if (
-      pointCount === 0 ||
+      !Array.isArray(spectrumHistory) ||
+      spectrumHistory.length === 0 ||
       !Number.isFinite(start) ||
       !Number.isFinite(end) ||
       end <= start
     ) {
-      return {
-        linePoints: "",
-        areaPoints: "",
-      };
+      return [];
     }
 
-    const chartPoints = [];
+    return spectrumHistory
+      .map((segment) => {
+        const path = buildSpectrumSvgPath({
+          frequencyValues: segment.frequency_mhz ?? [],
+          powerValues: segment.power_db ?? [],
+          start,
+          end,
+          chartScale,
+        });
 
-    for (let index = 0; index < pointCount; index += 1) {
-      const frequency = Number(frequencyValues[index]);
-      const power = Number(powerValues[index]);
+        if (!path.linePoints) {
+          return null;
+        }
 
-      if (!Number.isFinite(frequency) || !Number.isFinite(power)) {
-        continue;
-      }
+        return {
+          ...segment,
+          ...path,
+        };
+      })
+      .filter(Boolean);
+  }, [chartScale, scanConfig, spectrumHistory]);
 
-      const normalizedX =
-        ((frequency - start) / (end - start)) * 1000;
-
-      const normalizedY =
-        ((chartScale.maxDb - power) /
-          (chartScale.maxDb - chartScale.minDb)) *
-        CHART_SVG_HEIGHT;
-
-      chartPoints.push({
-        x: clamp(normalizedX, 0, 1000),
-        y: clamp(normalizedY, 0, CHART_SVG_HEIGHT),
-      });
-    }
-
-    if (chartPoints.length === 0) {
-      return {
-        linePoints: "",
-        areaPoints: "",
-      };
-    }
-
-    const linePoints = chartPoints
-      .map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`)
-      .join(" ");
-
-    const firstPoint = chartPoints[0];
-    const lastPoint = chartPoints[chartPoints.length - 1];
-
-    return {
-      linePoints,
-      areaPoints: [
-        `${firstPoint.x.toFixed(2)},${CHART_SVG_HEIGHT}`,
-        linePoints,
-        `${lastPoint.x.toFixed(2)},${CHART_SVG_HEIGHT}`,
-      ].join(" "),
-    };
-  }, [chartScale, scanConfig, spectrum]);
 
   // Posisi garis threshold pada grafik.
   const thresholdTop = useMemo(() => {
@@ -658,6 +812,9 @@ function App() {
         frequency_mhz: [],
         power_db: [],
       });
+      setSpectrumHistory([]);
+      setSweepInfo(data.sweep ?? null);
+      setTotalDetectionCount(0);
       setPeak(null);
       setDetections([]);
       setDebugClusters({
@@ -675,7 +832,7 @@ function App() {
     }
   }
 
-  const detectedCount = detections.length;
+  const detectedCount = totalDetectionCount;
 
   return (
     <main className="app-shell">
@@ -753,6 +910,13 @@ function App() {
             Range: {scanConfig.start_frequency_mhz}–
             {scanConfig.end_frequency_mhz} MHz
           </span>
+
+          {sweepInfo && (
+            <span className="sidebar-sweep-detail">
+              Sweep: {sweepInfo.scanned_windows}/{sweepInfo.total_windows} ·{" "}
+              {sweepInfo.progress_percent}%
+            </span>
+          )}
         </section>
         <section className="sidebar-live-peak">
         <div className="sidebar-peak-heading">
@@ -866,12 +1030,12 @@ function App() {
 
                   <span>
                     <i className="legend-detection-marker" />
-                    Detected Peak
+                    Threshold Point
                   </span>
 
                   <span>
-                    <i className="legend-merged-cluster" />
-                    Cluster
+                    <i className="legend-line history-line" />
+                    Spectrum History
                   </span>
 
                   {SHOW_MERGE_GAP_DEBUG && (
@@ -882,6 +1046,26 @@ function App() {
                   )}
                 </div>
               </div>
+
+              {sweepInfo && (
+                <div className="sweep-progress-card">
+                  <span>
+                    Sweep window: {sweepInfo.scanned_windows}/
+                    {sweepInfo.total_windows}
+                  </span>
+                  <span>Progress: {sweepInfo.progress_percent}%</span>
+                  {sweepInfo.last_window_start_mhz !== null &&
+                    sweepInfo.last_window_end_mhz !== null && (
+                      <span>
+                        Last:{" "}
+                        {formatWindowMHz(
+                          sweepInfo.last_window_start_mhz,
+                          sweepInfo.last_window_end_mhz
+                        )}
+                      </span>
+                    )}
+                </div>
+              )}
 
               <div className="spectrum-chart">
                 <div className="chart-y-axis" aria-hidden="true">
@@ -920,8 +1104,30 @@ function App() {
                     <span>Threshold {scanConfig.threshold_db} dB</span>
                   </div>
 
-                  {spectrumChart.linePoints ? (
+                  {spectrumChart.linePoints || spectrumHistoryCharts.length > 0 ? (
                     <>
+                  {spectrumHistoryCharts.length > 1 && (
+                    <svg
+                      className="spectrum-history-svg"
+                      viewBox={`0 0 1000 ${CHART_SVG_HEIGHT}`}
+                      preserveAspectRatio="none"
+                      aria-label="USRP sweep spectrum history"
+                    >
+                      {spectrumHistoryCharts.slice(0, -1).map((segment) => (
+                        <polyline
+                          key={segment.id}
+                          points={segment.linePoints}
+                          className="spectrum-history-line"
+                          fill="none"
+                          vectorEffect="non-scaling-stroke"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          shapeRendering="geometricPrecision"
+                        />
+                      ))}
+                    </svg>
+                  )}
+
                       <svg
                         className="spectrum-svg"
                         viewBox={`0 0 1000 ${CHART_SVG_HEIGHT}`}
@@ -1048,8 +1254,8 @@ function App() {
                   <strong>{detectedCount}</strong>
                   <span>
                     {detectedCount === 1
-                      ? "SIGNAL ABOVE THRESHOLD"
-                      : "SIGNALS ABOVE THRESHOLD"}
+                      ? "POINT ABOVE THRESHOLD"
+                      : "POINTS ABOVE THRESHOLD"}
                   </span>
                 </div>
               </div>
@@ -1158,8 +1364,8 @@ function App() {
                         <header className="signal-detection-header">
                           <div>
                             <p className="signal-detection-label">
-                              SIGNAL {String(index + 1).padStart(2, "0")} ·
-                              DETECTED ABOVE THRESHOLD
+                              POINT {String(index + 1).padStart(2, "0")} ·
+                              ABOVE THRESHOLD
                             </p>
 
                             <h4>

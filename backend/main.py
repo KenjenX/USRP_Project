@@ -1,11 +1,15 @@
+
 from datetime import datetime
 from threading import Lock
+from copy import deepcopy
+from math import ceil
 
 import numpy as np
 import uhd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
 from backend.gsm_classifier import classify_gsm
 from backend.umts_classifier import classify_umts
 from backend.lte_classifier import classify_lte
@@ -19,21 +23,25 @@ USRP_SERIAL = "000000929"
 CHANNEL = 0
 RX_ANTENNA = "RX2"
 GAIN_DB = 35
+
+# Jumlah sample FFT per window sweep.
+# Semakin besar nilainya, resolusi frekuensi semakin detail,
+# tetapi proses scan juga semakin berat.
 NUM_SAMPS = 1024
 DISPLAY_POINTS = NUM_SAMPS
-# Merge gap dinonaktifkan agar cluster lebih sederhana:
-# cluster hanya terbentuk dari titik FFT yang benar-benar berurutan
-# dan berada di atas threshold.
-CLUSTER_MERGE_GAP_MHZ = 0.0
 
-# Versi awal hanya scan satu window spectrum.
-# Sesuai konfigurasi awal Anda: maksimal 2 MHz.
-MAX_SCAN_WINDOW_MHZ = 2.0
-
-# Batas frekuensi valid USRP B210 berdasarkan probe perangkat.
-# Input di luar range ini ditolak agar grafik web tidak menyesatkan.
+# Batas frekuensi valid USRP B210 berdasarkan probe perangkat Anda.
 USRP_MIN_FREQUENCY_MHZ = 50.0
 USRP_MAX_FREQUENCY_MHZ = 6000.0
+
+# Ukuran potongan scan otomatis.
+# Input web boleh 50–6000 MHz, tetapi backend tetap membaca bertahap.
+# 20 MHz dipilih sebagai nilai awal yang lebih aman daripada memaksa 56 MHz.
+SWEEP_WINDOW_MHZ = 56
+
+# Mode deteksi baru dari pembimbing:
+# setiap titik FFT yang melewati threshold dihitung satu per satu.
+DETECTION_MODE = "threshold_points"
 
 
 app = FastAPI(title="USRP B210 Spectrum API")
@@ -62,11 +70,28 @@ default_config = {
     "end_frequency_mhz": 101.0,
     "center_frequency_mhz": 100.0,
     "sample_rate_mhz": 2.0,
+    "sweep_window_mhz": SWEEP_WINDOW_MHZ,
 }
 
 scan_state = {
     "running": False,
+    "completed": False,
     "config": default_config.copy(),
+    "sweep": {
+        "current_start_mhz": default_config["start_frequency_mhz"],
+        "current_end_mhz": default_config["end_frequency_mhz"],
+        "last_window_start_mhz": None,
+        "last_window_end_mhz": None,
+        "total_windows": 1,
+        "scanned_windows": 0,
+        "progress_percent": 0.0,
+    },
+    "detections": [],
+    "last_window_detections": [],
+    "last_peak": None,
+    "last_error": None,
+    "started_at": None,
+    "updated_at": None,
 }
 
 state_lock = Lock()
@@ -74,7 +99,15 @@ device_lock = Lock()
 usrp_device = None
 
 
-def validate_scan_range(start_mhz, end_mhz):
+def validate_scan_range(start_mhz: float, end_mhz: float) -> float:
+    """
+    Validasi input web.
+
+    Sekarang input boleh selebar 50–6000 MHz, tetapi backend tidak
+    membaca range besar itu sekaligus. Backend akan melakukan sweep
+    otomatis per window SWEEP_WINDOW_MHZ.
+    """
+
     if start_mhz <= 0 or end_mhz <= 0:
         raise HTTPException(
             status_code=400,
@@ -100,19 +133,7 @@ def validate_scan_range(start_mhz, end_mhz):
             ),
         )
 
-    scan_width_mhz = end_mhz - start_mhz
-
-    if scan_width_mhz > MAX_SCAN_WINDOW_MHZ:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Rentang scan sementara maksimal {MAX_SCAN_WINDOW_MHZ} MHz. "
-                "Contoh yang benar: 99 sampai 101 MHz. "
-                "Sweep scan untuk rentang besar akan dibuat nanti."
-            ),
-        )
-
-    return scan_width_mhz
+    return end_mhz - start_mhz
 
 
 def get_usrp():
@@ -138,176 +159,86 @@ def get_usrp():
 
 def get_current_state():
     with state_lock:
-        return scan_state["running"], scan_state["config"].copy()
-    
-def build_threshold_clusters(
-    frequency_axis_mhz,
-    power_db,
-    threshold_db,
-):
+        return deepcopy(scan_state)
+
+
+def calculate_total_windows(start_mhz: float, end_mhz: float) -> int:
+    scan_width_mhz = end_mhz - start_mhz
+    return max(1, int(ceil(scan_width_mhz / SWEEP_WINDOW_MHZ)))
+
+
+def build_empty_debug_clusters():
     """
-    Membuat cluster threshold aktual.
-
-    raw_clusters:
-        titik FFT berurutan dengan power >= threshold.
-
-    merged_clusters:
-        saat merge gap dinonaktifkan, nilainya sama dengan raw_clusters.
+    Frontend lama mungkin masih membaca debug_clusters.
+    Karena cluster sudah tidak dipakai, field ini tetap dikirim tetapi kosong.
     """
 
-    raw_clusters = []
-    index = 0
-
-    while index < len(power_db):
-        if power_db[index] < threshold_db:
-            index += 1
-            continue
-
-        cluster_start = index
-
-        while (
-            index + 1 < len(power_db)
-            and power_db[index + 1] >= threshold_db
-        ):
-            index += 1
-
-        cluster_end = index
-
-        raw_clusters.append(
-            (cluster_start, cluster_end)
-        )
-
-        index += 1
-
-    # Merge gap dinonaktifkan.
-    # Artinya cluster akhir sama dengan raw cluster:
-    # jika sinyal turun di bawah threshold, cluster langsung berhenti.
-    merged_clusters = raw_clusters.copy()
-
-    return raw_clusters, merged_clusters
+    return {
+        "detection_mode": DETECTION_MODE,
+        "message": (
+            "Cluster detection disabled. "
+            "Every FFT bin above threshold is counted."
+        ),
+        "merge_gap_mhz": None,
+        "raw_clusters": [],
+        "merged_clusters": [],
+    }
 
 
-def build_detections_from_clusters(
+def classify_frequency(frequency_mhz: float) -> dict:
+    """
+    Menjalankan semua classifier untuk satu titik frekuensi.
+    """
+
+    return {
+        "gsm": classify_gsm(frequency_mhz),
+        "umts": classify_umts(frequency_mhz),
+        "lte": classify_lte(frequency_mhz),
+        "nr": classify_nr(frequency_mhz),
+    }
+
+
+def build_detections_from_threshold_points(
+    *,
     frequency_axis_mhz,
     power_db,
-    merged_clusters,
-):
+    threshold_db: float,
+    window_start_mhz: float,
+    window_end_mhz: float,
+    window_index: int,
+) -> list[dict]:
+    """
+    Konsep baru:
+    semua titik FFT yang power-nya >= threshold dihitung.
+
+    Tidak ada cluster.
+    Tidak ada pemilihan peak terkuat per cluster.
+    Setiap index FFT di atas threshold menjadi satu detection.
+    """
+
+    threshold_indexes = np.where(power_db >= threshold_db)[0]
     detections = []
 
-    for cluster_start, cluster_end in merged_clusters:
-        cluster_power = power_db[
-            cluster_start:cluster_end + 1
-        ]
-
-        local_peak_offset = int(
-            np.argmax(cluster_power)
-        )
-
-        peak_index = (
-            cluster_start + local_peak_offset
-        )
-
-        detected_frequency_mhz = float(
-            frequency_axis_mhz[peak_index]
-        )
-
-        detected_power_db = float(
-            power_db[peak_index]
-        )
+    for index in threshold_indexes:
+        detected_frequency_mhz = float(frequency_axis_mhz[index])
+        detected_power_db = float(power_db[index])
+        classification = classify_frequency(detected_frequency_mhz)
 
         detections.append(
             {
                 "frequency_mhz": detected_frequency_mhz,
                 "power_db": detected_power_db,
-                "gsm": classify_gsm(
-                    detected_frequency_mhz
-                ),
-                "umts": classify_umts(
-                    detected_frequency_mhz
-                ),
-                "lte": classify_lte(
-                    detected_frequency_mhz
-                ),
-                "nr": classify_nr(
-                    detected_frequency_mhz
-                ),
+                "threshold_db": float(threshold_db),
+                "above_threshold": True,
+                "fft_index": int(index),
+                "window_index": int(window_index),
+                "window_start_mhz": float(window_start_mhz),
+                "window_end_mhz": float(window_end_mhz),
+                **classification,
             }
         )
 
     return detections
-
-
-def build_cluster_debug_items(
-    frequency_axis_mhz,
-    power_db,
-    clusters,
-):
-    debug_items = []
-
-    for index, (cluster_start, cluster_end) in enumerate(clusters):
-        cluster_power = power_db[
-            cluster_start:cluster_end + 1
-        ]
-
-        local_peak_offset = int(
-            np.argmax(cluster_power)
-        )
-
-        peak_index = (
-            cluster_start + local_peak_offset
-        )
-
-        start_mhz = float(
-            frequency_axis_mhz[cluster_start]
-        )
-
-        end_mhz = float(
-            frequency_axis_mhz[cluster_end]
-        )
-
-        peak_mhz = float(
-            frequency_axis_mhz[peak_index]
-        )
-
-        peak_power_db = float(
-            power_db[peak_index]
-        )
-
-        debug_items.append(
-            {
-                "id": index + 1,
-                "start_mhz": start_mhz,
-                "end_mhz": end_mhz,
-                "peak_mhz": peak_mhz,
-                "peak_power_db": peak_power_db,
-                "width_khz": abs(end_mhz - start_mhz) * 1000,
-                "point_count": int(cluster_end - cluster_start + 1),
-            }
-        )
-
-    return debug_items
-
-
-def find_threshold_detections(
-    frequency_axis_mhz,
-    power_db,
-    threshold_db,
-):
-    """
-    Mencari peak dari setiap sinyal yang memenuhi threshold.
-    """
-
-    _, merged_clusters = build_threshold_clusters(
-        frequency_axis_mhz,
-        power_db,
-        threshold_db,
-    )
-
-    return build_detections_from_clusters(
-        frequency_axis_mhz,
-        power_db,
-        merged_clusters,
-    )
 
 
 def get_display_spectrum(
@@ -316,110 +247,29 @@ def get_display_spectrum(
 ):
     """
     Mengirim data spectrum aktual dari FFT ke frontend.
-
-    Tidak memakai peak-preserving bucket dan tidak memilih peak per bagian.
-    Tujuannya agar grafik yang tampil sama dengan data FFT yang dipakai
-    untuk threshold dan cluster.
+    Untuk tahap awal sweep, grafik menampilkan window yang sedang discan.
     """
 
     return frequency_axis_mhz, power_db
 
-@app.get("/")
-def root():
-    return {
-        "message": "USRP B210 Spectrum API berjalan.",
-        "device": "USRP B210",
-        "serial": USRP_SERIAL,
-    }
 
+def scan_frequency_window(
+    *,
+    window_start_mhz: float,
+    window_end_mhz: float,
+    threshold_db: float,
+    window_index: int,
+) -> dict:
+    """
+    Membaca satu window frekuensi, menghitung FFT, dan mengambil semua
+    titik yang melewati threshold.
+    """
 
-@app.get("/api/device")
-def device_status():
-    get_usrp()
+    center_frequency_mhz = (window_start_mhz + window_end_mhz) / 2
+    sample_rate_mhz = window_end_mhz - window_start_mhz
 
-    return {
-        "status": "ready",
-        "device": "USRP B210",
-        "serial": USRP_SERIAL,
-        "channel": CHANNEL,
-        "antenna": RX_ANTENNA,
-        "gain_db": GAIN_DB,
-    }
-
-
-@app.get("/api/status")
-def scan_status():
-    running, config = get_current_state()
-
-    return {
-        "running": running,
-        "config": config,
-    }
-
-
-@app.post("/api/scan/start")
-def start_scan(request: ScanRequest):
-    start_mhz = float(request.start_frequency_mhz)
-    end_mhz = float(request.end_frequency_mhz)
-    threshold_db = float(request.threshold_db)
-
-    scan_width_mhz = validate_scan_range(start_mhz, end_mhz)
-
-    new_config = {
-        "threshold_db": threshold_db,
-        "start_frequency_mhz": start_mhz,
-        "end_frequency_mhz": end_mhz,
-        "center_frequency_mhz": (start_mhz + end_mhz) / 2,
-        "sample_rate_mhz": scan_width_mhz,
-    }
-
-    with state_lock:
-        scan_state["running"] = True
-        scan_state["config"] = new_config
-
-    return {
-        "message": "Scan USRP dimulai.",
-        "running": True,
-        "config": new_config,
-    }
-
-
-@app.post("/api/scan/stop")
-def stop_scan():
-    with state_lock:
-        scan_state["running"] = False
-        config = scan_state["config"].copy()
-
-    return {
-        "message": "Scan USRP dihentikan.",
-        "running": False,
-        "config": config,
-    }
-
-
-@app.get("/api/spectrum")
-def get_spectrum():
-    running, config = get_current_state()
-
-    if not running:
-        return {
-            "running": False,
-            "config": config,
-            "spectrum": {
-                "frequency_mhz": [],
-                "power_db": [],
-            },
-            "peak": None,
-            "detections": [],
-            "debug_clusters": {
-                "merge_gap_mhz": CLUSTER_MERGE_GAP_MHZ,
-                "raw_clusters": [],
-                "merged_clusters": [],
-            },
-        }
-
-    center_frequency_hz = config["center_frequency_mhz"] * 1e6
-    sample_rate_hz = config["sample_rate_mhz"] * 1e6
+    center_frequency_hz = center_frequency_mhz * 1e6
+    sample_rate_hz = sample_rate_mhz * 1e6
 
     try:
         usrp = get_usrp()
@@ -439,7 +289,10 @@ def get_spectrum():
     except Exception as error:
         raise HTTPException(
             status_code=503,
-            detail=f"Gagal membaca sample dari USRP: {error}",
+            detail=(
+                "Gagal membaca sample dari USRP pada window "
+                f"{window_start_mhz:.6f}–{window_end_mhz:.6f} MHz: {error}"
+            ),
         ) from error
 
     iq_samples = np.asarray(samples[0])
@@ -472,37 +325,15 @@ def get_spectrum():
     peak_frequency_mhz = float(frequency_axis_mhz[peak_index])
     peak_power_db = float(power_db[peak_index])
 
-    (
-        raw_clusters,
-        merged_clusters,
-    ) = build_threshold_clusters(
-        frequency_axis_mhz,
-        power_db,
-        config["threshold_db"],
+    detections = build_detections_from_threshold_points(
+        frequency_axis_mhz=frequency_axis_mhz,
+        power_db=power_db,
+        threshold_db=threshold_db,
+        window_start_mhz=window_start_mhz,
+        window_end_mhz=window_end_mhz,
+        window_index=window_index,
     )
 
-    detections = build_detections_from_clusters(
-        frequency_axis_mhz,
-        power_db,
-        merged_clusters,
-    )
-
-    debug_clusters = {
-        "merge_gap_mhz": CLUSTER_MERGE_GAP_MHZ,
-        "raw_clusters": build_cluster_debug_items(
-            frequency_axis_mhz,
-            power_db,
-            raw_clusters,
-        ),
-        "merged_clusters": build_cluster_debug_items(
-            frequency_axis_mhz,
-            power_db,
-            merged_clusters,
-        ),
-    }
-
-    # Grafik frontend menampilkan data FFT aktual yang sama
-    # dengan data yang dipakai untuk threshold, cluster, dan detection.
     (
         display_frequency_mhz,
         display_power_db,
@@ -512,11 +343,15 @@ def get_spectrum():
     )
 
     return {
-        "running": True,
-        "timestamp": datetime.now().isoformat(
-            timespec="seconds"
-        ),
-        "config": config,
+        "window": {
+            "window_index": int(window_index),
+            "start_frequency_mhz": float(window_start_mhz),
+            "end_frequency_mhz": float(window_end_mhz),
+            "center_frequency_mhz": float(center_frequency_mhz),
+            "sample_rate_mhz": float(sample_rate_mhz),
+            "sample_count": int(len(iq_samples)),
+            "threshold_point_count": int(len(detections)),
+        },
         "spectrum": {
             "frequency_mhz": display_frequency_mhz.tolist(),
             "power_db": display_power_db.tolist(),
@@ -524,10 +359,271 @@ def get_spectrum():
         "peak": {
             "frequency_mhz": peak_frequency_mhz,
             "power_db": peak_power_db,
-            "above_threshold": bool(
-                peak_power_db >= config["threshold_db"]
-            ),
+            "above_threshold": bool(peak_power_db >= threshold_db),
         },
         "detections": detections,
-        "debug_clusters": debug_clusters,
+    }
+
+
+@app.get("/")
+def root():
+    return {
+        "message": "USRP B210 Spectrum API berjalan.",
+        "device": "USRP B210",
+        "serial": USRP_SERIAL,
+        "detection_mode": DETECTION_MODE,
+        "sweep_window_mhz": SWEEP_WINDOW_MHZ,
+    }
+
+
+@app.get("/api/device")
+def device_status():
+    get_usrp()
+
+    return {
+        "status": "ready",
+        "device": "USRP B210",
+        "serial": USRP_SERIAL,
+        "channel": CHANNEL,
+        "antenna": RX_ANTENNA,
+        "gain_db": GAIN_DB,
+        "frequency_range_mhz": {
+            "min": USRP_MIN_FREQUENCY_MHZ,
+            "max": USRP_MAX_FREQUENCY_MHZ,
+        },
+        "sweep_window_mhz": SWEEP_WINDOW_MHZ,
+        "detection_mode": DETECTION_MODE,
+    }
+
+
+@app.get("/api/status")
+def scan_status():
+    state = get_current_state()
+
+    return {
+        "running": state["running"],
+        "completed": state["completed"],
+        "config": state["config"],
+        "sweep": state["sweep"],
+        "detection_count": len(state["detections"]),
+        "last_window_detection_count": len(
+            state["last_window_detections"]
+        ),
+        "last_peak": state["last_peak"],
+        "last_error": state["last_error"],
+        "started_at": state["started_at"],
+        "updated_at": state["updated_at"],
+    }
+
+
+@app.post("/api/scan/start")
+def start_scan(request: ScanRequest):
+    start_mhz = float(request.start_frequency_mhz)
+    end_mhz = float(request.end_frequency_mhz)
+    threshold_db = float(request.threshold_db)
+
+    scan_width_mhz = validate_scan_range(start_mhz, end_mhz)
+    total_windows = calculate_total_windows(start_mhz, end_mhz)
+
+    new_config = {
+        "threshold_db": threshold_db,
+        "start_frequency_mhz": start_mhz,
+        "end_frequency_mhz": end_mhz,
+        "center_frequency_mhz": (start_mhz + end_mhz) / 2,
+        "sample_rate_mhz": scan_width_mhz,
+        "sweep_window_mhz": SWEEP_WINDOW_MHZ,
+        "detection_mode": DETECTION_MODE,
+    }
+
+    now = datetime.now().isoformat(timespec="seconds")
+
+    with state_lock:
+        scan_state["running"] = True
+        scan_state["completed"] = False
+        scan_state["config"] = new_config
+        scan_state["sweep"] = {
+            "current_start_mhz": start_mhz,
+            "current_end_mhz": min(
+                start_mhz + SWEEP_WINDOW_MHZ,
+                end_mhz,
+            ),
+            "last_window_start_mhz": None,
+            "last_window_end_mhz": None,
+            "total_windows": total_windows,
+            "scanned_windows": 0,
+            "progress_percent": 0.0,
+        }
+        scan_state["detections"] = []
+        scan_state["last_window_detections"] = []
+        scan_state["last_peak"] = None
+        scan_state["last_error"] = None
+        scan_state["started_at"] = now
+        scan_state["updated_at"] = now
+
+    return {
+        "message": "Sweep scan USRP dimulai.",
+        "running": True,
+        "completed": False,
+        "config": new_config,
+        "sweep": get_current_state()["sweep"],
+    }
+
+
+@app.post("/api/scan/stop")
+def stop_scan():
+    with state_lock:
+        scan_state["running"] = False
+        scan_state["updated_at"] = datetime.now().isoformat(
+            timespec="seconds"
+        )
+        state = deepcopy(scan_state)
+
+    return {
+        "message": "Scan USRP dihentikan.",
+        "running": False,
+        "completed": state["completed"],
+        "config": state["config"],
+        "sweep": state["sweep"],
+        "detection_count": len(state["detections"]),
+    }
+
+
+@app.get("/api/scan/results")
+def scan_results():
+    """
+    Mengambil hasil deteksi kumulatif dari seluruh window yang sudah discan.
+    """
+
+    state = get_current_state()
+
+    return {
+        "running": state["running"],
+        "completed": state["completed"],
+        "config": state["config"],
+        "sweep": state["sweep"],
+        "detection_count": len(state["detections"]),
+        "detections": state["detections"],
+        "last_window_detections": state["last_window_detections"],
+        "last_peak": state["last_peak"],
+        "last_error": state["last_error"],
+    }
+
+
+@app.get("/api/spectrum")
+def get_spectrum():
+    """
+    Endpoint ini sekarang menjalankan sweep secara bertahap.
+
+    Setiap kali frontend memanggil /api/spectrum:
+    - backend membaca 1 window frekuensi
+    - semua titik FFT yang melewati threshold dihitung
+    - hasilnya ditambahkan ke detections kumulatif
+    - current_start_mhz maju ke window berikutnya
+    """
+
+    state = get_current_state()
+
+    if not state["running"]:
+        return {
+            "running": False,
+            "completed": state["completed"],
+            "config": state["config"],
+            "sweep": state["sweep"],
+            "spectrum": {
+                "frequency_mhz": [],
+                "power_db": [],
+            },
+            "peak": state["last_peak"],
+            "detections": state["last_window_detections"],
+            "detection_count": len(state["detections"]),
+            "debug_clusters": build_empty_debug_clusters(),
+        }
+
+    config = state["config"]
+    sweep = state["sweep"]
+
+    full_end_mhz = config["end_frequency_mhz"]
+    window_start_mhz = sweep["current_start_mhz"]
+    window_end_mhz = min(
+        window_start_mhz + SWEEP_WINDOW_MHZ,
+        full_end_mhz,
+    )
+    window_index = int(sweep["scanned_windows"]) + 1
+
+    # Jika sudah tidak ada window tersisa, tandai selesai.
+    if window_start_mhz >= full_end_mhz:
+        with state_lock:
+            scan_state["running"] = False
+            scan_state["completed"] = True
+            scan_state["sweep"]["progress_percent"] = 100.0
+            scan_state["updated_at"] = datetime.now().isoformat(
+                timespec="seconds"
+            )
+            finished_state = deepcopy(scan_state)
+
+        return {
+            "running": False,
+            "completed": True,
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "config": finished_state["config"],
+            "sweep": finished_state["sweep"],
+            "spectrum": {
+                "frequency_mhz": [],
+                "power_db": [],
+            },
+            "peak": finished_state["last_peak"],
+            "detections": finished_state["last_window_detections"],
+            "detection_count": len(finished_state["detections"]),
+            "debug_clusters": build_empty_debug_clusters(),
+        }
+
+    scan_result = scan_frequency_window(
+        window_start_mhz=window_start_mhz,
+        window_end_mhz=window_end_mhz,
+        threshold_db=config["threshold_db"],
+        window_index=window_index,
+    )
+
+    next_start_mhz = window_end_mhz
+    completed = next_start_mhz >= full_end_mhz
+
+    with state_lock:
+        scan_state["detections"].extend(scan_result["detections"])
+        scan_state["last_window_detections"] = scan_result["detections"]
+        scan_state["last_peak"] = scan_result["peak"]
+        scan_state["sweep"]["last_window_start_mhz"] = window_start_mhz
+        scan_state["sweep"]["last_window_end_mhz"] = window_end_mhz
+        scan_state["sweep"]["current_start_mhz"] = next_start_mhz
+        scan_state["sweep"]["current_end_mhz"] = min(
+            next_start_mhz + SWEEP_WINDOW_MHZ,
+            full_end_mhz,
+        )
+        scan_state["sweep"]["scanned_windows"] = window_index
+        scan_state["sweep"]["progress_percent"] = round(
+            (window_index / scan_state["sweep"]["total_windows"]) * 100,
+            2,
+        )
+        scan_state["running"] = not completed
+        scan_state["completed"] = completed
+        scan_state["updated_at"] = datetime.now().isoformat(
+            timespec="seconds"
+        )
+        updated_state = deepcopy(scan_state)
+
+    return {
+        "running": updated_state["running"],
+        "completed": updated_state["completed"],
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "config": updated_state["config"],
+        "sweep": updated_state["sweep"],
+        "current_window": scan_result["window"],
+        "spectrum": scan_result["spectrum"],
+        "peak": scan_result["peak"],
+        # Untuk kompatibilitas frontend lama:
+        # detections berisi hasil window terakhir.
+        # Hasil lengkap ada di /api/scan/results.
+        "detections": scan_result["detections"],
+        "last_window_detection_count": len(scan_result["detections"]),
+        "detection_count": len(updated_state["detections"]),
+        "debug_clusters": build_empty_debug_clusters(),
     }
