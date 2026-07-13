@@ -297,6 +297,59 @@ function buildTechnologyCandidates(detection) {
   ].filter(Boolean);
 }
 
+
+const HISTORY_TECHNOLOGY_GROUPS = [
+  { key: "gsm", label: "2G" },
+  { key: "umts", label: "3G" },
+  { key: "lte", label: "4G" },
+  { key: "nr", label: "5G" },
+];
+
+function HistoryCandidateTable({ technologyCandidates }) {
+  if (!Array.isArray(technologyCandidates) || technologyCandidates.length === 0) {
+    return (
+      <div className="history-candidate-table history-candidate-table-empty">
+        <span className="history-chip unknown">No candidate</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="history-candidate-table">
+      {HISTORY_TECHNOLOGY_GROUPS.map((group) => {
+        const candidatesInGroup = technologyCandidates.filter(
+          (candidate) => candidate.type === group.key
+        );
+
+        return (
+          <div
+            className={`history-tech-column ${group.key}`}
+            key={group.key}
+          >
+            <span className="history-tech-column-label">{group.label}</span>
+
+            <div className="history-tech-chip-stack">
+              {candidatesInGroup.length > 0 ? (
+                candidatesInGroup.map((candidate, candidateIndex) => (
+                  <span
+                    className={`history-chip ${candidate.type}`}
+                    key={`${candidate.type}-${candidate.name}-${candidateIndex}`}
+                    title={`${candidate.label} ${candidate.name}`}
+                  >
+                    <b>{candidate.label}</b> {candidate.name}
+                  </span>
+                ))
+              ) : (
+                <span className="history-tech-empty">-</span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function buildDetectionHistoryId(detection, fallbackIndex = 0) {
   const windowIndex = Number(detection.window_index ?? 0);
   const fftIndex = Number(detection.fft_index ?? fallbackIndex);
@@ -1523,22 +1576,9 @@ function App() {
                               )}
                           </span>
 
-                          <div className="history-candidate-chips">
-                            {technologyCandidates.length > 0 ? (
-                              technologyCandidates.map((candidate, candidateIndex) => (
-                                <span
-                                  className={`history-chip ${candidate.type}`}
-                                  key={`${candidate.type}-${candidate.name}-${candidateIndex}`}
-                                >
-                                  <b>{candidate.label}</b> {candidate.name}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="history-chip unknown">
-                                No candidate
-                              </span>
-                            )}
-                          </div>
+                          <HistoryCandidateTable
+                            technologyCandidates={technologyCandidates}
+                          />
                         </article>
                       );
                     })}
@@ -1657,22 +1697,9 @@ function App() {
                                     )}
                                 </span>
 
-                                <div className="history-candidate-chips">
-                                  {technologyCandidates.length > 0 ? (
-                                    technologyCandidates.map((candidate, candidateIndex) => (
-                                      <span
-                                        className={`history-chip ${candidate.type}`}
-                                        key={`${candidate.type}-${candidate.name}-${candidateIndex}`}
-                                      >
-                                        <b>{candidate.label}</b> {candidate.name}
-                                      </span>
-                                    ))
-                                  ) : (
-                                    <span className="history-chip unknown">
-                                      No candidate
-                                    </span>
-                                  )}
-                                </div>
+                                <HistoryCandidateTable
+                                  technologyCandidates={technologyCandidates}
+                                />
                               </article>
                             );
                           })}
