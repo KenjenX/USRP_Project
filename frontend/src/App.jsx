@@ -217,8 +217,8 @@ function buildNrDetail(candidate) {
           ? "UL ARFCN : -"
           : `UL ARFCN : [ ${candidate.nr_arfcn_ul} ]`,
         candidate.nr_arfcn_dl === null || candidate.nr_arfcn_dl === undefined
-          ? "DL Pair : -"
-          : `DL Pair : [ ${candidate.nr_arfcn_dl} ]`,
+          ? "DL Pasangan : -"
+          : `DL Pasangan : [ ${candidate.nr_arfcn_dl} ]`,
       ];
     }
 
@@ -228,8 +228,8 @@ function buildNrDetail(candidate) {
         ? "DL ARFCN : -"
         : `DL ARFCN : [ ${candidate.nr_arfcn_dl} ]`,
       candidate.nr_arfcn_ul === null || candidate.nr_arfcn_ul === undefined
-        ? "UL Pair : -"
-        : `UL Pair : [ ${candidate.nr_arfcn_ul} ]`,
+        ? "UL Pasangan : -"
+        : `UL Pasangan : [ ${candidate.nr_arfcn_ul} ]`,
     ];
   }
 
@@ -264,31 +264,143 @@ function formatDetailValue(value) {
   return String(value);
 }
 
-function buildFrequencyRows(dlMhz, ulMhz, fallbackMhz = null) {
+
+function normalizeDetectedSide(side) {
+  if (side === null || side === undefined || side === "") {
+    return null;
+  }
+
+  const value = String(side).toUpperCase();
+
+  if (value.includes("TDD")) {
+    return "TDD";
+  }
+
+  if (value.includes("SDL")) {
+    return "DL";
+  }
+
+  if (value.includes("SUL")) {
+    return "UL";
+  }
+
+  if (value === "DL" || value === "DOWNLINK") {
+    return "DL";
+  }
+
+  if (value === "UL" || value === "UPLINK") {
+    return "UL";
+  }
+
+  return value;
+}
+
+function formatDetectedSide(side) {
+  const normalized = normalizeDetectedSide(side);
+
+  if (normalized === "DL") {
+    return "DL / Downlink";
+  }
+
+  if (normalized === "UL") {
+    return "UL / Uplink";
+  }
+
+  if (normalized === "TDD") {
+    return "TDD / Shared DL-UL";
+  }
+
+  return normalized ?? "-";
+}
+
+function getLteDetectedSide(candidate) {
+  const direction = normalizeDetectedSide(candidate.direction);
+  const mode = normalizeDetectedSide(candidate.duplex_mode);
+
+  if (direction) {
+    return direction;
+  }
+
+  if (mode === "TDD") {
+    return "TDD";
+  }
+
+  return "DL";
+}
+
+function getNrDetectedSide(candidate) {
+  const direction = normalizeDetectedSide(candidate.direction);
+  const mode = normalizeDetectedSide(candidate.mode);
+
+  if (direction) {
+    return direction;
+  }
+
+  if (mode === "TDD") {
+    return "TDD";
+  }
+
+  if (mode === "SDL") {
+    return "DL";
+  }
+
+  if (mode === "SUL") {
+    return "UL";
+  }
+
+  return "DL";
+}
+
+function buildFrequencyRows(
+  dlMhz,
+  ulMhz,
+  fallbackMhz = null,
+  detectedSide = null
+) {
+  const side = normalizeDetectedSide(detectedSide);
   const rows = [];
 
+  function sideSuffix(rowSide) {
+    if (side === "TDD") {
+      return " (TDD)";
+    }
+
+    if (side === rowSide) {
+      return " (TERDETEKSI)";
+    }
+
+    if ((side === "DL" || side === "UL") && side !== rowSide) {
+      return " (PASANGAN)";
+    }
+
+    return "";
+  }
+
   if (dlMhz !== null && dlMhz !== undefined) {
-    rows.push({ label: "FREQ DL", value: formatMHz(dlMhz) });
+    rows.push({ label: `FREQ DL${sideSuffix("DL")}`, value: formatMHz(dlMhz) });
   }
 
   if (ulMhz !== null && ulMhz !== undefined) {
-    rows.push({ label: "FREQ UL", value: formatMHz(ulMhz) });
+    rows.push({ label: `FREQ UL${sideSuffix("UL")}`, value: formatMHz(ulMhz) });
   }
 
   if (rows.length === 0 && fallbackMhz !== null && fallbackMhz !== undefined) {
-    rows.push({ label: "FREQ", value: formatMHz(fallbackMhz) });
+    rows.push({
+      label: side === "TDD" ? "FREQ (TDD)" : "FREQ (TERDETEKSI)",
+      value: formatMHz(fallbackMhz),
+    });
   }
 
   return rows;
 }
 
 function buildLteChannelRows(candidate) {
-  const direction = candidate.direction ?? "DL";
+  const detectedSide = getLteDetectedSide(candidate);
 
-  if (direction === "TDD") {
+  if (detectedSide === "TDD") {
     return [
       {
-        label: "EARFCN",
+        label: "EARFCN (TDD)",
         value: formatDetailValue(candidate.earfcn ?? candidate.earfcn_dl),
       },
     ];
@@ -297,11 +409,17 @@ function buildLteChannelRows(candidate) {
   const rows = [];
 
   if (candidate.earfcn_dl !== null && candidate.earfcn_dl !== undefined) {
-    rows.push({ label: "DL EARFCN", value: formatDetailValue(candidate.earfcn_dl) });
+    rows.push({
+      label: detectedSide === "DL" ? "DL EARFCN (TERDETEKSI)" : "DL EARFCN (PASANGAN)",
+      value: formatDetailValue(candidate.earfcn_dl),
+    });
   }
 
   if (candidate.earfcn_ul !== null && candidate.earfcn_ul !== undefined) {
-    rows.push({ label: "UL EARFCN", value: formatDetailValue(candidate.earfcn_ul) });
+    rows.push({
+      label: detectedSide === "UL" ? "UL EARFCN (TERDETEKSI)" : "UL EARFCN (PASANGAN)",
+      value: formatDetailValue(candidate.earfcn_ul),
+    });
   }
 
   if (rows.length === 0) {
@@ -312,13 +430,13 @@ function buildLteChannelRows(candidate) {
 }
 
 function buildNrChannelRows(candidate) {
-  const duplex = candidate.mode ?? "NR";
-  const direction = candidate.direction ?? duplex;
+  const duplex = normalizeDetectedSide(candidate.mode ?? "NR");
+  const detectedSide = getNrDetectedSide(candidate);
 
-  if (duplex === "TDD" || direction === "TDD") {
+  if (duplex === "TDD" || detectedSide === "TDD") {
     return [
       {
-        label: "NR-ARFCN",
+        label: "NR-ARFCN (TDD)",
         value: formatDetailValue(
           candidate.nr_arfcn ?? candidate.nr_arfcn_dl ?? candidate.nr_arfcn_ul
         ),
@@ -326,19 +444,19 @@ function buildNrChannelRows(candidate) {
     ];
   }
 
-  if (duplex === "SDL" || direction === "SDL") {
+  if (duplex === "SDL") {
     return [
       {
-        label: "DL NR-ARFCN",
+        label: "DL NR-ARFCN (TERDETEKSI)",
         value: formatDetailValue(candidate.nr_arfcn_dl),
       },
     ];
   }
 
-  if (duplex === "SUL" || direction === "SUL") {
+  if (duplex === "SUL") {
     return [
       {
-        label: "UL NR-ARFCN",
+        label: "UL NR-ARFCN (TERDETEKSI)",
         value: formatDetailValue(candidate.nr_arfcn_ul),
       },
     ];
@@ -347,11 +465,17 @@ function buildNrChannelRows(candidate) {
   const rows = [];
 
   if (candidate.nr_arfcn_dl !== null && candidate.nr_arfcn_dl !== undefined) {
-    rows.push({ label: "DL NR-ARFCN", value: formatDetailValue(candidate.nr_arfcn_dl) });
+    rows.push({
+      label: detectedSide === "DL" ? "DL NR-ARFCN (TERDETEKSI)" : "DL NR-ARFCN (PASANGAN)",
+      value: formatDetailValue(candidate.nr_arfcn_dl),
+    });
   }
 
   if (candidate.nr_arfcn_ul !== null && candidate.nr_arfcn_ul !== undefined) {
-    rows.push({ label: "UL NR-ARFCN", value: formatDetailValue(candidate.nr_arfcn_ul) });
+    rows.push({
+      label: detectedSide === "UL" ? "UL NR-ARFCN (TERDETEKSI)" : "UL NR-ARFCN (PASANGAN)",
+      value: formatDetailValue(candidate.nr_arfcn_ul),
+    });
   }
 
   if (rows.length === 0) {
@@ -441,10 +565,13 @@ function buildTechnologyCandidates(detection) {
           value: formatDetailValue(gsmCandidate.arfcn),
         },
       ],
+      detectedSide: "DL",
+      detectedSideLabel: formatDetectedSide("DL"),
       frequencyRows: buildFrequencyRows(
         gsmCandidate.freq_dl_mhz,
         gsmCandidate.freq_ul_mhz,
-        detection.frequency_mhz
+        detection.frequency_mhz,
+        "DL"
       ),
       dlMhz: gsmCandidate.freq_dl_mhz,
       ulMhz: gsmCandidate.freq_ul_mhz,
@@ -460,13 +587,16 @@ function buildTechnologyCandidates(detection) {
           ? "UARFCN : -"
           : `UARFCN : [ ${candidate.uarfcn_dl} ]`,
       channelRows: [
-        { label: "UARFCN DL", value: formatDetailValue(candidate.uarfcn_dl) },
-        { label: "UARFCN UL", value: formatDetailValue(candidate.uarfcn_ul) },
+        { label: "UARFCN DL (TERDETEKSI)", value: formatDetailValue(candidate.uarfcn_dl) },
+        { label: "UARFCN UL (PASANGAN)", value: formatDetailValue(candidate.uarfcn_ul) },
       ],
+      detectedSide: "DL",
+      detectedSideLabel: formatDetectedSide("DL"),
       frequencyRows: buildFrequencyRows(
         candidate.freq_dl_mhz,
         candidate.freq_ul_mhz,
-        detection.frequency_mhz
+        detection.frequency_mhz,
+        "DL"
       ),
       dlMhz: candidate.freq_dl_mhz,
       ulMhz: candidate.freq_ul_mhz,
@@ -481,10 +611,13 @@ function buildTechnologyCandidates(detection) {
         : candidate.name ?? candidate.band ?? "LTE Candidate",
       detail: buildLteDetail(candidate),
       channelRows: buildLteChannelRows(candidate),
+      detectedSide: getLteDetectedSide(candidate),
+      detectedSideLabel: formatDetectedSide(getLteDetectedSide(candidate)),
       frequencyRows: buildFrequencyRows(
         candidate.freq_dl_mhz,
         candidate.freq_ul_mhz,
-        detection.frequency_mhz
+        detection.frequency_mhz,
+        getLteDetectedSide(candidate)
       ),
       dlMhz: candidate.freq_dl_mhz,
       ulMhz: candidate.freq_ul_mhz,
@@ -499,10 +632,13 @@ function buildTechnologyCandidates(detection) {
         : candidate.name ?? candidate.band ?? "NR Candidate",
       detail: buildNrDetail(candidate),
       channelRows: buildNrChannelRows(candidate),
+      detectedSide: getNrDetectedSide(candidate),
+      detectedSideLabel: formatDetectedSide(getNrDetectedSide(candidate)),
       frequencyRows: buildFrequencyRows(
         candidate.freq_dl_mhz,
         candidate.freq_ul_mhz,
-        detection.frequency_mhz
+        detection.frequency_mhz,
+        getNrDetectedSide(candidate)
       ),
       dlMhz: candidate.freq_dl_mhz,
       ulMhz: candidate.freq_ul_mhz,
@@ -620,13 +756,79 @@ function formatDateTime(value) {
 }
 
 
+
+const TECHNOLOGY_DETAIL_GROUPS = [
+  {
+    key: "gsm",
+    label: "2G",
+    title: "2G GSM",
+    className: "gsm",
+  },
+  {
+    key: "umts",
+    label: "3G",
+    title: "3G UMTS / WCDMA",
+    className: "umts",
+  },
+  {
+    key: "lte",
+    label: "4G",
+    title: "4G LTE",
+    className: "lte",
+  },
+  {
+    key: "nr",
+    label: "5G",
+    title: "5G NR",
+    className: "nr",
+  },
+];
+
+function buildTechnologyCandidateGroups(technologyCandidates) {
+  return TECHNOLOGY_DETAIL_GROUPS.map((group) => ({
+    ...group,
+    candidates: technologyCandidates.filter(
+      (candidate) => candidate.type === group.key
+    ),
+  })).filter((group) => group.candidates.length > 0);
+}
+
 function SignalDetailModal({ detail, onClose }) {
-  if (!detail?.detection) {
-    return null;
+  const hasDetection = Boolean(detail?.detection);
+  const detection = detail?.detection ?? {};
+  const displayIndex = detail?.displayIndex ?? 0;
+  const sourceLabel = detail?.sourceLabel ?? "SCAN POINT";
+  const technologyCandidates = hasDetection
+    ? buildTechnologyCandidates(detection)
+    : [];
+  const technologyGroups = buildTechnologyCandidateGroups(technologyCandidates);
+  const detailKey = hasDetection
+    ? `${detection.window_index ?? ""}-${detection.fft_index ?? ""}-${detection.frequency_mhz ?? ""}`
+    : "empty";
+
+  const [openTechnologyGroups, setOpenTechnologyGroups] = useState({});
+
+  useEffect(() => {
+    setOpenTechnologyGroups({});
+  }, [detailKey]);
+
+  function toggleTechnologyGroup(groupKey) {
+    setOpenTechnologyGroups((previousState) => ({
+      ...previousState,
+      [groupKey]: !previousState[groupKey],
+    }));
   }
 
-  const { detection, displayIndex, sourceLabel } = detail;
-  const technologyCandidates = buildTechnologyCandidates(detection);
+  const candidateSummary = TECHNOLOGY_DETAIL_GROUPS.map((group) => ({
+    ...group,
+    count: technologyCandidates.filter(
+      (candidate) => candidate.type === group.key
+    ).length,
+  }));
+
+  if (!hasDetection) {
+    return null;
+  }
 
   return (
     <div
@@ -693,59 +895,113 @@ function SignalDetailModal({ detail, onClose }) {
           </div>
         </div>
 
+        <p className="signal-detail-section-title">Technology Candidate Summary</p>
+
+        <div className="signal-detail-candidate-summary-grid">
+          {candidateSummary.map((group) => (
+            <div
+              className={`signal-detail-candidate-summary-card ${group.className}`}
+              key={group.key}
+            >
+              <span>{group.label}</span>
+              <strong>{group.count}</strong>
+              <small>{group.count === 1 ? "candidate" : "candidates"}</small>
+            </div>
+          ))}
+        </div>
+
         <p className="signal-detail-section-title">Technology Candidate Details</p>
 
-        {technologyCandidates.length === 0 ? (
+        {technologyGroups.length === 0 ? (
           <div className="signal-detail-empty">
             No 2G/3G/4G/5G candidate match for this signal.
           </div>
         ) : (
-          <div className="signal-detail-candidate-list">
-            {technologyCandidates.map((candidate, index) => (
-              <article
-                className={`signal-detail-candidate-card ${candidate.type}`}
-                key={`${candidate.type}-${candidate.name}-${index}`}
-              >
-                <div className="candidate-detail-header">
-                  <span>{candidate.label}</span>
-                  <strong>{candidate.modeTitle}</strong>
-                </div>
+          <div className="signal-detail-accordion-list">
+            {technologyGroups.map((group) => {
+              const isOpen = Boolean(openTechnologyGroups[group.key]);
 
-                <div className="candidate-detail-main-grid">
-                  <div>
-                    <span>Band</span>
-                    <strong>{candidate.bandTitle ?? candidate.name}</strong>
-                  </div>
+              return (
+                <section
+                  className={`signal-detail-technology-group ${group.className} ${
+                    isOpen ? "open" : ""
+                  }`}
+                  key={group.key}
+                >
+                  <button
+                    type="button"
+                    className="signal-detail-technology-toggle"
+                    onClick={() => toggleTechnologyGroup(group.key)}
+                    aria-expanded={isOpen}
+                  >
+                    <span className="technology-toggle-left">
+                      <i>{group.label}</i>
+                      <strong>{group.title}</strong>
+                    </span>
 
-                  {(candidate.channelRows ?? []).map((row) => (
-                    <div key={`${candidate.type}-${row.label}-${row.value}`}>
-                      <span>{row.label}</span>
-                      <strong>{row.value}</strong>
-                    </div>
-                  ))}
-                </div>
+                    <span className="technology-toggle-right">
+                      {group.candidates.length} {group.candidates.length === 1 ? "candidate" : "candidates"}
+                      <b>{isOpen ? "▾" : "▸"}</b>
+                    </span>
+                  </button>
 
-                <div className="candidate-detail-section-label">
-                  Frequency Details
-                </div>
+                  {isOpen && (
+                    <div className="signal-detail-candidate-list compact">
+                      {group.candidates.map((candidate, index) => (
+                        <article
+                          className={`signal-detail-candidate-card ${candidate.type}`}
+                          key={`${candidate.type}-${candidate.name}-${index}`}
+                        >
+                          <div className="candidate-detail-header compact">
+                            <span>{candidate.label}</span>
+                            <strong>{candidate.modeTitle}</strong>
+                          </div>
 
-                <div className="candidate-frequency-grid">
-                  {(candidate.frequencyRows ?? []).length > 0 ? (
-                    candidate.frequencyRows.map((row) => (
-                      <div key={`${candidate.type}-${row.label}-${row.value}`}>
-                        <span>{row.label}</span>
-                        <strong>{row.value}</strong>
-                      </div>
-                    ))
-                  ) : (
-                    <div>
-                      <span>FREQ</span>
-                      <strong>{formatMHz(detection.frequency_mhz)}</strong>
+                          <div className="candidate-detail-main-grid">
+                            <div>
+                              <span>Band</span>
+                              <strong>{candidate.bandTitle ?? candidate.name}</strong>
+                            </div>
+
+                            <div className="candidate-detected-side">
+                              <span>Detected Side</span>
+                              <strong>{candidate.detectedSideLabel ?? "-"}</strong>
+                            </div>
+
+                            {(candidate.channelRows ?? []).map((row) => (
+                              <div key={`${candidate.type}-${row.label}-${row.value}`}>
+                                <span>{row.label}</span>
+                                <strong>{row.value}</strong>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="candidate-detail-section-label">
+                            Frequency Details
+                          </div>
+
+                          <div className="candidate-frequency-grid">
+                            {(candidate.frequencyRows ?? []).length > 0 ? (
+                              candidate.frequencyRows.map((row) => (
+                                <div key={`${candidate.type}-${row.label}-${row.value}`}>
+                                  <span>{row.label}</span>
+                                  <strong>{row.value}</strong>
+                                </div>
+                              ))
+                            ) : (
+                              <div>
+                                <span>FREQ</span>
+                                <strong>{formatMHz(detection.frequency_mhz)}</strong>
+                              </div>
+                            )}
+                          </div>
+                        </article>
+                      ))}
                     </div>
                   )}
-                </div>
-              </article>
-            ))}
+                </section>
+              );
+            })}
           </div>
         )}
 
