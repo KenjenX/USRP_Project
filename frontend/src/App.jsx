@@ -1,9 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
 const SPECTRUM_REFRESH_MS = 250;
+
+// Jumlah window history yang disimpan di frontend.
+// Scan 50–6000 MHz dengan window 56 MHz butuh sekitar 107 window,
+// jadi 160 masih cukup aman untuk satu sweep penuh.
+const MAX_SPECTRUM_HISTORY_WINDOWS = 160;
 
 const CHART_SVG_HEIGHT = 260;
 const CHART_TICK_STEP_DB = 10;
@@ -42,6 +47,10 @@ function roundUpToStep(value, step) {
 }
 
 function formatMHz(value) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+
   if (!Number.isFinite(Number(value))) {
     return "-";
   }
@@ -57,21 +66,968 @@ function formatDb(value) {
   return `${Number(value).toFixed(2)} dB`;
 }
 
+function buildSpectrumSvgPath({
+  frequencyValues,
+  powerValues,
+  start,
+  end,
+  chartScale,
+}) {
+  const pointCount = Math.min(
+    frequencyValues.length,
+    powerValues.length
+  );
+
+  if (
+    pointCount === 0 ||
+    !Number.isFinite(start) ||
+    !Number.isFinite(end) ||
+    end <= start
+  ) {
+    return {
+      linePoints: "",
+      areaPoints: "",
+    };
+  }
+
+  const chartPoints = [];
+
+  for (let index = 0; index < pointCount; index += 1) {
+    const frequency = Number(frequencyValues[index]);
+    const power = Number(powerValues[index]);
+
+    if (!Number.isFinite(frequency) || !Number.isFinite(power)) {
+      continue;
+    }
+
+    const normalizedX =
+      ((frequency - start) / (end - start)) * 1000;
+
+    const normalizedY =
+      ((chartScale.maxDb - power) /
+        (chartScale.maxDb - chartScale.minDb)) *
+      CHART_SVG_HEIGHT;
+
+    chartPoints.push({
+      x: clamp(normalizedX, 0, 1000),
+      y: clamp(normalizedY, 0, CHART_SVG_HEIGHT),
+    });
+  }
+
+  if (chartPoints.length === 0) {
+    return {
+      linePoints: "",
+      areaPoints: "",
+    };
+  }
+
+  const linePoints = chartPoints
+    .map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`)
+    .join(" ");
+
+  const firstPoint = chartPoints[0];
+  const lastPoint = chartPoints[chartPoints.length - 1];
+
+  return {
+    linePoints,
+    areaPoints: [
+      `${firstPoint.x.toFixed(2)},${CHART_SVG_HEIGHT}`,
+      linePoints,
+      `${lastPoint.x.toFixed(2)},${CHART_SVG_HEIGHT}`,
+    ].join(" "),
+  };
+}
+
+function formatWindowMHz(start, end) {
+  if (!Number.isFinite(Number(start)) || !Number.isFinite(Number(end))) {
+    return "-";
+  }
+
+  return `${Number(start).toFixed(2)}–${Number(end).toFixed(2)} MHz`;
+}
+
+function buildLteDetail(candidate) {
+  const direction = candidate.direction ?? "DL";
+
+  if (direction === "TDD") {
+    const earfcn = candidate.earfcn ?? candidate.earfcn_dl;
+
+    return [
+      earfcn === null || earfcn === undefined
+        ? "EARFCN : -"
+        : `EARFCN : [ ${earfcn} ]`,
+    ];
+  }
+
+  const details = [];
+
+  if (candidate.earfcn_dl !== null && candidate.earfcn_dl !== undefined) {
+    details.push(`DL EARFCN : [ ${candidate.earfcn_dl} ]`);
+  }
+
+  if (candidate.earfcn_ul !== null && candidate.earfcn_ul !== undefined) {
+    details.push(`UL EARFCN : [ ${candidate.earfcn_ul} ]`);
+  }
+
+  if (details.length === 0) {
+    return ["EARFCN : -"];
+  }
+
+  return details;
+}
+
+function buildNrDetail(candidate) {
+  const duplex = candidate.mode ?? "NR";
+  const direction = candidate.direction ?? duplex;
+
+  if (duplex === "TDD" || direction === "TDD") {
+    const nrArfcn = candidate.nr_arfcn ?? candidate.nr_arfcn_dl;
+
+    return [
+      "TDD",
+      nrArfcn === null || nrArfcn === undefined
+        ? "ARFCN : -"
+        : `ARFCN : [ ${nrArfcn} ]`,
+    ];
+  }
+
+  if (duplex === "SDL" || direction === "SDL") {
+    return [
+      "SDL · DL Only",
+      candidate.nr_arfcn_dl === null || candidate.nr_arfcn_dl === undefined
+        ? "DL ARFCN : -"
+        : `DL ARFCN : [ ${candidate.nr_arfcn_dl} ]`,
+    ];
+  }
+
+  if (duplex === "SUL" || direction === "SUL") {
+    return [
+      "SUL · UL Only",
+      candidate.nr_arfcn_ul === null || candidate.nr_arfcn_ul === undefined
+        ? "UL ARFCN : -"
+        : `UL ARFCN : [ ${candidate.nr_arfcn_ul} ]`,
+    ];
+  }
+
+  if (duplex === "FDD") {
+    if (direction === "UL") {
+      return [
+        "FDD · Detected UL",
+        candidate.nr_arfcn_ul === null || candidate.nr_arfcn_ul === undefined
+          ? "UL ARFCN : -"
+          : `UL ARFCN : [ ${candidate.nr_arfcn_ul} ]`,
+        candidate.nr_arfcn_dl === null || candidate.nr_arfcn_dl === undefined
+          ? "DL Pasangan : -"
+          : `DL Pasangan : [ ${candidate.nr_arfcn_dl} ]`,
+      ];
+    }
+
+    return [
+      "FDD · Detected DL",
+      candidate.nr_arfcn_dl === null || candidate.nr_arfcn_dl === undefined
+        ? "DL ARFCN : -"
+        : `DL ARFCN : [ ${candidate.nr_arfcn_dl} ]`,
+      candidate.nr_arfcn_ul === null || candidate.nr_arfcn_ul === undefined
+        ? "UL Pasangan : -"
+        : `UL Pasangan : [ ${candidate.nr_arfcn_ul} ]`,
+    ];
+  }
+
+  const nrArfcn = candidate.nr_arfcn ?? candidate.nr_arfcn_dl ?? candidate.nr_arfcn_ul;
+
+  return [
+    duplex,
+    nrArfcn === null || nrArfcn === undefined
+      ? "ARFCN : -"
+      : `ARFCN : [ ${nrArfcn} ]`,
+  ].filter(Boolean);
+}
+
+
+function normalizeDetailLines(detail) {
+  if (Array.isArray(detail)) {
+    return detail.filter(Boolean);
+  }
+
+  if (detail === null || detail === undefined || detail === "") {
+    return [];
+  }
+
+  return [String(detail)];
+}
+
+function formatDetailValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+
+  return String(value);
+}
+
+
+function normalizeDetectedSide(side) {
+  if (side === null || side === undefined || side === "") {
+    return null;
+  }
+
+  const value = String(side).toUpperCase();
+
+  if (value.includes("TDD")) {
+    return "TDD";
+  }
+
+  if (value.includes("SDL")) {
+    return "DL";
+  }
+
+  if (value.includes("SUL")) {
+    return "UL";
+  }
+
+  if (value === "DL" || value === "DOWNLINK") {
+    return "DL";
+  }
+
+  if (value === "UL" || value === "UPLINK") {
+    return "UL";
+  }
+
+  return value;
+}
+
+function formatDetectedSide(side) {
+  const normalized = normalizeDetectedSide(side);
+
+  if (normalized === "DL") {
+    return "DL / Downlink";
+  }
+
+  if (normalized === "UL") {
+    return "UL / Uplink";
+  }
+
+  if (normalized === "TDD") {
+    return "TDD / Shared DL-UL";
+  }
+
+  return normalized ?? "-";
+}
+
+function getLteDetectedSide(candidate) {
+  const direction = normalizeDetectedSide(candidate.direction);
+  const mode = normalizeDetectedSide(candidate.duplex_mode);
+
+  if (direction) {
+    return direction;
+  }
+
+  if (mode === "TDD") {
+    return "TDD";
+  }
+
+  return "DL";
+}
+
+function getNrDetectedSide(candidate) {
+  const direction = normalizeDetectedSide(candidate.direction);
+  const mode = normalizeDetectedSide(candidate.mode);
+
+  if (direction) {
+    return direction;
+  }
+
+  if (mode === "TDD") {
+    return "TDD";
+  }
+
+  if (mode === "SDL") {
+    return "DL";
+  }
+
+  if (mode === "SUL") {
+    return "UL";
+  }
+
+  return "DL";
+}
+
+function buildFrequencyRows(
+  dlMhz,
+  ulMhz,
+  fallbackMhz = null,
+  detectedSide = null
+) {
+  const side = normalizeDetectedSide(detectedSide);
+  const rows = [];
+
+  function sideSuffix(rowSide) {
+    if (side === "TDD") {
+      return " (TDD)";
+    }
+
+    if (side === rowSide) {
+      return " (TERDETEKSI)";
+    }
+
+    if ((side === "DL" || side === "UL") && side !== rowSide) {
+      return " (PASANGAN)";
+    }
+
+    return "";
+  }
+
+  if (dlMhz !== null && dlMhz !== undefined) {
+    rows.push({ label: `FREQ DL${sideSuffix("DL")}`, value: formatMHz(dlMhz) });
+  }
+
+  if (ulMhz !== null && ulMhz !== undefined) {
+    rows.push({ label: `FREQ UL${sideSuffix("UL")}`, value: formatMHz(ulMhz) });
+  }
+
+  if (rows.length === 0 && fallbackMhz !== null && fallbackMhz !== undefined) {
+    rows.push({
+      label: side === "TDD" ? "FREQ (TDD)" : "FREQ (TERDETEKSI)",
+      value: formatMHz(fallbackMhz),
+    });
+  }
+
+  return rows;
+}
+
+function buildLteChannelRows(candidate) {
+  const detectedSide = getLteDetectedSide(candidate);
+
+  if (detectedSide === "TDD") {
+    return [
+      {
+        label: "EARFCN (TDD)",
+        value: formatDetailValue(candidate.earfcn ?? candidate.earfcn_dl),
+      },
+    ];
+  }
+
+  const rows = [];
+
+  if (candidate.earfcn_dl !== null && candidate.earfcn_dl !== undefined) {
+    rows.push({
+      label: detectedSide === "DL" ? "DL EARFCN (TERDETEKSI)" : "DL EARFCN (PASANGAN)",
+      value: formatDetailValue(candidate.earfcn_dl),
+    });
+  }
+
+  if (candidate.earfcn_ul !== null && candidate.earfcn_ul !== undefined) {
+    rows.push({
+      label: detectedSide === "UL" ? "UL EARFCN (TERDETEKSI)" : "UL EARFCN (PASANGAN)",
+      value: formatDetailValue(candidate.earfcn_ul),
+    });
+  }
+
+  if (rows.length === 0) {
+    rows.push({ label: "EARFCN", value: formatDetailValue(candidate.earfcn) });
+  }
+
+  return rows;
+}
+
+function buildNrChannelRows(candidate) {
+  const duplex = normalizeDetectedSide(candidate.mode ?? "NR");
+  const detectedSide = getNrDetectedSide(candidate);
+
+  if (duplex === "TDD" || detectedSide === "TDD") {
+    return [
+      {
+        label: "NR-ARFCN (TDD)",
+        value: formatDetailValue(
+          candidate.nr_arfcn ?? candidate.nr_arfcn_dl ?? candidate.nr_arfcn_ul
+        ),
+      },
+    ];
+  }
+
+  if (duplex === "SDL") {
+    return [
+      {
+        label: "DL NR-ARFCN (TERDETEKSI)",
+        value: formatDetailValue(candidate.nr_arfcn_dl),
+      },
+    ];
+  }
+
+  if (duplex === "SUL") {
+    return [
+      {
+        label: "UL NR-ARFCN (TERDETEKSI)",
+        value: formatDetailValue(candidate.nr_arfcn_ul),
+      },
+    ];
+  }
+
+  const rows = [];
+
+  if (candidate.nr_arfcn_dl !== null && candidate.nr_arfcn_dl !== undefined) {
+    rows.push({
+      label: detectedSide === "DL" ? "DL NR-ARFCN (TERDETEKSI)" : "DL NR-ARFCN (PASANGAN)",
+      value: formatDetailValue(candidate.nr_arfcn_dl),
+    });
+  }
+
+  if (candidate.nr_arfcn_ul !== null && candidate.nr_arfcn_ul !== undefined) {
+    rows.push({
+      label: detectedSide === "UL" ? "UL NR-ARFCN (TERDETEKSI)" : "UL NR-ARFCN (PASANGAN)",
+      value: formatDetailValue(candidate.nr_arfcn_ul),
+    });
+  }
+
+  if (rows.length === 0) {
+    rows.push({
+      label: "NR-ARFCN",
+      value: formatDetailValue(candidate.nr_arfcn),
+    });
+  }
+
+  return rows;
+}
+
+function buildModeTitle(type, candidate = {}) {
+  if (type === "gsm") {
+    return "2G GSM";
+  }
+
+  if (type === "umts") {
+    return "3G UMTS / WCDMA";
+  }
+
+  if (type === "lte") {
+    const mode = candidate.duplex_mode ?? candidate.direction ?? "LTE";
+
+    if (mode === "TDD" || candidate.direction === "TDD") {
+      return "4G TDD-LTE";
+    }
+
+    if (mode === "FDD" || candidate.direction === "DL" || candidate.direction === "UL") {
+      return "4G FDD-LTE";
+    }
+
+    return "4G LTE";
+  }
+
+  if (type === "nr") {
+    const mode = candidate.mode ?? candidate.direction ?? "NR";
+
+    if (mode === "TDD" || candidate.direction === "TDD") {
+      return "5G NR TDD";
+    }
+
+    if (mode === "FDD" || candidate.direction === "DL" || candidate.direction === "UL") {
+      return "5G NR FDD";
+    }
+
+    if (mode === "SDL") {
+      return "5G NR SDL";
+    }
+
+    if (mode === "SUL") {
+      return "5G NR SUL";
+    }
+
+    return "5G NR";
+  }
+
+  return "Unknown";
+}
+
+function buildTechnologyCandidates(detection) {
+  const gsmCandidate = detection.gsm;
+  const umtsCandidates = Array.isArray(detection.umts)
+    ? detection.umts
+    : [];
+  const lteCandidates = Array.isArray(detection.lte)
+    ? detection.lte
+    : [];
+  const nrCandidates = Array.isArray(detection.nr)
+    ? detection.nr
+    : [];
+
+  return [
+    gsmCandidate && {
+      type: "gsm",
+      label: "2G",
+      name: gsmCandidate.band,
+      modeTitle: buildModeTitle("gsm", gsmCandidate),
+      bandTitle: gsmCandidate.band,
+      detail:
+        gsmCandidate.arfcn === "Dynamic"
+          ? "ARFCN : Dynamic"
+          : `ARFCN : [ ${gsmCandidate.arfcn} ]`,
+      channelRows: [
+        {
+          label: "ARFCN",
+          value: formatDetailValue(gsmCandidate.arfcn),
+        },
+      ],
+      detectedSide: "DL",
+      detectedSideLabel: formatDetectedSide("DL"),
+      frequencyRows: buildFrequencyRows(
+        gsmCandidate.freq_dl_mhz,
+        gsmCandidate.freq_ul_mhz,
+        detection.frequency_mhz,
+        "DL"
+      ),
+      dlMhz: gsmCandidate.freq_dl_mhz,
+      ulMhz: gsmCandidate.freq_ul_mhz,
+    },
+    ...umtsCandidates.map((candidate) => ({
+      type: "umts",
+      label: "3G",
+      name: candidate.name ?? candidate.band ?? "UMTS Candidate",
+      modeTitle: buildModeTitle("umts", candidate),
+      bandTitle: candidate.name ?? candidate.band ?? "UMTS Candidate",
+      detail:
+        candidate.uarfcn_dl === null || candidate.uarfcn_dl === undefined
+          ? "UARFCN : -"
+          : `UARFCN : [ ${candidate.uarfcn_dl} ]`,
+      channelRows: [
+        { label: "UARFCN DL (TERDETEKSI)", value: formatDetailValue(candidate.uarfcn_dl) },
+        { label: "UARFCN UL (PASANGAN)", value: formatDetailValue(candidate.uarfcn_ul) },
+      ],
+      detectedSide: "DL",
+      detectedSideLabel: formatDetectedSide("DL"),
+      frequencyRows: buildFrequencyRows(
+        candidate.freq_dl_mhz,
+        candidate.freq_ul_mhz,
+        detection.frequency_mhz,
+        "DL"
+      ),
+      dlMhz: candidate.freq_dl_mhz,
+      ulMhz: candidate.freq_ul_mhz,
+    })),
+    ...lteCandidates.map((candidate) => ({
+      type: "lte",
+      label: "4G",
+      name: candidate.name ?? candidate.band ?? "LTE Candidate",
+      modeTitle: buildModeTitle("lte", candidate),
+      bandTitle: candidate.band_code
+        ? `${candidate.band_code} - ${candidate.name ?? candidate.band ?? "LTE"}`
+        : candidate.name ?? candidate.band ?? "LTE Candidate",
+      detail: buildLteDetail(candidate),
+      channelRows: buildLteChannelRows(candidate),
+      detectedSide: getLteDetectedSide(candidate),
+      detectedSideLabel: formatDetectedSide(getLteDetectedSide(candidate)),
+      frequencyRows: buildFrequencyRows(
+        candidate.freq_dl_mhz,
+        candidate.freq_ul_mhz,
+        detection.frequency_mhz,
+        getLteDetectedSide(candidate)
+      ),
+      dlMhz: candidate.freq_dl_mhz,
+      ulMhz: candidate.freq_ul_mhz,
+    })),
+    ...nrCandidates.map((candidate) => ({
+      type: "nr",
+      label: "5G",
+      name: candidate.name ?? candidate.band ?? "NR Candidate",
+      modeTitle: buildModeTitle("nr", candidate),
+      bandTitle: candidate.band_code
+        ? `${candidate.band_code} - ${candidate.band_name ?? candidate.name ?? "NR"}`
+        : candidate.name ?? candidate.band ?? "NR Candidate",
+      detail: buildNrDetail(candidate),
+      channelRows: buildNrChannelRows(candidate),
+      detectedSide: getNrDetectedSide(candidate),
+      detectedSideLabel: formatDetectedSide(getNrDetectedSide(candidate)),
+      frequencyRows: buildFrequencyRows(
+        candidate.freq_dl_mhz,
+        candidate.freq_ul_mhz,
+        detection.frequency_mhz,
+        getNrDetectedSide(candidate)
+      ),
+      dlMhz: candidate.freq_dl_mhz,
+      ulMhz: candidate.freq_ul_mhz,
+    })),
+  ].filter(Boolean);
+}
+
+
+const HISTORY_TECHNOLOGY_GROUPS = [
+  { key: "gsm", label: "2G" },
+  { key: "umts", label: "3G" },
+  { key: "lte", label: "4G" },
+  { key: "nr", label: "5G" },
+];
+
+function HistoryCandidateTable({ technologyCandidates }) {
+  if (!Array.isArray(technologyCandidates) || technologyCandidates.length === 0) {
+    return (
+      <div className="history-candidate-table history-candidate-table-empty">
+        <span className="history-chip unknown">No candidate</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="history-candidate-table">
+      {HISTORY_TECHNOLOGY_GROUPS.map((group) => {
+        const candidatesInGroup = technologyCandidates.filter(
+          (candidate) => candidate.type === group.key
+        );
+
+        return (
+          <div
+            className={`history-tech-column ${group.key}`}
+            key={group.key}
+          >
+            <span className="history-tech-column-label">{group.label}</span>
+
+            <div className="history-tech-chip-stack">
+              {candidatesInGroup.length > 0 ? (
+                candidatesInGroup.map((candidate, candidateIndex) => (
+                  <span
+                    className={`history-chip ${candidate.type}`}
+                    key={`${candidate.type}-${candidate.name}-${candidateIndex}`}
+                    title={`${candidate.label} ${candidate.name}`}
+                  >
+                    <b>{candidate.label}</b> {candidate.name}
+                  </span>
+                ))
+              ) : (
+                <span className="history-tech-empty">-</span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function buildDetectionHistoryId(detection, fallbackIndex = 0) {
+  const windowIndex = Number(detection.window_index ?? 0);
+  const fftIndex = Number(detection.fft_index ?? fallbackIndex);
+  const frequency = Number(detection.frequency_mhz);
+
+  return [
+    windowIndex,
+    fftIndex,
+    Number.isFinite(frequency) ? frequency.toFixed(6) : fallbackIndex,
+  ].join("-");
+}
+
+function mergeDetectionHistory(previousHistory, incomingDetections) {
+  const map = new Map();
+
+  previousHistory.forEach((item) => {
+    map.set(item.history_id, item);
+  });
+
+  incomingDetections.forEach((item) => {
+    map.set(item.history_id, item);
+  });
+
+  return Array.from(map.values()).sort((a, b) => {
+    const frequencyA = Number(a.frequency_mhz);
+    const frequencyB = Number(b.frequency_mhz);
+
+    if (!Number.isFinite(frequencyA) || !Number.isFinite(frequencyB)) {
+      return 0;
+    }
+
+    return frequencyA - frequencyB;
+  });
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+
+
+const TECHNOLOGY_DETAIL_GROUPS = [
+  {
+    key: "gsm",
+    label: "2G",
+    title: "2G GSM",
+    className: "gsm",
+  },
+  {
+    key: "umts",
+    label: "3G",
+    title: "3G UMTS / WCDMA",
+    className: "umts",
+  },
+  {
+    key: "lte",
+    label: "4G",
+    title: "4G LTE",
+    className: "lte",
+  },
+  {
+    key: "nr",
+    label: "5G",
+    title: "5G NR",
+    className: "nr",
+  },
+];
+
+function buildTechnologyCandidateGroups(technologyCandidates) {
+  return TECHNOLOGY_DETAIL_GROUPS.map((group) => ({
+    ...group,
+    candidates: technologyCandidates.filter(
+      (candidate) => candidate.type === group.key
+    ),
+  })).filter((group) => group.candidates.length > 0);
+}
+
+function SignalDetailModal({ detail, onClose }) {
+  const hasDetection = Boolean(detail?.detection);
+  const detection = detail?.detection ?? {};
+  const displayIndex = detail?.displayIndex ?? 0;
+  const sourceLabel = detail?.sourceLabel ?? "SCAN POINT";
+  const technologyCandidates = hasDetection
+    ? buildTechnologyCandidates(detection)
+    : [];
+  const technologyGroups = buildTechnologyCandidateGroups(technologyCandidates);
+  const detailKey = hasDetection
+    ? `${detection.window_index ?? ""}-${detection.fft_index ?? ""}-${detection.frequency_mhz ?? ""}`
+    : "empty";
+
+  const [openTechnologyGroups, setOpenTechnologyGroups] = useState({});
+
+  useEffect(() => {
+    setOpenTechnologyGroups({});
+  }, [detailKey]);
+
+  function toggleTechnologyGroup(groupKey) {
+    setOpenTechnologyGroups((previousState) => ({
+      ...previousState,
+      [groupKey]: !previousState[groupKey],
+    }));
+  }
+
+  const candidateSummary = TECHNOLOGY_DETAIL_GROUPS.map((group) => ({
+    ...group,
+    count: technologyCandidates.filter(
+      (candidate) => candidate.type === group.key
+    ).length,
+  }));
+
+  if (!hasDetection) {
+    return null;
+  }
+
+  return (
+    <div
+      className="signal-detail-backdrop"
+      role="presentation"
+      onClick={onClose}
+    >
+      <section
+        className="signal-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Signal detail"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="signal-detail-header">
+          <div>
+            <p className="signal-detail-kicker">
+              {sourceLabel ?? "SCAN POINT"}
+            </p>
+            <h3>POINT - {String(displayIndex).padStart(3, "0")}</h3>
+          </div>
+
+          <button
+            type="button"
+            className="signal-detail-close"
+            onClick={onClose}
+            aria-label="Close signal detail"
+          >
+            ×
+          </button>
+        </header>
+
+        <div className="signal-detail-status-row">
+          <span className="signal-detail-status active">ABOVE THRESHOLD</span>
+          <span>FFT INDEX: {formatDetailValue(detection.fft_index)}</span>
+          <span>WINDOW: {formatDetailValue(detection.window_index)}</span>
+        </div>
+
+        <div className="signal-detail-summary-grid">
+          <div className="signal-detail-summary-card wide">
+            <span>Detected Frequency</span>
+            <strong>{formatMHz(detection.frequency_mhz)}</strong>
+          </div>
+
+          <div className="signal-detail-summary-card">
+            <span>Power</span>
+            <strong>{formatDb(detection.power_db)}</strong>
+          </div>
+
+          <div className="signal-detail-summary-card">
+            <span>Threshold</span>
+            <strong>{formatDb(detection.threshold_db)}</strong>
+          </div>
+
+          <div className="signal-detail-summary-card wide">
+            <span>Window Range</span>
+            <strong>
+              {detection.window_label ??
+                formatWindowMHz(
+                  detection.window_start_mhz,
+                  detection.window_end_mhz
+                )}
+            </strong>
+          </div>
+        </div>
+
+        <p className="signal-detail-section-title">Technology Candidate Summary</p>
+
+        <div className="signal-detail-candidate-summary-grid">
+          {candidateSummary.map((group) => (
+            <div
+              className={`signal-detail-candidate-summary-card ${group.className}`}
+              key={group.key}
+            >
+              <span>{group.label}</span>
+              <strong>{group.count}</strong>
+              <small>{group.count === 1 ? "candidate" : "candidates"}</small>
+            </div>
+          ))}
+        </div>
+
+        <p className="signal-detail-section-title">Technology Candidate Details</p>
+
+        {technologyGroups.length === 0 ? (
+          <div className="signal-detail-empty">
+            No 2G/3G/4G/5G candidate match for this signal.
+          </div>
+        ) : (
+          <div className="signal-detail-accordion-list">
+            {technologyGroups.map((group) => {
+              const isOpen = Boolean(openTechnologyGroups[group.key]);
+
+              return (
+                <section
+                  className={`signal-detail-technology-group ${group.className} ${
+                    isOpen ? "open" : ""
+                  }`}
+                  key={group.key}
+                >
+                  <button
+                    type="button"
+                    className="signal-detail-technology-toggle"
+                    onClick={() => toggleTechnologyGroup(group.key)}
+                    aria-expanded={isOpen}
+                  >
+                    <span className="technology-toggle-left">
+                      <i>{group.label}</i>
+                      <strong>{group.title}</strong>
+                    </span>
+
+                    <span className="technology-toggle-right">
+                      {group.candidates.length} {group.candidates.length === 1 ? "candidate" : "candidates"}
+                      <b>{isOpen ? "▾" : "▸"}</b>
+                    </span>
+                  </button>
+
+                  {isOpen && (
+                    <div className="signal-detail-candidate-list compact">
+                      {group.candidates.map((candidate, index) => (
+                        <article
+                          className={`signal-detail-candidate-card ${candidate.type}`}
+                          key={`${candidate.type}-${candidate.name}-${index}`}
+                        >
+                          <div className="candidate-detail-header compact">
+                            <span>{candidate.label}</span>
+                            <strong>{candidate.modeTitle}</strong>
+                          </div>
+
+                          <div className="candidate-detail-main-grid">
+                            <div>
+                              <span>Band</span>
+                              <strong>{candidate.bandTitle ?? candidate.name}</strong>
+                            </div>
+
+                            <div className="candidate-detected-side">
+                              <span>Detected Side</span>
+                              <strong>{candidate.detectedSideLabel ?? "-"}</strong>
+                            </div>
+
+                            {(candidate.channelRows ?? []).map((row) => (
+                              <div key={`${candidate.type}-${row.label}-${row.value}`}>
+                                <span>{row.label}</span>
+                                <strong>{row.value}</strong>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="candidate-detail-section-label">
+                            Frequency Details
+                          </div>
+
+                          <div className="candidate-frequency-grid">
+                            {(candidate.frequencyRows ?? []).length > 0 ? (
+                              candidate.frequencyRows.map((row) => (
+                                <div key={`${candidate.type}-${row.label}-${row.value}`}>
+                                  <span>{row.label}</span>
+                                  <strong>{row.value}</strong>
+                                </div>
+                              ))
+                            ) : (
+                              <div>
+                                <span>FREQ</span>
+                                <strong>{formatMHz(detection.frequency_mhz)}</strong>
+                              </div>
+                            )}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        )}
+
+        <footer className="signal-detail-footer">
+          <button type="button" onClick={onClose}>Close</button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState("general");
 
   // Nilai input yang diketik pada web.
   const [threshold, setThreshold] = useState("0");
-  const [startFrequency, setStartFrequency] = useState("99");
-  const [endFrequency, setEndFrequency] = useState("101");
+  const [startFrequency, setStartFrequency] = useState("50");
+  const [endFrequency, setEndFrequency] = useState("6000");
 
   // Konfigurasi yang sudah benar-benar dikirim ke backend.
   const [scanConfig, setScanConfig] = useState({
     threshold_db: 0,
-    start_frequency_mhz: 99,
-    end_frequency_mhz: 101,
-    center_frequency_mhz: 100,
-    sample_rate_mhz: 2,
+    start_frequency_mhz: 50,
+    end_frequency_mhz: 6000,
+    center_frequency_mhz: 3025,
+    sample_rate_mhz: 5950,
   });
 
   const [isScanning, setIsScanning] = useState(false);
@@ -88,6 +1044,24 @@ function App() {
     power_db: [],
   });
 
+  // Opsi 2: history spektrum dari window sweep yang sudah discan.
+  // Data ini membuat window 56 MHz yang bergerak meninggalkan trail di chart.
+  const [spectrumHistory, setSpectrumHistory] = useState([]);
+  const [sweepInfo, setSweepInfo] = useState(null);
+  const [totalDetectionCount, setTotalDetectionCount] = useState(0);
+
+  // Single scan session history:
+  // semua titik di atas threshold pada satu sweep disimpan di sini,
+  // lalu setelah sweep selesai dibuat menjadi satu folder/session.
+  const [currentScanHistory, setCurrentScanHistory] = useState([]);
+  const [scanSessions, setScanSessions] = useState([]);
+  const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [selectedDetectionDetail, setSelectedDetectionDetail] = useState(null);
+
+  const currentScanHistoryRef = useRef([]);
+  const activeScanMetaRef = useRef(null);
+  const scanSessionSavedRef = useRef(false);
+
   const [peak, setPeak] = useState(null);
   const [detections, setDetections] = useState([]);
   const [debugClusters, setDebugClusters] = useState({
@@ -99,6 +1073,22 @@ function App() {
     "Masukkan konfigurasi lalu tekan START SCAN."
   );
   const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    if (!selectedDetectionDetail) {
+      return undefined;
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setSelectedDetectionDetail(null);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedDetectionDetail]);
 
   // Cek apakah backend bisa mendeteksi USRP.
   useEffect(() => {
@@ -148,11 +1138,25 @@ function App() {
           return;
         }
 
-        setSpectrum(data.spectrum);
-        setPeak(data.peak);
-        setDetections(
-          Array.isArray(data.detections) ? data.detections : []
+        const spectrumData = data.spectrum ?? {
+          frequency_mhz: [],
+          power_db: [],
+        };
+        const currentWindow = data.current_window ?? null;
+        const sweep = data.sweep ?? null;
+        const frequencyValues = spectrumData.frequency_mhz ?? [];
+        const powerValues = spectrumData.power_db ?? [];
+        const timestamp = data.timestamp ?? new Date().toISOString();
+        const windowDetections = Array.isArray(data.detections)
+          ? data.detections
+          : [];
+        const windowIndex = Number(
+          currentWindow?.window_index ?? sweep?.scanned_windows ?? 0
         );
+
+        setSpectrum(spectrumData);
+        setPeak(data.peak);
+        setDetections(windowDetections);
         setDebugClusters(
           data.debug_clusters ?? {
             merge_gap_mhz: 0.05,
@@ -161,17 +1165,143 @@ function App() {
           }
         );
         setScanConfig(data.config);
+        setSweepInfo(sweep);
+        setTotalDetectionCount(
+          Number.isFinite(Number(data.detection_count))
+            ? Number(data.detection_count)
+            : windowDetections.length
+        );
+
+        if (windowDetections.length > 0) {
+          const normalizedDetections = windowDetections.map(
+            (detection, detectionIndex) => ({
+              ...detection,
+              history_id: buildDetectionHistoryId(
+                detection,
+                detectionIndex
+              ),
+              captured_at: timestamp,
+              window_label: currentWindow
+                ? formatWindowMHz(
+                    currentWindow.start_frequency_mhz,
+                    currentWindow.end_frequency_mhz
+                  )
+                : "-",
+            })
+          );
+
+          const nextScanHistory = mergeDetectionHistory(
+            currentScanHistoryRef.current,
+            normalizedDetections
+          );
+
+          currentScanHistoryRef.current = nextScanHistory;
+          setCurrentScanHistory(nextScanHistory);
+        }
+
+        if (
+          currentWindow &&
+          frequencyValues.length > 0 &&
+          powerValues.length > 0
+        ) {
+          const segmentId = [
+            windowIndex,
+            currentWindow.start_frequency_mhz,
+            currentWindow.end_frequency_mhz,
+          ].join("-");
+
+          const historySegment = {
+            id: segmentId,
+            windowIndex,
+            startFrequencyMhz: Number(currentWindow.start_frequency_mhz),
+            endFrequencyMhz: Number(currentWindow.end_frequency_mhz),
+            timestamp,
+            frequency_mhz: frequencyValues,
+            power_db: powerValues,
+          };
+
+          setSpectrumHistory((previousHistory) => {
+            const withoutDuplicate = previousHistory.filter(
+              (segment) => segment.id !== segmentId
+            );
+
+            const nextHistory = [
+              ...withoutDuplicate,
+              historySegment,
+            ].sort((a, b) => a.windowIndex - b.windowIndex);
+
+            if (nextHistory.length > MAX_SPECTRUM_HISTORY_WINDOWS) {
+              return nextHistory.slice(
+                nextHistory.length - MAX_SPECTRUM_HISTORY_WINDOWS
+              );
+            }
+
+            return nextHistory;
+          });
+        }
+
         setErrorMessage("");
 
         if (!data.running) {
           setIsScanning(false);
-          setStatusMessage("Scan dihentikan.");
+
+          if (data.completed && !scanSessionSavedRef.current) {
+            const historyForSession = currentScanHistoryRef.current;
+            const sessionId =
+              activeScanMetaRef.current?.id ?? `scan-${Date.now()}`;
+            const completedAt = timestamp;
+
+            const session = {
+              id: sessionId,
+              startedAt:
+                activeScanMetaRef.current?.startedAt ?? completedAt,
+              completedAt,
+              config: data.config,
+              sweep,
+              peak: data.peak,
+              detections: historyForSession,
+              detectionCount: historyForSession.length,
+            };
+
+            setSelectedSessionId(session.id);
+            setScanSessions((previousSessions) => {
+              const sessionWithTitle = {
+                ...session,
+                title: `Scan #${String(
+                  previousSessions.length + 1
+                ).padStart(3, "0")}`,
+              };
+
+              return [sessionWithTitle, ...previousSessions];
+            });
+
+            scanSessionSavedRef.current = true;
+          }
+
+          setStatusMessage(
+            data.completed
+              ? `Sweep selesai. Hasil scan disimpan ke Scan History. Total titik di atas threshold: ${
+                  currentScanHistoryRef.current.length
+                }.`
+              : "Scan dihentikan."
+          );
           return;
         }
 
-        setStatusMessage(
-          `Spectrum diperbarui: ${data.timestamp || "realtime"}`
-        );
+        if (currentWindow && sweep) {
+          setStatusMessage(
+            `Scanning ${formatWindowMHz(
+              currentWindow.start_frequency_mhz,
+              currentWindow.end_frequency_mhz
+            )} · Window ${sweep.scanned_windows}/${sweep.total_windows} · ${
+              sweep.progress_percent
+            }%`
+          );
+        } else {
+          setStatusMessage(
+            `Spectrum diperbarui: ${data.timestamp || "realtime"}`
+          );
+        }
       } catch (error) {
         if (!cancelled) {
           setErrorMessage(`Spectrum error: ${error.message}`);
@@ -278,77 +1408,59 @@ function App() {
   }, [chartScale, scanConfig.threshold_db]);
 
   // Ubah pasangan frequency_mhz + power_db dari backend menjadi titik SVG.
-  // Posisi X memakai frekuensi asli, bukan nomor/index data display.
+  // Posisi X memakai frekuensi asli pada full range scan, bukan nomor/index data.
   const spectrumChart = useMemo(() => {
-    const frequencyValues = spectrum.frequency_mhz ?? [];
-    const powerValues = spectrum.power_db ?? [];
     const start = Number(scanConfig.start_frequency_mhz);
     const end = Number(scanConfig.end_frequency_mhz);
 
-    const pointCount = Math.min(
-      frequencyValues.length,
-      powerValues.length
-    );
+    return buildSpectrumSvgPath({
+      frequencyValues: spectrum.frequency_mhz ?? [],
+      powerValues: spectrum.power_db ?? [],
+      start,
+      end,
+      chartScale,
+    });
+  }, [chartScale, scanConfig, spectrum]);
+
+  // Opsi 2: ubah seluruh history window sweep menjadi polyline SVG.
+  // Segment lama akan digambar lebih redup, sedangkan window aktif tetap memakai
+  // spectrumChart utama yang lebih terang.
+  const spectrumHistoryCharts = useMemo(() => {
+    const start = Number(scanConfig.start_frequency_mhz);
+    const end = Number(scanConfig.end_frequency_mhz);
 
     if (
-      pointCount === 0 ||
+      !Array.isArray(spectrumHistory) ||
+      spectrumHistory.length === 0 ||
       !Number.isFinite(start) ||
       !Number.isFinite(end) ||
       end <= start
     ) {
-      return {
-        linePoints: "",
-        areaPoints: "",
-      };
+      return [];
     }
 
-    const chartPoints = [];
+    return spectrumHistory
+      .map((segment) => {
+        const path = buildSpectrumSvgPath({
+          frequencyValues: segment.frequency_mhz ?? [],
+          powerValues: segment.power_db ?? [],
+          start,
+          end,
+          chartScale,
+        });
 
-    for (let index = 0; index < pointCount; index += 1) {
-      const frequency = Number(frequencyValues[index]);
-      const power = Number(powerValues[index]);
+        if (!path.linePoints) {
+          return null;
+        }
 
-      if (!Number.isFinite(frequency) || !Number.isFinite(power)) {
-        continue;
-      }
+        return {
+          ...segment,
+          ...path,
+        };
+      })
+      .filter(Boolean);
+  }, [chartScale, scanConfig, spectrumHistory]);
 
-      const normalizedX =
-        ((frequency - start) / (end - start)) * 1000;
-
-      const normalizedY =
-        ((chartScale.maxDb - power) /
-          (chartScale.maxDb - chartScale.minDb)) *
-        CHART_SVG_HEIGHT;
-
-      chartPoints.push({
-        x: clamp(normalizedX, 0, 1000),
-        y: clamp(normalizedY, 0, CHART_SVG_HEIGHT),
-      });
-    }
-
-    if (chartPoints.length === 0) {
-      return {
-        linePoints: "",
-        areaPoints: "",
-      };
-    }
-
-    const linePoints = chartPoints
-      .map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`)
-      .join(" ");
-
-    const firstPoint = chartPoints[0];
-    const lastPoint = chartPoints[chartPoints.length - 1];
-
-    return {
-      linePoints,
-      areaPoints: [
-        `${firstPoint.x.toFixed(2)},${CHART_SVG_HEIGHT}`,
-        linePoints,
-        `${lastPoint.x.toFixed(2)},${CHART_SVG_HEIGHT}`,
-      ].join(" "),
-    };
-  }, [chartScale, scanConfig, spectrum]);
 
   // Posisi garis threshold pada grafik.
   const thresholdTop = useMemo(() => {
@@ -557,6 +1669,17 @@ function App() {
         frequency_mhz: [],
         power_db: [],
       });
+      setSpectrumHistory([]);
+      setCurrentScanHistory([]);
+      currentScanHistoryRef.current = [];
+      activeScanMetaRef.current = {
+        id: `scan-${Date.now()}`,
+        startedAt: new Date().toISOString(),
+        request: requestBody,
+      };
+      scanSessionSavedRef.current = false;
+      setSweepInfo(data.sweep ?? null);
+      setTotalDetectionCount(0);
       setPeak(null);
       setDetections([]);
       setDebugClusters({
@@ -574,7 +1697,25 @@ function App() {
     }
   }
 
-  const detectedCount = detections.length;
+  const currentScanHistorySorted = useMemo(
+    () => [...currentScanHistory].sort(
+      (a, b) => Number(a.frequency_mhz) - Number(b.frequency_mhz)
+    ),
+    [currentScanHistory]
+  );
+
+  const selectedScanSession = useMemo(() => {
+    if (scanSessions.length === 0) {
+      return null;
+    }
+
+    return (
+      scanSessions.find((session) => session.id === selectedSessionId) ??
+      scanSessions[0]
+    );
+  }, [scanSessions, selectedSessionId]);
+
+  const detectedCount = currentScanHistorySorted.length;
 
   return (
     <main className="app-shell">
@@ -652,6 +1793,13 @@ function App() {
             Range: {scanConfig.start_frequency_mhz}–
             {scanConfig.end_frequency_mhz} MHz
           </span>
+
+          {sweepInfo && (
+            <span className="sidebar-sweep-detail">
+              Sweep: {sweepInfo.scanned_windows}/{sweepInfo.total_windows} ·{" "}
+              {sweepInfo.progress_percent}%
+            </span>
+          )}
         </section>
         <section className="sidebar-live-peak">
         <div className="sidebar-peak-heading">
@@ -725,7 +1873,7 @@ function App() {
           </div>
         </header>
 
-        {/* <nav className="tabs">
+        <nav className="tabs">
           <button
             type="button"
             className={activeTab === "general" ? "tab active-tab" : "tab"}
@@ -736,12 +1884,13 @@ function App() {
 
           <button
             type="button"
-            className={activeTab === "specific" ? "tab active-tab" : "tab"}
-            onClick={() => setActiveTab("specific")}
+            className={activeTab === "history" ? "tab active-tab" : "tab"}
+            onClick={() => setActiveTab("history")}
           >
-            Specific
+            Scan History
+            <span className="tab-badge">{scanSessions.length}</span>
           </button>
-        </nav> */}
+        </nav>
 
         {activeTab === "general" ? (
           <>
@@ -765,12 +1914,12 @@ function App() {
 
                   <span>
                     <i className="legend-detection-marker" />
-                    Detected Peak
+                    Threshold Point
                   </span>
 
                   <span>
-                    <i className="legend-merged-cluster" />
-                    Cluster
+                    <i className="legend-line history-line" />
+                    Spectrum History
                   </span>
 
                   {SHOW_MERGE_GAP_DEBUG && (
@@ -781,6 +1930,26 @@ function App() {
                   )}
                 </div>
               </div>
+
+              {sweepInfo && (
+                <div className="sweep-progress-card">
+                  <span>
+                    Sweep window: {sweepInfo.scanned_windows}/
+                    {sweepInfo.total_windows}
+                  </span>
+                  <span>Progress: {sweepInfo.progress_percent}%</span>
+                  {sweepInfo.last_window_start_mhz !== null &&
+                    sweepInfo.last_window_end_mhz !== null && (
+                      <span>
+                        Last:{" "}
+                        {formatWindowMHz(
+                          sweepInfo.last_window_start_mhz,
+                          sweepInfo.last_window_end_mhz
+                        )}
+                      </span>
+                    )}
+                </div>
+              )}
 
               <div className="spectrum-chart">
                 <div className="chart-y-axis" aria-hidden="true">
@@ -819,8 +1988,30 @@ function App() {
                     <span>Threshold {scanConfig.threshold_db} dB</span>
                   </div>
 
-                  {spectrumChart.linePoints ? (
+                  {spectrumChart.linePoints || spectrumHistoryCharts.length > 0 ? (
                     <>
+                  {spectrumHistoryCharts.length > 1 && (
+                    <svg
+                      className="spectrum-history-svg"
+                      viewBox={`0 0 1000 ${CHART_SVG_HEIGHT}`}
+                      preserveAspectRatio="none"
+                      aria-label="USRP sweep spectrum history"
+                    >
+                      {spectrumHistoryCharts.slice(0, -1).map((segment) => (
+                        <polyline
+                          key={segment.id}
+                          points={segment.linePoints}
+                          className="spectrum-history-line"
+                          fill="none"
+                          vectorEffect="non-scaling-stroke"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          shapeRendering="geometricPrecision"
+                        />
+                      ))}
+                    </svg>
+                  )}
+
                       <svg
                         className="spectrum-svg"
                         viewBox={`0 0 1000 ${CHART_SVG_HEIGHT}`}
@@ -939,127 +2130,102 @@ function App() {
             <section className="detected-section classification-section">
               <div className="panel-heading">
                 <div>
-                  <p className="section-kicker">SCAN RESULT</p>
-                  <h3>Frequency Classification</h3>
+                  <p className="section-kicker">CURRENT SCAN</p>
+                  <h3>Current Scan History</h3>
                 </div>
 
                 <div className="detected-count">
                   <strong>{detectedCount}</strong>
                   <span>
                     {detectedCount === 1
-                      ? "SIGNAL ABOVE THRESHOLD"
-                      : "SIGNALS ABOVE THRESHOLD"}
+                      ? "POINT ABOVE THRESHOLD"
+                      : "POINTS ABOVE THRESHOLD"}
                   </span>
                 </div>
               </div>
 
-              {!peak ? (
+              <div className="scan-history-toolbar">
+                <span>Sorted by frequency: 50 MHz → 6000 MHz</span>
+                <span>
+                  Backend total: {totalDetectionCount} threshold point
+                  {totalDetectionCount === 1 ? "" : "s"}
+                </span>
+                {sweepInfo && (
+                  <span>
+                    Window {sweepInfo.scanned_windows}/{sweepInfo.total_windows}
+                  </span>
+                )}
+              </div>
+
+              {currentScanHistorySorted.length === 0 ? (
                 <div className="empty-state">
                   {isScanning
-                    ? "Menerima data spectrum dari USRP..."
-                    : "Belum ada peak dari USRP. Jalankan scan terlebih dahulu."}
-                </div>
-              ) : detections.length === 0 ? (
-                <div className="empty-state">
-                  Tidak ada sinyal yang menyentuh atau melewati threshold.
+                    ? "Belum ada titik yang melewati threshold pada scan ini."
+                    : "Belum ada history scan. Tekan START SCAN untuk memulai single sweep."}
                 </div>
               ) : (
-                <div className="classification-grid">
-                  {detections.map((detection, index) => {
-                    const gsmCandidate = detection.gsm;
+                <div className="scan-history-table">
+                  <div className="scan-history-head">
+                    <span>#</span>
+                    <span>Frequency</span>
+                    <span>Power</span>
+                    <span>Window</span>
+                    <span>Technology candidates</span>
+                  </div>
 
-                    // Nanti UMTS, LTE, dan NR dapat ditambahkan ke array
-                    // ini dengan format data card yang sama.
-                    const technologyCandidates = [
-                      gsmCandidate && {
-                        type: "gsm",
-                        label: "2G",
-                        name: gsmCandidate.band,
-                        detail:
-                          gsmCandidate.arfcn === "Dynamic"
-                            ? "ARFCN : Dynamic"
-                            : `ARFCN : [ ${gsmCandidate.arfcn} ]`,
-                        dlMhz: gsmCandidate.freq_dl_mhz,
-                        ulMhz: gsmCandidate.freq_ul_mhz,
-                        profiles: gsmCandidate.possible_profiles ?? [],
-                      },
-                    ].filter(Boolean);
+                  <div className="scan-history-list">
+                    {currentScanHistorySorted.map((detection, index) => {
+                      const technologyCandidates = buildTechnologyCandidates(detection);
 
-                    const primaryCandidate =
-                      technologyCandidates[0] ?? null;
+                      return (
+                        <article
+                          className="scan-history-row clickable"
+                          key={detection.history_id ?? `${detection.frequency_mhz}-${index}`}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() =>
+                            setSelectedDetectionDetail({
+                              detection,
+                              displayIndex: index + 1,
+                              sourceLabel: "CURRENT SCAN DETAIL",
+                            })
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              setSelectedDetectionDetail({
+                                detection,
+                                displayIndex: index + 1,
+                                sourceLabel: "CURRENT SCAN DETAIL",
+                              });
+                            }
+                          }}
+                        >
+                          <span className="scan-history-index">
+                            {String(index + 1).padStart(3, "0")}
+                          </span>
 
-                    const signalColor =
-                      DETECTION_MARKER_COLORS[
-                        index % DETECTION_MARKER_COLORS.length
-                      ];
+                          <strong>{formatMHz(detection.frequency_mhz)}</strong>
 
-                    return (
-                      <article
-                        className="signal-detection-card"
-                        key={`${detection.frequency_mhz}-${index}`}
-                        style={{ "--signal-color": signalColor }}
-                      >
-                        <header className="signal-detection-header">
-                          <div>
-                            <p className="signal-detection-label">
-                              SIGNAL {String(index + 1).padStart(2, "0")} ·
-                              DETECTED ABOVE THRESHOLD
-                            </p>
-
-                            <h4>
-                              {formatMHz(detection.frequency_mhz)}
-                            </h4>
-                          </div>
-
-                          <span className="signal-detection-power">
+                          <span className="history-power">
                             {formatDb(detection.power_db)}
                           </span>
-                        </header>
 
-                        {primaryCandidate && (
-                          <div className="signal-frequency-pair">
-                            <span>
-                              DL: {formatMHz(primaryCandidate.dlMhz)}
-                            </span>
+                          <span className="history-window">
+                            {detection.window_label ??
+                              formatWindowMHz(
+                                detection.window_start_mhz,
+                                detection.window_end_mhz
+                              )}
+                          </span>
 
-                            <span>
-                              UL: {formatMHz(primaryCandidate.ulMhz)}
-                            </span>
-                          </div>
-                        )}
-
-                        <p className="technology-candidate-title">
-                          TECHNOLOGY CANDIDATES
-                        </p>
-
-                        {technologyCandidates.length > 0 ? (
-                          <div className="technology-candidate-grid">
-                            {technologyCandidates.map((candidate) => (
-                              <article
-                                className={`technology-mini-card ${candidate.type}`}
-                                key={`${candidate.type}-${candidate.name}`}
-                              >
-                                <div className="technology-mini-header">
-                                  <span className="technology-mini-icon">
-                                    {candidate.label}
-                                  </span>
-
-                                  <div className="technology-mini-info">
-                                    <strong>{candidate.name}</strong>
-                                    <span>{candidate.detail}</span>
-                                  </div>
-                                </div>
-                              </article>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="no-technology-match">
-                            No GSM candidate match for this signal.
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
+                          <HistoryCandidateTable
+                            technologyCandidates={technologyCandidates}
+                          />
+                        </article>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -1070,6 +2236,143 @@ function App() {
               )}
             </section>
           </>
+        ) : activeTab === "history" ? (
+          <section className="detected-section scan-session-section">
+            <div className="panel-heading">
+              <div>
+                <p className="section-kicker">SESSION STORAGE</p>
+                <h3>Scan History Folder</h3>
+              </div>
+
+              <div className="detected-count">
+                <strong>{scanSessions.length}</strong>
+                <span>{scanSessions.length === 1 ? "SCAN SESSION" : "SCAN SESSIONS"}</span>
+              </div>
+            </div>
+
+            {scanSessions.length === 0 ? (
+              <div className="empty-state">
+                Belum ada folder scan. Jalankan satu sweep sampai selesai,
+                lalu hasilnya otomatis masuk ke halaman ini.
+              </div>
+            ) : (
+              <div className="session-history-layout">
+                <div className="session-folder-list">
+                  {scanSessions.map((session) => (
+                    <button
+                      type="button"
+                      className={`session-folder-card ${
+                        selectedScanSession?.id === session.id ? "selected" : ""
+                      }`}
+                      key={session.id}
+                      onClick={() => setSelectedSessionId(session.id)}
+                    >
+                      <span className="folder-icon">▰</span>
+                      <span>
+                        <strong>{session.title}</strong>
+                        <small>
+                          {session.config.start_frequency_mhz}–
+                          {session.config.end_frequency_mhz} MHz · {session.detectionCount} points
+                        </small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="session-detail-panel">
+                  {selectedScanSession && (
+                    <>
+                      <div className="session-summary-grid">
+                        <div>
+                          <span>Range</span>
+                          <strong>
+                            {selectedScanSession.config.start_frequency_mhz}–
+                            {selectedScanSession.config.end_frequency_mhz} MHz
+                          </strong>
+                        </div>
+                        <div>
+                          <span>Threshold</span>
+                          <strong>{selectedScanSession.config.threshold_db} dB</strong>
+                        </div>
+                        <div>
+                          <span>Total points</span>
+                          <strong>{selectedScanSession.detectionCount}</strong>
+                        </div>
+                        <div>
+                          <span>Completed</span>
+                          <strong>{formatDateTime(selectedScanSession.completedAt)}</strong>
+                        </div>
+                      </div>
+
+                      <div className="scan-history-table session-table">
+                        <div className="scan-history-head">
+                          <span>#</span>
+                          <span>Frequency</span>
+                          <span>Power</span>
+                          <span>Window</span>
+                          <span>Technology candidates</span>
+                        </div>
+
+                        <div className="scan-history-list">
+                          {selectedScanSession.detections.map((detection, index) => {
+                            const technologyCandidates = buildTechnologyCandidates(detection);
+
+                            return (
+                              <article
+                                className="scan-history-row clickable"
+                                key={detection.history_id ?? `${detection.frequency_mhz}-${index}`}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() =>
+                                  setSelectedDetectionDetail({
+                                    detection,
+                                    displayIndex: index + 1,
+                                    sourceLabel: selectedScanSession?.title ?? "SCAN HISTORY DETAIL",
+                                  })
+                                }
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    setSelectedDetectionDetail({
+                                      detection,
+                                      displayIndex: index + 1,
+                                      sourceLabel: selectedScanSession?.title ?? "SCAN HISTORY DETAIL",
+                                    });
+                                  }
+                                }}
+                              >
+                                <span className="scan-history-index">
+                                  {String(index + 1).padStart(3, "0")}
+                                </span>
+
+                                <strong>{formatMHz(detection.frequency_mhz)}</strong>
+
+                                <span className="history-power">
+                                  {formatDb(detection.power_db)}
+                                </span>
+
+                                <span className="history-window">
+                                  {detection.window_label ??
+                                    formatWindowMHz(
+                                      detection.window_start_mhz,
+                                      detection.window_end_mhz
+                                    )}
+                                </span>
+
+                                <HistoryCandidateTable
+                                  technologyCandidates={technologyCandidates}
+                                />
+                              </article>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
         ) : (
           <section className="specific-panel">
             <p className="section-kicker">COMING SOON</p>
@@ -1081,6 +2384,11 @@ function App() {
           </section>
         )}
       </section>
+
+      <SignalDetailModal
+        detail={selectedDetectionDetail}
+        onClose={() => setSelectedDetectionDetail(null)}
+      />
     </main>
   );
 }
