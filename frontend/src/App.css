@@ -1948,3 +1948,345 @@ button {
     justify-content: space-between;
   }
 }
+
+/* Figma-style USRP connection indicator */
+.connection-status {
+  min-width: 170px;
+  justify-content: flex-start;
+  border-width: 1px;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.connection-status.online {
+  border-color: rgba(94, 255, 167, 0.45);
+  background: rgba(7, 70, 54, 0.28);
+  box-shadow: 0 0 18px rgba(94, 255, 167, 0.08);
+}
+
+.connection-status.offline {
+  border-color: rgba(255, 93, 93, 0.55);
+  background: rgba(97, 22, 30, 0.34);
+  box-shadow: 0 0 18px rgba(255, 93, 93, 0.08);
+}
+
+.connection-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.connection-text strong {
+  color: #eaffff;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  line-height: 1.15;
+}
+
+.connection-text small {
+  overflow: hidden;
+  max-width: 230px;
+  color: #9fd0de;
+  font-size: 0.6rem;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connection-status.offline .connection-text strong {
+  color: #ffd1d1;
+}
+
+.connection-status.offline .connection-text small {
+  color: #ffaaaa;
+}
+
+.status-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+}
+
+.status-dot-offline {
+  background: #ff4f4f;
+  box-shadow: 0 0 11px #ff4f4f;
+}
+
+/* Figma-style threshold/band detection cards */
+.figma-signal-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 300px));
+  gap: 12px;
+  max-height: 520px;
+  margin-top: 18px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 8px 2px 2px;
+}
+
+.figma-signal-card-grid::-webkit-scrollbar,
+.scan-history-list::-webkit-scrollbar {
+  width: 10px;
+}
+
+.figma-signal-card-grid::-webkit-scrollbar-track,
+.scan-history-list::-webkit-scrollbar-track {
+  background: rgba(4, 18, 30, 0.75);
+}
+
+.figma-signal-card-grid::-webkit-scrollbar-thumb,
+.scan-history-list::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(4, 18, 30, 0.75);
+  border-radius: 999px;
+  background: rgba(92, 168, 255, 0.55);
+}
+
+.figma-signal-card {
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid rgba(82, 141, 232, 0.5);
+  border-radius: 8px;
+  color: #edf8ff;
+  background: linear-gradient(180deg, rgba(18, 53, 99, 0.96), rgba(9, 35, 67, 0.98));
+  box-shadow: inset 0 0 0 1px rgba(104, 172, 255, 0.06), 0 10px 24px rgba(0, 0, 0, 0.22);
+  outline: 0;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.figma-signal-card.clickable {
+  cursor: pointer;
+}
+
+.figma-signal-card:hover,
+.figma-signal-card:focus-visible {
+  border-color: rgba(101, 222, 255, 0.82);
+  background: linear-gradient(180deg, rgba(24, 70, 128, 0.98), rgba(10, 42, 78, 0.98));
+  box-shadow: inset 0 0 0 1px rgba(104, 172, 255, 0.12), 0 0 20px rgba(72, 188, 255, 0.12);
+}
+
+.figma-signal-card:active {
+  transform: scale(0.994);
+}
+
+.figma-signal-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 9px;
+  color: #95c5d8;
+  font-size: 0.56rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.figma-window-label {
+  overflow: hidden;
+  color: #6edfff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.figma-signal-main-info {
+  display: grid;
+  grid-template-columns: 1fr 0.8fr;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.figma-signal-main-info span {
+  display: block;
+  margin-bottom: 3px;
+  color: #d8ecff;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.figma-signal-main-info strong {
+  display: block;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.figma-band-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.figma-band-card {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 1px solid rgba(116, 171, 255, 0.7);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(42, 86, 162, 0.92), rgba(22, 58, 119, 0.95));
+  box-shadow: inset 0 0 0 1px rgba(224, 242, 255, 0.05);
+}
+
+.figma-band-card.gsm {
+  border-color: rgba(255, 205, 89, 0.7);
+  background: linear-gradient(180deg, rgba(137, 104, 34, 0.86), rgba(73, 54, 20, 0.92));
+}
+
+.figma-band-card.umts {
+  border-color: rgba(130, 199, 255, 0.72);
+  background: linear-gradient(180deg, rgba(34, 91, 160, 0.9), rgba(18, 56, 110, 0.94));
+}
+
+.figma-band-card.lte {
+  border-color: rgba(91, 242, 166, 0.7);
+  background: linear-gradient(180deg, rgba(21, 126, 85, 0.88), rgba(9, 70, 54, 0.94));
+}
+
+.figma-band-card.nr {
+  border-color: rgba(197, 144, 255, 0.72);
+  background: linear-gradient(180deg, rgba(91, 55, 161, 0.9), rgba(45, 30, 104, 0.94));
+}
+
+.figma-band-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid rgba(230, 241, 255, 0.24);
+  border-radius: 6px;
+  color: #ffffff;
+  background: rgba(225, 240, 255, 0.14);
+  font-size: 0.76rem;
+  line-height: 1;
+}
+
+.figma-band-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.figma-band-text strong {
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 0.61rem;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.figma-band-text small {
+  overflow: hidden;
+  color: #e5f3ff;
+  font-size: 0.52rem;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.figma-band-empty {
+  display: grid;
+  min-height: 64px;
+  place-items: center;
+  border: 1px dashed rgba(116, 171, 255, 0.36);
+  border-radius: 6px;
+  color: #9bc5d2;
+  background: rgba(5, 25, 38, 0.35);
+  font-size: 0.68rem;
+}
+
+.session-card-history-panel {
+  padding: 0 12px 12px;
+}
+
+.session-card-history-panel .figma-signal-card-grid {
+  max-height: 520px;
+  margin-top: 12px;
+}
+
+@media (max-width: 1180px) {
+  .figma-signal-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .connection-status {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .figma-signal-main-info,
+  .figma-band-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* =========================================================
+   Centered responsive layout for 100% and 75% browser zoom
+   - 100%: hampir full layar, tapi tetap ada margin kecil.
+   - 75%: layout mengecil dan tetap berada di tengah layar.
+   ========================================================= */
+html {
+  min-height: 100%;
+  background: #06131e;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(0, 178, 255, 0.08), transparent 36%),
+    #06131e;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.app-shell {
+  width: min(calc(100vw - 40px), 1840px);
+  max-width: 1840px;
+  margin-inline: auto;
+  grid-template-columns: 270px minmax(0, 1fr);
+}
+
+.sidebar {
+  padding: 24px 18px;
+}
+
+.dashboard {
+  padding: 24px;
+}
+
+.figma-signal-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+@media (max-width: 1280px) {
+  #root {
+    display: block;
+  }
+
+  .app-shell {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+@media (max-width: 980px) {
+  .app-shell {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+}

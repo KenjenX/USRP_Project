@@ -4,6 +4,7 @@ import "./App.css";
 const API_BASE_URL = "http://127.0.0.1:8000";
 
 const SPECTRUM_REFRESH_MS = 250;
+const DEVICE_REFRESH_MS = 2000;
 
 // Jumlah window history yang disimpan di frontend.
 // Scan 50–6000 MHz dengan window 56 MHz butuh sekitar 107 window,
@@ -654,47 +655,143 @@ const HISTORY_TECHNOLOGY_GROUPS = [
   { key: "nr", label: "5G" },
 ];
 
-function HistoryCandidateTable({ technologyCandidates }) {
-  if (!Array.isArray(technologyCandidates) || technologyCandidates.length === 0) {
-    return (
-      <div className="history-candidate-table history-candidate-table-empty">
-        <span className="history-chip unknown">No candidate</span>
-      </div>
-    );
+function TechnologyBandCard({ candidate }) {
+  return (
+    <span
+      className={`figma-band-card ${candidate.type}`}
+      title={`${candidate.modeTitle} · ${candidate.bandTitle ?? candidate.name}`}
+    >
+      <span className="figma-band-icon" aria-hidden="true">
+        ◉
+      </span>
+
+      <span className="figma-band-text">
+        <strong>{candidate.modeTitle}</strong>
+        <small>{candidate.bandTitle ?? candidate.name}</small>
+      </span>
+    </span>
+  );
+}
+
+function getDetectionDlUlSummary(technologyCandidates, detection) {
+  const candidate =
+    technologyCandidates.find(
+      (item) => item.dlMhz !== null && item.dlMhz !== undefined &&
+        item.ulMhz !== null && item.ulMhz !== undefined
+    ) ??
+    technologyCandidates.find(
+      (item) => item.dlMhz !== null || item.ulMhz !== null || item.detectedSide === "TDD"
+    ) ??
+    null;
+
+  if (!candidate) {
+    return {
+      dl: "-",
+      ul: "-",
+    };
+  }
+
+  const detectedFrequency = detection.frequency_mhz;
+  const isTdd = candidate.detectedSide === "TDD";
+
+  return {
+    dl:
+      candidate.dlMhz !== null && candidate.dlMhz !== undefined
+        ? formatMHz(candidate.dlMhz)
+        : isTdd
+          ? formatMHz(detectedFrequency)
+          : "-",
+    ul:
+      candidate.ulMhz !== null && candidate.ulMhz !== undefined
+        ? formatMHz(candidate.ulMhz)
+        : isTdd
+          ? formatMHz(detectedFrequency)
+          : "-",
+  };
+}
+
+function DetectionHistoryCard({ detection, index, sourceLabel, onOpen }) {
+  const technologyCandidates = buildTechnologyCandidates(detection);
+  const dlUlSummary = getDetectionDlUlSummary(technologyCandidates, detection);
+
+  function openDetail() {
+    onOpen({
+      detection,
+      displayIndex: index + 1,
+      sourceLabel,
+    });
   }
 
   return (
-    <div className="history-candidate-table">
-      {HISTORY_TECHNOLOGY_GROUPS.map((group) => {
-        const candidatesInGroup = technologyCandidates.filter(
-          (candidate) => candidate.type === group.key
-        );
+    <article
+      className="figma-signal-card clickable"
+      key={detection.history_id ?? `${detection.frequency_mhz}-${index}`}
+      role="button"
+      tabIndex={0}
+      onClick={openDetail}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openDetail();
+        }
+      }}
+    >
+      <div className="figma-signal-topline">
+        <span className="figma-signal-number">
+          POINT {String(index + 1).padStart(3, "0")}
+        </span>
+      </div>
 
-        return (
-          <div
-            className={`history-tech-column ${group.key}`}
-            key={group.key}
-          >
-            <span className="history-tech-column-label">{group.label}</span>
+      <div className="figma-signal-main-info">
+        <div>
+          <span>Detected Frequency</span>
+          <strong>{formatMHz(detection.frequency_mhz)}</strong>
+        </div>
 
-            <div className="history-tech-chip-stack">
-              {candidatesInGroup.length > 0 ? (
-                candidatesInGroup.map((candidate, candidateIndex) => (
-                  <span
-                    className={`history-chip ${candidate.type}`}
-                    key={`${candidate.type}-${candidate.name}-${candidateIndex}`}
-                    title={`${candidate.label} ${candidate.name}`}
-                  >
-                    <b>{candidate.label}</b> {candidate.name}
-                  </span>
-                ))
-              ) : (
-                <span className="history-tech-empty">-</span>
-              )}
-            </div>
-          </div>
-        );
-      })}
+        <div>
+          <span>Power dB</span>
+          <strong>{formatDb(detection.power_db)}</strong>
+        </div>
+
+        <div>
+          <span>DL</span>
+          <strong>{dlUlSummary.dl}</strong>
+        </div>
+
+        <div>
+          <span>UL</span>
+          <strong>{dlUlSummary.ul}</strong>
+        </div>
+      </div>
+
+      {technologyCandidates.length === 0 ? (
+        <div className="figma-band-empty">No 2G/3G/4G/5G candidate</div>
+      ) : (
+        <div className="figma-band-grid">
+          {technologyCandidates.map((candidate, candidateIndex) => (
+            <TechnologyBandCard
+              candidate={candidate}
+              key={`${candidate.type}-${candidate.name}-${candidateIndex}`}
+            />
+          ))}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function DetectionCardGrid({ detections, sourceLabel, onOpen }) {
+  return (
+    <div className="figma-signal-card-grid">
+      {detections.map((detection, index) => (
+        <DetectionHistoryCard
+          detection={detection}
+          index={index}
+          key={detection.history_id ?? `${detection.frequency_mhz}-${index}`}
+          sourceLabel={sourceLabel}
+          onOpen={onOpen}
+        />
+      ))}
     </div>
   );
 }
@@ -922,8 +1019,6 @@ function SignalDetailModal({ detail, onClose }) {
 
         <div className="signal-detail-status-row">
           <span className="signal-detail-status active">ABOVE THRESHOLD</span>
-          <span>FFT INDEX: {formatDetailValue(detection.fft_index)}</span>
-          <span>WINDOW: {formatDetailValue(detection.window_index)}</span>
         </div>
 
         <div className="signal-detail-summary-grid">
@@ -942,16 +1037,6 @@ function SignalDetailModal({ detail, onClose }) {
             <strong>{formatDb(detection.threshold_db)}</strong>
           </div>
 
-          <div className="signal-detail-summary-card wide">
-            <span>Window Range</span>
-            <strong>
-              {detection.window_label ??
-                formatWindowMHz(
-                  detection.window_start_mhz,
-                  detection.window_end_mhz
-                )}
-            </strong>
-          </div>
         </div>
 
         <p className="signal-detail-section-title">Technology Candidate Summary</p>
@@ -1261,8 +1346,12 @@ function App() {
     });
   }, [loadPersistentScanSessions]);
 
-  // Cek apakah backend bisa mendeteksi USRP.
+  // Cek status USRP secara berkala agar indikator langsung merah
+  // ketika perangkat dicabut / backend tidak dapat mendeteksi USRP.
   useEffect(() => {
+    let cancelled = false;
+    let intervalId;
+
     async function checkDevice() {
       try {
         const response = await fetch(`${API_BASE_URL}/api/device`);
@@ -1272,19 +1361,32 @@ function App() {
           throw new Error(data.detail || "USRP tidak dapat diakses.");
         }
 
-        setDevice(data);
+        if (!cancelled) {
+          setDevice({
+            ...data,
+            status: "ready",
+            lastError: "",
+          });
+        }
       } catch (error) {
-        setDevice({
-          status: "offline",
-          device: "USRP B210",
-          antenna: "RX2",
-        });
-
-        setErrorMessage(`Device error: ${error.message}`);
+        if (!cancelled) {
+          setDevice({
+            status: "offline",
+            device: "USRP B210",
+            antenna: "RX2",
+            lastError: error.message,
+          });
+        }
       }
     }
 
     checkDevice();
+    intervalId = window.setInterval(checkDevice, DEVICE_REFRESH_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   // Ambil data spectrum baru setiap 250 ms saat scan berjalan.
@@ -1894,6 +1996,7 @@ function App() {
   }, [scanSessions, selectedSessionId]);
 
   const detectedCount = currentScanHistorySorted.length;
+  const isDeviceReady = device.status === "ready";
 
   return (
     <main className="app-shell">
@@ -2036,18 +2139,23 @@ function App() {
             <h2>Frequency Scanner Dashboard</h2>
           </div>
 
-          <div className="connection-status">
+          <div className={`connection-status ${isDeviceReady ? "online" : "offline"}`}>
             <span
               className={
-                device.status === "ready"
+                isDeviceReady
                   ? "status-dot"
                   : "status-dot status-dot-offline"
               }
             />
 
-            {device.status === "ready"
-              ? `${device.device} · ${device.antenna}`
-              : "USRP Checking"}
+            <span className="connection-text">
+              <strong>{isDeviceReady ? "USRP CONNECTED" : "USRP OFFLINE"}</strong>
+              <small>
+                {isDeviceReady
+                  ? `${device.device} · ${device.antenna}`
+                  : device.lastError ?? "USRP tidak terdeteksi"}
+              </small>
+            </span>
           </div>
         </header>
 
@@ -2342,69 +2450,11 @@ function App() {
                     : "Belum ada history scan. Tekan START SCAN untuk memulai single sweep."}
                 </div>
               ) : (
-                <div className="scan-history-table">
-                  <div className="scan-history-head">
-                    <span>#</span>
-                    <span>Frequency</span>
-                    <span>Power</span>
-                    <span>Window</span>
-                    <span>Technology candidates</span>
-                  </div>
-
-                  <div className="scan-history-list">
-                    {currentScanHistorySorted.map((detection, index) => {
-                      const technologyCandidates = buildTechnologyCandidates(detection);
-
-                      return (
-                        <article
-                          className="scan-history-row clickable"
-                          key={detection.history_id ?? `${detection.frequency_mhz}-${index}`}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() =>
-                            setSelectedDetectionDetail({
-                              detection,
-                              displayIndex: index + 1,
-                              sourceLabel: "CURRENT SCAN DETAIL",
-                            })
-                          }
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              setSelectedDetectionDetail({
-                                detection,
-                                displayIndex: index + 1,
-                                sourceLabel: "CURRENT SCAN DETAIL",
-                              });
-                            }
-                          }}
-                        >
-                          <span className="scan-history-index">
-                            {String(index + 1).padStart(3, "0")}
-                          </span>
-
-                          <strong>{formatMHz(detection.frequency_mhz)}</strong>
-
-                          <span className="history-power">
-                            {formatDb(detection.power_db)}
-                          </span>
-
-                          <span className="history-window">
-                            {detection.window_label ??
-                              formatWindowMHz(
-                                detection.window_start_mhz,
-                                detection.window_end_mhz
-                              )}
-                          </span>
-
-                          <HistoryCandidateTable
-                            technologyCandidates={technologyCandidates}
-                          />
-                        </article>
-                      );
-                    })}
-                  </div>
-                </div>
+                <DetectionCardGrid
+                  detections={currentScanHistorySorted}
+                  sourceLabel="CURRENT SCAN DETAIL"
+                  onOpen={setSelectedDetectionDetail}
+                />
               )}
 
               <p className="live-message">{statusMessage}</p>
@@ -2515,68 +2565,12 @@ function App() {
                         </div>
                       </div>
 
-                      <div className="scan-history-table session-table">
-                        <div className="scan-history-head">
-                          <span>#</span>
-                          <span>Frequency</span>
-                          <span>Power</span>
-                          <span>Window</span>
-                          <span>Technology candidates</span>
-                        </div>
-
-                        <div className="scan-history-list">
-                          {selectedScanSession.detections.map((detection, index) => {
-                            const technologyCandidates = buildTechnologyCandidates(detection);
-
-                            return (
-                              <article
-                                className="scan-history-row clickable"
-                                key={detection.history_id ?? `${detection.frequency_mhz}-${index}`}
-                                role="button"
-                                tabIndex={0}
-                                onClick={() =>
-                                  setSelectedDetectionDetail({
-                                    detection,
-                                    displayIndex: index + 1,
-                                    sourceLabel: selectedScanSession?.title ?? "SCAN HISTORY DETAIL",
-                                  })
-                                }
-                                onKeyDown={(event) => {
-                                  if (event.key === "Enter" || event.key === " ") {
-                                    event.preventDefault();
-                                    setSelectedDetectionDetail({
-                                      detection,
-                                      displayIndex: index + 1,
-                                      sourceLabel: selectedScanSession?.title ?? "SCAN HISTORY DETAIL",
-                                    });
-                                  }
-                                }}
-                              >
-                                <span className="scan-history-index">
-                                  {String(index + 1).padStart(3, "0")}
-                                </span>
-
-                                <strong>{formatMHz(detection.frequency_mhz)}</strong>
-
-                                <span className="history-power">
-                                  {formatDb(detection.power_db)}
-                                </span>
-
-                                <span className="history-window">
-                                  {detection.window_label ??
-                                    formatWindowMHz(
-                                      detection.window_start_mhz,
-                                      detection.window_end_mhz
-                                    )}
-                                </span>
-
-                                <HistoryCandidateTable
-                                  technologyCandidates={technologyCandidates}
-                                />
-                              </article>
-                            );
-                          })}
-                        </div>
+                      <div className="session-card-history-panel">
+                        <DetectionCardGrid
+                          detections={selectedScanSession.detections}
+                          sourceLabel={selectedScanSession?.title ?? "SCAN HISTORY DETAIL"}
+                          onOpen={setSelectedDetectionDetail}
+                        />
                       </div>
                     </>
                   )}

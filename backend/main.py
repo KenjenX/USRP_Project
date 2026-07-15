@@ -166,6 +166,41 @@ def get_usrp():
     return usrp_device
 
 
+def check_usrp_connection():
+    """
+    Mengecek koneksi USRP untuk indikator frontend.
+
+    get_usrp() memakai cache device agar scan tidak terus membuka ulang
+    perangkat. Karena itu endpoint status perlu mencoba membaca properti
+    ringan dari device. Jika gagal, cache di-reset agar indikator bisa
+    berubah merah ketika USRP dicabut / tidak terdeteksi.
+    """
+
+    global usrp_device
+
+    try:
+        usrp = get_usrp()
+
+        with device_lock:
+            # Operasi ringan untuk memastikan object UHD masih responsif.
+            usrp.get_rx_antenna(CHANNEL)
+            usrp.get_rx_rate(CHANNEL)
+
+        return usrp
+
+    except HTTPException:
+        raise
+
+    except Exception as error:
+        with device_lock:
+            usrp_device = None
+
+        raise HTTPException(
+            status_code=503,
+            detail=f"USRP tidak terdeteksi atau terputus: {error}",
+        ) from error
+
+
 def get_current_state():
     with state_lock:
         return deepcopy(scan_state)
@@ -606,7 +641,7 @@ def root():
 
 @app.get("/api/device")
 def device_status():
-    get_usrp()
+    check_usrp_connection()
 
     return {
         "status": "ready",
@@ -621,6 +656,7 @@ def device_status():
         },
         "sweep_window_mhz": SWEEP_WINDOW_MHZ,
         "detection_mode": DETECTION_MODE,
+        "checked_at": datetime.now().isoformat(timespec="seconds"),
     }
 
 
