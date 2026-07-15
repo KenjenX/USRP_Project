@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
@@ -757,6 +757,65 @@ function formatDateTime(value) {
 
 
 
+function normalizePersistentDetection(detection, index = 0) {
+  return {
+    ...detection,
+    history_id:
+      detection.history_id ?? buildDetectionHistoryId(detection, index),
+    window_label:
+      detection.window_label ??
+      formatWindowMHz(
+        detection.window_start_mhz,
+        detection.window_end_mhz
+      ),
+  };
+}
+
+function normalizePersistentScanSession(session, index = 0) {
+  const detections = Array.isArray(session.detections)
+    ? session.detections.map((detection, detectionIndex) =>
+        normalizePersistentDetection(detection, detectionIndex)
+      )
+    : [];
+
+  const id =
+    session.id ??
+    session.session_id ??
+    `scan-history-${index}`;
+
+  const completedAt =
+    session.completedAt ??
+    session.completed_at ??
+    session.updated_at ??
+    session.started_at ??
+    null;
+
+  return {
+    ...session,
+    id,
+    title:
+      session.title ??
+      `Scan #${String(index + 1).padStart(3, "0")}`,
+    startedAt:
+      session.startedAt ??
+      session.started_at ??
+      completedAt,
+    completedAt,
+    config: session.config ?? {},
+    sweep: session.sweep ?? {},
+    peak: session.peak ?? null,
+    detections,
+    detectionCount:
+      Number.isFinite(Number(session.detectionCount))
+        ? Number(session.detectionCount)
+        : Number.isFinite(Number(session.detection_count))
+          ? Number(session.detection_count)
+          : detections.length,
+  };
+}
+
+
+
 const TECHNOLOGY_DETAIL_GROUPS = [
   {
     key: "gsm",
@@ -1074,6 +1133,112 @@ function App() {
   );
   const [errorMessage, setErrorMessage] = useState("");
 
+  const loadPersistentScanSessions = useCallback(
+    async ({ selectLatest = false } = {}) => {
+      const response = await fetch(`${API_BASE_URL}/api/scan/history`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Gagal memuat scan history.");
+      }
+
+      const sessions = Array.isArray(data.sessions)
+        ? data.sessions.map((session, index) =>
+            normalizePersistentScanSession(session, index)
+          )
+        : [];
+
+      setScanSessions(sessions);
+
+      setSelectedSessionId((previousSelectedId) => {
+        if (selectLatest) {
+          return sessions[0]?.id ?? null;
+        }
+
+        const previousStillExists = sessions.some(
+          (session) => session.id === previousSelectedId
+        );
+
+        if (previousSelectedId && previousStillExists) {
+          return previousSelectedId;
+        }
+
+        return sessions[0]?.id ?? null;
+      });
+
+      return sessions;
+    },
+    []
+  );
+
+  async function handleDeleteScanSession(sessionId, sessionTitle) {
+    if (!sessionId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Hapus scan history "${sessionTitle ?? sessionId}"? File JSON di backend akan dihapus permanen.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setErrorMessage("");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/scan/history/${encodeURIComponent(sessionId)}`,
+        { method: "DELETE" }
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Gagal menghapus scan history.");
+      }
+
+      setSelectedDetectionDetail(null);
+      await loadPersistentScanSessions();
+      setStatusMessage(`Scan history berhasil dihapus: ${sessionTitle ?? sessionId}.`);
+    } catch (error) {
+      setErrorMessage(`Delete history error: ${error.message}`);
+    }
+  }
+
+  async function handleDeleteAllScanSessions() {
+    if (scanSessions.length === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Hapus semua scan history (${scanSessions.length} session)? Semua file JSON di backend akan dihapus permanen.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setErrorMessage("");
+
+      const response = await fetch(`${API_BASE_URL}/api/scan/history`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Gagal menghapus semua scan history.");
+      }
+
+      setSelectedDetectionDetail(null);
+      setScanSessions([]);
+      setSelectedSessionId(null);
+      setStatusMessage(`Semua scan history berhasil dihapus. Total file: ${data.deleted_count ?? 0}.`);
+    } catch (error) {
+      setErrorMessage(`Delete all history error: ${error.message}`);
+    }
+  }
+
   useEffect(() => {
     if (!selectedDetectionDetail) {
       return undefined;
@@ -1089,6 +1254,12 @@ function App() {
 
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedDetectionDetail]);
+
+  useEffect(() => {
+    loadPersistentScanSessions().catch((error) => {
+      setErrorMessage(`Scan history error: ${error.message}`);
+    });
+  }, [loadPersistentScanSessions]);
 
   // Cek apakah backend bisa mendeteksi USRP.
   useEffect(() => {
@@ -1246,41 +1417,48 @@ function App() {
           setIsScanning(false);
 
           if (data.completed && !scanSessionSavedRef.current) {
-            const historyForSession = currentScanHistoryRef.current;
-            const sessionId =
-              activeScanMetaRef.current?.id ?? `scan-${Date.now()}`;
-            const completedAt = timestamp;
+            try {
+              await loadPersistentScanSessions({ selectLatest: true });
+            } catch (historyError) {
+              const historyForSession = currentScanHistoryRef.current;
+              const sessionId =
+                data.session_id ??
+                activeScanMetaRef.current?.id ??
+                `scan-${Date.now()}`;
+              const completedAt = data.completed_at ?? timestamp;
 
-            const session = {
-              id: sessionId,
-              startedAt:
-                activeScanMetaRef.current?.startedAt ?? completedAt,
-              completedAt,
-              config: data.config,
-              sweep,
-              peak: data.peak,
-              detections: historyForSession,
-              detectionCount: historyForSession.length,
-            };
-
-            setSelectedSessionId(session.id);
-            setScanSessions((previousSessions) => {
-              const sessionWithTitle = {
-                ...session,
-                title: `Scan #${String(
-                  previousSessions.length + 1
-                ).padStart(3, "0")}`,
+              const fallbackSession = {
+                id: sessionId,
+                title: `Scan ${formatDateTime(completedAt)}`,
+                startedAt:
+                  activeScanMetaRef.current?.startedAt ?? completedAt,
+                completedAt,
+                config: data.config,
+                sweep,
+                peak: data.peak,
+                detections: historyForSession,
+                detectionCount: historyForSession.length,
               };
 
-              return [sessionWithTitle, ...previousSessions];
-            });
+              setSelectedSessionId(fallbackSession.id);
+              setScanSessions((previousSessions) => [
+                fallbackSession,
+                ...previousSessions.filter(
+                  (session) => session.id !== fallbackSession.id
+                ),
+              ]);
+
+              setErrorMessage(
+                `Scan history error: ${historyError.message}`
+              );
+            }
 
             scanSessionSavedRef.current = true;
           }
 
           setStatusMessage(
             data.completed
-              ? `Sweep selesai. Hasil scan disimpan ke Scan History. Total titik di atas threshold: ${
+              ? `Sweep selesai. Hasil scan disimpan ke JSON Scan History. Total titik di atas threshold: ${
                   currentScanHistoryRef.current.length
                 }.`
               : "Scan dihentikan."
@@ -1322,7 +1500,7 @@ function App() {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [isScanning]);
+  }, [isScanning, loadPersistentScanSessions]);
 
   // Buat label sumbu X berdasarkan konfigurasi scan asli.
   // Sepuluh interval memberi label setiap 0.2 MHz saat lebar scan 2 MHz.
@@ -2240,7 +2418,7 @@ function App() {
           <section className="detected-section scan-session-section">
             <div className="panel-heading">
               <div>
-                <p className="section-kicker">SESSION STORAGE</p>
+                <p className="section-kicker">JSON SESSION STORAGE</p>
                 <h3>Scan History Folder</h3>
               </div>
 
@@ -2250,32 +2428,65 @@ function App() {
               </div>
             </div>
 
+            {scanSessions.length > 0 && (
+              <div className="scan-history-action-bar">
+                <span>History tersimpan di backend/scan_history sebagai file JSON.</span>
+                <button
+                  type="button"
+                  className="history-delete-all-button"
+                  onClick={handleDeleteAllScanSessions}
+                >
+                  DELETE ALL HISTORY
+                </button>
+              </div>
+            )}
+
             {scanSessions.length === 0 ? (
               <div className="empty-state">
-                Belum ada folder scan. Jalankan satu sweep sampai selesai,
-                lalu hasilnya otomatis masuk ke halaman ini.
+                Belum ada folder scan tersimpan. Jalankan satu sweep sampai selesai,
+                lalu hasilnya otomatis disimpan ke JSON dan muncul di halaman ini.
               </div>
             ) : (
               <div className="session-history-layout">
                 <div className="session-folder-list">
                   {scanSessions.map((session) => (
-                    <button
-                      type="button"
+                    <article
                       className={`session-folder-card ${
                         selectedScanSession?.id === session.id ? "selected" : ""
                       }`}
                       key={session.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setSelectedSessionId(session.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedSessionId(session.id);
+                        }
+                      }}
                     >
-                      <span className="folder-icon">▰</span>
-                      <span>
-                        <strong>{session.title}</strong>
-                        <small>
-                          {session.config.start_frequency_mhz}–
-                          {session.config.end_frequency_mhz} MHz · {session.detectionCount} points
-                        </small>
-                      </span>
-                    </button>
+                      <div className="session-folder-main">
+                        <span className="folder-icon">▰</span>
+                        <span>
+                          <strong>{session.title}</strong>
+                          <small>
+                            {session.config.start_frequency_mhz}–
+                            {session.config.end_frequency_mhz} MHz · {session.detectionCount} points
+                          </small>
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="session-delete-button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDeleteScanSession(session.id, session.title);
+                        }}
+                      >
+                        DELETE
+                      </button>
+                    </article>
                   ))}
                 </div>
 

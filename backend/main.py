@@ -3,6 +3,8 @@ from datetime import datetime
 from threading import Lock
 from copy import deepcopy
 from math import ceil
+import json
+from pathlib import Path
 
 import numpy as np
 import uhd
@@ -42,6 +44,10 @@ SWEEP_WINDOW_MHZ = 56
 # Mode deteksi baru dari pembimbing:
 # setiap titik FFT yang melewati threshold dihitung satu per satu.
 DETECTION_MODE = "threshold_points"
+
+# Penyimpanan riwayat scan lokal.
+# Folder ini akan dibuat otomatis dan sebaiknya tetap masuk .gitignore.
+SCAN_HISTORY_DIR = Path(__file__).resolve().parent / "scan_history"
 
 
 app = FastAPI(title="USRP B210 Spectrum API")
@@ -90,8 +96,11 @@ scan_state = {
     "last_window_detections": [],
     "last_peak": None,
     "last_error": None,
+    "session_id": None,
     "started_at": None,
+    "completed_at": None,
     "updated_at": None,
+    "session_saved": False,
 }
 
 state_lock = Lock()
@@ -165,6 +174,224 @@ def get_current_state():
 def calculate_total_windows(start_mhz: float, end_mhz: float) -> int:
     scan_width_mhz = end_mhz - start_mhz
     return max(1, int(ceil(scan_width_mhz / SWEEP_WINDOW_MHZ)))
+
+
+def ensure_scan_history_dir() -> None:
+    """
+    Membuat folder penyimpanan riwayat scan jika belum ada.
+    """
+
+    SCAN_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def create_scan_session_id() -> str:
+    """
+    Membuat ID session yang aman untuk nama file.
+    """
+
+    return datetime.now().strftime("scan_%Y%m%d_%H%M%S_%f")
+
+
+def sanitize_session_id(session_id: str) -> str:
+    """
+    Mencegah path traversal saat membaca file history berdasarkan session_id.
+    """
+
+    safe_id = "".join(
+        char for char in str(session_id)
+        if char.isalnum() or char in {"_", "-"}
+    )
+
+    if not safe_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Session ID tidak valid.",
+        )
+
+    return safe_id
+
+
+def get_scan_history_file_path(session_id: str) -> Path:
+    safe_id = sanitize_session_id(session_id)
+    return SCAN_HISTORY_DIR / f"{safe_id}.json"
+
+
+def build_scan_history_title(completed_at: str | None, session_id: str) -> str:
+    if completed_at:
+        return f"Scan {completed_at.replace('T', ' ')}"
+
+    return session_id
+
+
+def build_scan_session_payload(state: dict, completed_at: str) -> dict:
+    """
+    Membuat payload JSON untuk satu scan session.
+    """
+
+    session_id = state.get("session_id") or create_scan_session_id()
+    detections = state.get("detections", [])
+
+    return {
+        "id": session_id,
+        "session_id": session_id,
+        "title": build_scan_history_title(completed_at, session_id),
+        "startedAt": state.get("started_at"),
+        "started_at": state.get("started_at"),
+        "completedAt": completed_at,
+        "completed_at": completed_at,
+        "config": state.get("config", {}),
+        "sweep": state.get("sweep", {}),
+        "peak": state.get("last_peak"),
+        "detections": detections,
+        "detectionCount": len(detections),
+        "detection_count": len(detections),
+        "last_error": state.get("last_error"),
+    }
+
+
+def save_scan_session_payload(session_payload: dict) -> None:
+    """
+    Menyimpan satu scan session ke file JSON.
+    """
+
+    ensure_scan_history_dir()
+
+    session_id = session_payload["session_id"]
+    file_path = get_scan_history_file_path(session_id)
+
+    with file_path.open("w", encoding="utf-8") as file:
+        json.dump(session_payload, file, ensure_ascii=False, indent=2)
+
+
+def save_completed_session_if_needed_locked() -> dict | None:
+    """
+    Dipanggil saat state_lock sedang aktif.
+    Menyimpan hasil scan sekali saja ketika scan completed.
+    """
+
+    if not scan_state.get("completed"):
+        return None
+
+    if scan_state.get("session_saved"):
+        return None
+
+    completed_at = scan_state.get("completed_at") or datetime.now().isoformat(
+        timespec="seconds"
+    )
+
+    scan_state["completed_at"] = completed_at
+
+    session_payload = build_scan_session_payload(
+        deepcopy(scan_state),
+        completed_at,
+    )
+
+    save_scan_session_payload(session_payload)
+    scan_state["session_saved"] = True
+
+    return session_payload
+
+
+def load_scan_session(session_id: str) -> dict:
+    """
+    Membaca satu file scan session dari folder scan_history.
+    """
+
+    file_path = get_scan_history_file_path(session_id)
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Scan session tidak ditemukan.",
+        )
+
+    try:
+        with file_path.open("r", encoding="utf-8") as file:
+            return json.load(file)
+
+    except json.JSONDecodeError as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"File scan history rusak: {file_path.name}",
+        ) from error
+
+
+def delete_scan_session_file(session_id: str) -> dict:
+    """
+    Menghapus satu file scan session dari folder scan_history.
+    """
+
+    file_path = get_scan_history_file_path(session_id)
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Scan session tidak ditemukan.",
+        )
+
+    safe_id = sanitize_session_id(session_id)
+    file_path.unlink()
+
+    return {
+        "deleted": True,
+        "session_id": safe_id,
+        "filename": file_path.name,
+    }
+
+
+def delete_all_scan_session_files() -> dict:
+    """
+    Menghapus semua file JSON scan history.
+    """
+
+    ensure_scan_history_dir()
+
+    deleted_files = []
+
+    for file_path in SCAN_HISTORY_DIR.glob("*.json"):
+        try:
+            file_path.unlink()
+            deleted_files.append(file_path.name)
+        except FileNotFoundError:
+            continue
+
+    return {
+        "deleted": True,
+        "deleted_count": len(deleted_files),
+        "deleted_files": deleted_files,
+    }
+
+
+def load_all_scan_sessions() -> list[dict]:
+    """
+    Membaca seluruh scan session yang tersimpan.
+    Data diurutkan dari scan terbaru ke scan terlama.
+    """
+
+    ensure_scan_history_dir()
+
+    sessions = []
+
+    for file_path in SCAN_HISTORY_DIR.glob("*.json"):
+        try:
+            with file_path.open("r", encoding="utf-8") as file:
+                session = json.load(file)
+
+            sessions.append(session)
+
+        except json.JSONDecodeError:
+            # Abaikan file JSON yang rusak agar endpoint history tetap berjalan.
+            continue
+
+    return sorted(
+        sessions,
+        key=lambda session: session.get("completed_at")
+        or session.get("completedAt")
+        or session.get("started_at")
+        or session.get("startedAt")
+        or "",
+        reverse=True,
+    )
 
 
 def build_empty_debug_clusters():
@@ -373,6 +600,7 @@ def root():
         "serial": USRP_SERIAL,
         "detection_mode": DETECTION_MODE,
         "sweep_window_mhz": SWEEP_WINDOW_MHZ,
+        "scan_history_storage": "json",
     }
 
 
@@ -411,8 +639,11 @@ def scan_status():
         ),
         "last_peak": state["last_peak"],
         "last_error": state["last_error"],
+        "session_id": state["session_id"],
         "started_at": state["started_at"],
+        "completed_at": state["completed_at"],
         "updated_at": state["updated_at"],
+        "session_saved": state["session_saved"],
     }
 
 
@@ -436,6 +667,7 @@ def start_scan(request: ScanRequest):
     }
 
     now = datetime.now().isoformat(timespec="seconds")
+    session_id = create_scan_session_id()
 
     with state_lock:
         scan_state["running"] = True
@@ -457,8 +689,11 @@ def start_scan(request: ScanRequest):
         scan_state["last_window_detections"] = []
         scan_state["last_peak"] = None
         scan_state["last_error"] = None
+        scan_state["session_id"] = session_id
         scan_state["started_at"] = now
+        scan_state["completed_at"] = None
         scan_state["updated_at"] = now
+        scan_state["session_saved"] = False
 
     return {
         "message": "Sweep scan USRP dimulai.",
@@ -466,6 +701,7 @@ def start_scan(request: ScanRequest):
         "completed": False,
         "config": new_config,
         "sweep": get_current_state()["sweep"],
+        "session_id": session_id,
     }
 
 
@@ -506,7 +742,66 @@ def scan_results():
         "last_window_detections": state["last_window_detections"],
         "last_peak": state["last_peak"],
         "last_error": state["last_error"],
+        "session_id": state["session_id"],
+        "started_at": state["started_at"],
+        "completed_at": state["completed_at"],
+        "session_saved": state["session_saved"],
     }
+
+
+
+@app.get("/api/scan/history")
+def scan_history():
+    """
+    Mengambil seluruh scan session yang sudah disimpan ke file JSON.
+    """
+
+    sessions = load_all_scan_sessions()
+
+    return {
+        "count": len(sessions),
+        "storage": "json",
+        "sessions": sessions,
+    }
+
+
+@app.delete("/api/scan/history")
+def delete_all_scan_history():
+    """
+    Menghapus semua file JSON scan history.
+    """
+
+    result = delete_all_scan_session_files()
+
+    return {
+        "message": "Semua scan history berhasil dihapus.",
+        **result,
+    }
+
+
+@app.delete("/api/scan/history/{session_id}")
+def delete_scan_history_detail(session_id: str):
+    """
+    Menghapus satu scan session berdasarkan session_id.
+    """
+
+    result = delete_scan_session_file(session_id)
+
+    return {
+        "message": "Scan history berhasil dihapus.",
+        **result,
+    }
+
+
+@app.get("/api/scan/history/{session_id}")
+def scan_history_detail(session_id: str):
+    """
+    Mengambil detail satu scan session berdasarkan session_id.
+    """
+
+    session = load_scan_session(session_id)
+
+    return session
 
 
 @app.get("/api/spectrum")
@@ -536,6 +831,9 @@ def get_spectrum():
             "peak": state["last_peak"],
             "detections": state["last_window_detections"],
             "detection_count": len(state["detections"]),
+            "session_id": state["session_id"],
+            "completed_at": state["completed_at"],
+            "session_saved": state["session_saved"],
             "debug_clusters": build_empty_debug_clusters(),
         }
 
@@ -556,9 +854,10 @@ def get_spectrum():
             scan_state["running"] = False
             scan_state["completed"] = True
             scan_state["sweep"]["progress_percent"] = 100.0
-            scan_state["updated_at"] = datetime.now().isoformat(
-                timespec="seconds"
-            )
+            completed_at = datetime.now().isoformat(timespec="seconds")
+            scan_state["completed_at"] = completed_at
+            scan_state["updated_at"] = completed_at
+            save_completed_session_if_needed_locked()
             finished_state = deepcopy(scan_state)
 
         return {
@@ -574,6 +873,9 @@ def get_spectrum():
             "peak": finished_state["last_peak"],
             "detections": finished_state["last_window_detections"],
             "detection_count": len(finished_state["detections"]),
+            "session_id": finished_state["session_id"],
+            "completed_at": finished_state["completed_at"],
+            "session_saved": finished_state["session_saved"],
             "debug_clusters": build_empty_debug_clusters(),
         }
 
@@ -605,9 +907,13 @@ def get_spectrum():
         )
         scan_state["running"] = not completed
         scan_state["completed"] = completed
-        scan_state["updated_at"] = datetime.now().isoformat(
-            timespec="seconds"
-        )
+        updated_at = datetime.now().isoformat(timespec="seconds")
+        scan_state["updated_at"] = updated_at
+
+        if completed:
+            scan_state["completed_at"] = updated_at
+            save_completed_session_if_needed_locked()
+
         updated_state = deepcopy(scan_state)
 
     return {
@@ -625,5 +931,8 @@ def get_spectrum():
         "detections": scan_result["detections"],
         "last_window_detection_count": len(scan_result["detections"]),
         "detection_count": len(updated_state["detections"]),
+        "session_id": updated_state["session_id"],
+        "completed_at": updated_state["completed_at"],
+        "session_saved": updated_state["session_saved"],
         "debug_clusters": build_empty_debug_clusters(),
     }

@@ -1268,18 +1268,74 @@ button {
   display: flex;
   width: 100%;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   padding: 12px;
   border: 1px solid rgba(92, 210, 255, 0.18);
   color: #dff8ff;
   background: rgba(5, 25, 38, 0.58);
   text-align: left;
+  cursor: pointer;
 }
 
 .session-folder-card:hover,
 .session-folder-card.selected {
   border-color: #5ee1ff;
   background: rgba(26, 88, 118, 0.52);
+}
+
+.session-folder-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.session-folder-main > span:last-child {
+  min-width: 0;
+}
+
+.session-delete-button,
+.history-delete-all-button {
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 116, 116, 0.42);
+  color: #ffd4d4;
+  background: rgba(255, 74, 74, 0.12);
+  font-size: 0.56rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  transition: 0.16s ease;
+}
+
+.session-delete-button {
+  padding: 7px 8px;
+}
+
+.history-delete-all-button {
+  padding: 8px 10px;
+}
+
+.session-delete-button:hover,
+.history-delete-all-button:hover {
+  border-color: rgba(255, 116, 116, 0.86);
+  color: #ffffff;
+  background: rgba(255, 74, 74, 0.26);
+}
+
+.scan-history-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid rgba(92, 210, 255, 0.16);
+  color: #9dd5e4;
+  background: rgba(5, 25, 38, 0.42);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .folder-icon {
