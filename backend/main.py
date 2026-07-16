@@ -17,6 +17,11 @@ from backend.umts_classifier import classify_umts
 from backend.lte_classifier import classify_lte
 from backend.nr_classifier import classify_nr
 
+from backend.gsm_classifier import classify_gsm
+from backend.umts_classifier import classify_umts
+from backend.lte_classifier import classify_lte
+from backend.nr_classifier import classify_nr
+from backend.machine_routes import router as machine_router
 
 # =========================
 # KONFIGURASI USRP
@@ -62,6 +67,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(machine_router)
 
 
 class ScanRequest(BaseModel):
