@@ -164,6 +164,8 @@ signal_log.json
 scan_history/
 scan_results/
 *.csv
+# Backend persistent scan history JSON files
+backend/scan_history/
 
 # Node / Frontend
 node_modules/

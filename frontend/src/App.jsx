@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
 const SPECTRUM_REFRESH_MS = 250;
+const DEVICE_REFRESH_MS = 2000;
 
 // Jumlah window history yang disimpan di frontend.
 // Scan 50–6000 MHz dengan window 56 MHz butuh sekitar 107 window,
@@ -654,47 +655,143 @@ const HISTORY_TECHNOLOGY_GROUPS = [
   { key: "nr", label: "5G" },
 ];
 
-function HistoryCandidateTable({ technologyCandidates }) {
-  if (!Array.isArray(technologyCandidates) || technologyCandidates.length === 0) {
-    return (
-      <div className="history-candidate-table history-candidate-table-empty">
-        <span className="history-chip unknown">No candidate</span>
-      </div>
-    );
+function TechnologyBandCard({ candidate }) {
+  return (
+    <span
+      className={`figma-band-card ${candidate.type}`}
+      title={`${candidate.modeTitle} · ${candidate.bandTitle ?? candidate.name}`}
+    >
+      <span className="figma-band-icon" aria-hidden="true">
+        ◉
+      </span>
+
+      <span className="figma-band-text">
+        <strong>{candidate.modeTitle}</strong>
+        <small>{candidate.bandTitle ?? candidate.name}</small>
+      </span>
+    </span>
+  );
+}
+
+function getDetectionDlUlSummary(technologyCandidates, detection) {
+  const candidate =
+    technologyCandidates.find(
+      (item) => item.dlMhz !== null && item.dlMhz !== undefined &&
+        item.ulMhz !== null && item.ulMhz !== undefined
+    ) ??
+    technologyCandidates.find(
+      (item) => item.dlMhz !== null || item.ulMhz !== null || item.detectedSide === "TDD"
+    ) ??
+    null;
+
+  if (!candidate) {
+    return {
+      dl: "-",
+      ul: "-",
+    };
+  }
+
+  const detectedFrequency = detection.frequency_mhz;
+  const isTdd = candidate.detectedSide === "TDD";
+
+  return {
+    dl:
+      candidate.dlMhz !== null && candidate.dlMhz !== undefined
+        ? formatMHz(candidate.dlMhz)
+        : isTdd
+          ? formatMHz(detectedFrequency)
+          : "-",
+    ul:
+      candidate.ulMhz !== null && candidate.ulMhz !== undefined
+        ? formatMHz(candidate.ulMhz)
+        : isTdd
+          ? formatMHz(detectedFrequency)
+          : "-",
+  };
+}
+
+function DetectionHistoryCard({ detection, index, sourceLabel, onOpen }) {
+  const technologyCandidates = buildTechnologyCandidates(detection);
+  const dlUlSummary = getDetectionDlUlSummary(technologyCandidates, detection);
+
+  function openDetail() {
+    onOpen({
+      detection,
+      displayIndex: index + 1,
+      sourceLabel,
+    });
   }
 
   return (
-    <div className="history-candidate-table">
-      {HISTORY_TECHNOLOGY_GROUPS.map((group) => {
-        const candidatesInGroup = technologyCandidates.filter(
-          (candidate) => candidate.type === group.key
-        );
+    <article
+      className="figma-signal-card clickable"
+      key={detection.history_id ?? `${detection.frequency_mhz}-${index}`}
+      role="button"
+      tabIndex={0}
+      onClick={openDetail}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openDetail();
+        }
+      }}
+    >
+      <div className="figma-signal-topline">
+        <span className="figma-signal-number">
+          POINT {String(index + 1).padStart(3, "0")}
+        </span>
+      </div>
 
-        return (
-          <div
-            className={`history-tech-column ${group.key}`}
-            key={group.key}
-          >
-            <span className="history-tech-column-label">{group.label}</span>
+      <div className="figma-signal-main-info">
+        <div>
+          <span>Detected Frequency</span>
+          <strong>{formatMHz(detection.frequency_mhz)}</strong>
+        </div>
 
-            <div className="history-tech-chip-stack">
-              {candidatesInGroup.length > 0 ? (
-                candidatesInGroup.map((candidate, candidateIndex) => (
-                  <span
-                    className={`history-chip ${candidate.type}`}
-                    key={`${candidate.type}-${candidate.name}-${candidateIndex}`}
-                    title={`${candidate.label} ${candidate.name}`}
-                  >
-                    <b>{candidate.label}</b> {candidate.name}
-                  </span>
-                ))
-              ) : (
-                <span className="history-tech-empty">-</span>
-              )}
-            </div>
-          </div>
-        );
-      })}
+        <div>
+          <span>Power dB</span>
+          <strong>{formatDb(detection.power_db)}</strong>
+        </div>
+
+        <div>
+          <span>DL</span>
+          <strong>{dlUlSummary.dl}</strong>
+        </div>
+
+        <div>
+          <span>UL</span>
+          <strong>{dlUlSummary.ul}</strong>
+        </div>
+      </div>
+
+      {technologyCandidates.length === 0 ? (
+        <div className="figma-band-empty">No 2G/3G/4G/5G candidate</div>
+      ) : (
+        <div className="figma-band-grid">
+          {technologyCandidates.map((candidate, candidateIndex) => (
+            <TechnologyBandCard
+              candidate={candidate}
+              key={`${candidate.type}-${candidate.name}-${candidateIndex}`}
+            />
+          ))}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function DetectionCardGrid({ detections, sourceLabel, onOpen }) {
+  return (
+    <div className="figma-signal-card-grid">
+      {detections.map((detection, index) => (
+        <DetectionHistoryCard
+          detection={detection}
+          index={index}
+          key={detection.history_id ?? `${detection.frequency_mhz}-${index}`}
+          sourceLabel={sourceLabel}
+          onOpen={onOpen}
+        />
+      ))}
     </div>
   );
 }
@@ -753,6 +850,65 @@ function formatDateTime(value) {
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+
+
+function normalizePersistentDetection(detection, index = 0) {
+  return {
+    ...detection,
+    history_id:
+      detection.history_id ?? buildDetectionHistoryId(detection, index),
+    window_label:
+      detection.window_label ??
+      formatWindowMHz(
+        detection.window_start_mhz,
+        detection.window_end_mhz
+      ),
+  };
+}
+
+function normalizePersistentScanSession(session, index = 0) {
+  const detections = Array.isArray(session.detections)
+    ? session.detections.map((detection, detectionIndex) =>
+        normalizePersistentDetection(detection, detectionIndex)
+      )
+    : [];
+
+  const id =
+    session.id ??
+    session.session_id ??
+    `scan-history-${index}`;
+
+  const completedAt =
+    session.completedAt ??
+    session.completed_at ??
+    session.updated_at ??
+    session.started_at ??
+    null;
+
+  return {
+    ...session,
+    id,
+    title:
+      session.title ??
+      `Scan #${String(index + 1).padStart(3, "0")}`,
+    startedAt:
+      session.startedAt ??
+      session.started_at ??
+      completedAt,
+    completedAt,
+    config: session.config ?? {},
+    sweep: session.sweep ?? {},
+    peak: session.peak ?? null,
+    detections,
+    detectionCount:
+      Number.isFinite(Number(session.detectionCount))
+        ? Number(session.detectionCount)
+        : Number.isFinite(Number(session.detection_count))
+          ? Number(session.detection_count)
+          : detections.length,
+  };
 }
 
 
@@ -863,8 +1019,6 @@ function SignalDetailModal({ detail, onClose }) {
 
         <div className="signal-detail-status-row">
           <span className="signal-detail-status active">ABOVE THRESHOLD</span>
-          <span>FFT INDEX: {formatDetailValue(detection.fft_index)}</span>
-          <span>WINDOW: {formatDetailValue(detection.window_index)}</span>
         </div>
 
         <div className="signal-detail-summary-grid">
@@ -883,16 +1037,6 @@ function SignalDetailModal({ detail, onClose }) {
             <strong>{formatDb(detection.threshold_db)}</strong>
           </div>
 
-          <div className="signal-detail-summary-card wide">
-            <span>Window Range</span>
-            <strong>
-              {detection.window_label ??
-                formatWindowMHz(
-                  detection.window_start_mhz,
-                  detection.window_end_mhz
-                )}
-            </strong>
-          </div>
         </div>
 
         <p className="signal-detail-section-title">Technology Candidate Summary</p>
@@ -1074,6 +1218,112 @@ function App() {
   );
   const [errorMessage, setErrorMessage] = useState("");
 
+  const loadPersistentScanSessions = useCallback(
+    async ({ selectLatest = false } = {}) => {
+      const response = await fetch(`${API_BASE_URL}/api/scan/history`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Gagal memuat scan history.");
+      }
+
+      const sessions = Array.isArray(data.sessions)
+        ? data.sessions.map((session, index) =>
+            normalizePersistentScanSession(session, index)
+          )
+        : [];
+
+      setScanSessions(sessions);
+
+      setSelectedSessionId((previousSelectedId) => {
+        if (selectLatest) {
+          return sessions[0]?.id ?? null;
+        }
+
+        const previousStillExists = sessions.some(
+          (session) => session.id === previousSelectedId
+        );
+
+        if (previousSelectedId && previousStillExists) {
+          return previousSelectedId;
+        }
+
+        return sessions[0]?.id ?? null;
+      });
+
+      return sessions;
+    },
+    []
+  );
+
+  async function handleDeleteScanSession(sessionId, sessionTitle) {
+    if (!sessionId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Hapus scan history "${sessionTitle ?? sessionId}"? File JSON di backend akan dihapus permanen.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setErrorMessage("");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/scan/history/${encodeURIComponent(sessionId)}`,
+        { method: "DELETE" }
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Gagal menghapus scan history.");
+      }
+
+      setSelectedDetectionDetail(null);
+      await loadPersistentScanSessions();
+      setStatusMessage(`Scan history berhasil dihapus: ${sessionTitle ?? sessionId}.`);
+    } catch (error) {
+      setErrorMessage(`Delete history error: ${error.message}`);
+    }
+  }
+
+  async function handleDeleteAllScanSessions() {
+    if (scanSessions.length === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Hapus semua scan history (${scanSessions.length} session)? Semua file JSON di backend akan dihapus permanen.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setErrorMessage("");
+
+      const response = await fetch(`${API_BASE_URL}/api/scan/history`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Gagal menghapus semua scan history.");
+      }
+
+      setSelectedDetectionDetail(null);
+      setScanSessions([]);
+      setSelectedSessionId(null);
+      setStatusMessage(`Semua scan history berhasil dihapus. Total file: ${data.deleted_count ?? 0}.`);
+    } catch (error) {
+      setErrorMessage(`Delete all history error: ${error.message}`);
+    }
+  }
+
   useEffect(() => {
     if (!selectedDetectionDetail) {
       return undefined;
@@ -1090,8 +1340,18 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedDetectionDetail]);
 
-  // Cek apakah backend bisa mendeteksi USRP.
   useEffect(() => {
+    loadPersistentScanSessions().catch((error) => {
+      setErrorMessage(`Scan history error: ${error.message}`);
+    });
+  }, [loadPersistentScanSessions]);
+
+  // Cek status USRP secara berkala agar indikator langsung merah
+  // ketika perangkat dicabut / backend tidak dapat mendeteksi USRP.
+  useEffect(() => {
+    let cancelled = false;
+    let intervalId;
+
     async function checkDevice() {
       try {
         const response = await fetch(`${API_BASE_URL}/api/device`);
@@ -1101,19 +1361,32 @@ function App() {
           throw new Error(data.detail || "USRP tidak dapat diakses.");
         }
 
-        setDevice(data);
+        if (!cancelled) {
+          setDevice({
+            ...data,
+            status: "ready",
+            lastError: "",
+          });
+        }
       } catch (error) {
-        setDevice({
-          status: "offline",
-          device: "USRP B210",
-          antenna: "RX2",
-        });
-
-        setErrorMessage(`Device error: ${error.message}`);
+        if (!cancelled) {
+          setDevice({
+            status: "offline",
+            device: "USRP B210",
+            antenna: "RX2",
+            lastError: error.message,
+          });
+        }
       }
     }
 
     checkDevice();
+    intervalId = window.setInterval(checkDevice, DEVICE_REFRESH_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   // Ambil data spectrum baru setiap 250 ms saat scan berjalan.
@@ -1246,41 +1519,48 @@ function App() {
           setIsScanning(false);
 
           if (data.completed && !scanSessionSavedRef.current) {
-            const historyForSession = currentScanHistoryRef.current;
-            const sessionId =
-              activeScanMetaRef.current?.id ?? `scan-${Date.now()}`;
-            const completedAt = timestamp;
+            try {
+              await loadPersistentScanSessions({ selectLatest: true });
+            } catch (historyError) {
+              const historyForSession = currentScanHistoryRef.current;
+              const sessionId =
+                data.session_id ??
+                activeScanMetaRef.current?.id ??
+                `scan-${Date.now()}`;
+              const completedAt = data.completed_at ?? timestamp;
 
-            const session = {
-              id: sessionId,
-              startedAt:
-                activeScanMetaRef.current?.startedAt ?? completedAt,
-              completedAt,
-              config: data.config,
-              sweep,
-              peak: data.peak,
-              detections: historyForSession,
-              detectionCount: historyForSession.length,
-            };
-
-            setSelectedSessionId(session.id);
-            setScanSessions((previousSessions) => {
-              const sessionWithTitle = {
-                ...session,
-                title: `Scan #${String(
-                  previousSessions.length + 1
-                ).padStart(3, "0")}`,
+              const fallbackSession = {
+                id: sessionId,
+                title: `Scan ${formatDateTime(completedAt)}`,
+                startedAt:
+                  activeScanMetaRef.current?.startedAt ?? completedAt,
+                completedAt,
+                config: data.config,
+                sweep,
+                peak: data.peak,
+                detections: historyForSession,
+                detectionCount: historyForSession.length,
               };
 
-              return [sessionWithTitle, ...previousSessions];
-            });
+              setSelectedSessionId(fallbackSession.id);
+              setScanSessions((previousSessions) => [
+                fallbackSession,
+                ...previousSessions.filter(
+                  (session) => session.id !== fallbackSession.id
+                ),
+              ]);
+
+              setErrorMessage(
+                `Scan history error: ${historyError.message}`
+              );
+            }
 
             scanSessionSavedRef.current = true;
           }
 
           setStatusMessage(
             data.completed
-              ? `Sweep selesai. Hasil scan disimpan ke Scan History. Total titik di atas threshold: ${
+              ? `Sweep selesai. Hasil scan disimpan ke JSON Scan History. Total titik di atas threshold: ${
                   currentScanHistoryRef.current.length
                 }.`
               : "Scan dihentikan."
@@ -1322,7 +1602,7 @@ function App() {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [isScanning]);
+  }, [isScanning, loadPersistentScanSessions]);
 
   // Buat label sumbu X berdasarkan konfigurasi scan asli.
   // Sepuluh interval memberi label setiap 0.2 MHz saat lebar scan 2 MHz.
@@ -1716,6 +1996,7 @@ function App() {
   }, [scanSessions, selectedSessionId]);
 
   const detectedCount = currentScanHistorySorted.length;
+  const isDeviceReady = device.status === "ready";
 
   return (
     <main className="app-shell">
@@ -1858,18 +2139,23 @@ function App() {
             <h2>Frequency Scanner Dashboard</h2>
           </div>
 
-          <div className="connection-status">
+          <div className={`connection-status ${isDeviceReady ? "online" : "offline"}`}>
             <span
               className={
-                device.status === "ready"
+                isDeviceReady
                   ? "status-dot"
                   : "status-dot status-dot-offline"
               }
             />
 
-            {device.status === "ready"
-              ? `${device.device} · ${device.antenna}`
-              : "USRP Checking"}
+            <span className="connection-text">
+              <strong>{isDeviceReady ? "USRP CONNECTED" : "USRP OFFLINE"}</strong>
+              <small>
+                {isDeviceReady
+                  ? `${device.device} · ${device.antenna}`
+                  : device.lastError ?? "USRP tidak terdeteksi"}
+              </small>
+            </span>
           </div>
         </header>
 
@@ -2164,69 +2450,11 @@ function App() {
                     : "Belum ada history scan. Tekan START SCAN untuk memulai single sweep."}
                 </div>
               ) : (
-                <div className="scan-history-table">
-                  <div className="scan-history-head">
-                    <span>#</span>
-                    <span>Frequency</span>
-                    <span>Power</span>
-                    <span>Window</span>
-                    <span>Technology candidates</span>
-                  </div>
-
-                  <div className="scan-history-list">
-                    {currentScanHistorySorted.map((detection, index) => {
-                      const technologyCandidates = buildTechnologyCandidates(detection);
-
-                      return (
-                        <article
-                          className="scan-history-row clickable"
-                          key={detection.history_id ?? `${detection.frequency_mhz}-${index}`}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() =>
-                            setSelectedDetectionDetail({
-                              detection,
-                              displayIndex: index + 1,
-                              sourceLabel: "CURRENT SCAN DETAIL",
-                            })
-                          }
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              setSelectedDetectionDetail({
-                                detection,
-                                displayIndex: index + 1,
-                                sourceLabel: "CURRENT SCAN DETAIL",
-                              });
-                            }
-                          }}
-                        >
-                          <span className="scan-history-index">
-                            {String(index + 1).padStart(3, "0")}
-                          </span>
-
-                          <strong>{formatMHz(detection.frequency_mhz)}</strong>
-
-                          <span className="history-power">
-                            {formatDb(detection.power_db)}
-                          </span>
-
-                          <span className="history-window">
-                            {detection.window_label ??
-                              formatWindowMHz(
-                                detection.window_start_mhz,
-                                detection.window_end_mhz
-                              )}
-                          </span>
-
-                          <HistoryCandidateTable
-                            technologyCandidates={technologyCandidates}
-                          />
-                        </article>
-                      );
-                    })}
-                  </div>
-                </div>
+                <DetectionCardGrid
+                  detections={currentScanHistorySorted}
+                  sourceLabel="CURRENT SCAN DETAIL"
+                  onOpen={setSelectedDetectionDetail}
+                />
               )}
 
               <p className="live-message">{statusMessage}</p>
@@ -2240,7 +2468,7 @@ function App() {
           <section className="detected-section scan-session-section">
             <div className="panel-heading">
               <div>
-                <p className="section-kicker">SESSION STORAGE</p>
+                <p className="section-kicker">JSON SESSION STORAGE</p>
                 <h3>Scan History Folder</h3>
               </div>
 
@@ -2250,32 +2478,65 @@ function App() {
               </div>
             </div>
 
+            {scanSessions.length > 0 && (
+              <div className="scan-history-action-bar">
+                <span>History tersimpan di backend/scan_history sebagai file JSON.</span>
+                <button
+                  type="button"
+                  className="history-delete-all-button"
+                  onClick={handleDeleteAllScanSessions}
+                >
+                  DELETE ALL HISTORY
+                </button>
+              </div>
+            )}
+
             {scanSessions.length === 0 ? (
               <div className="empty-state">
-                Belum ada folder scan. Jalankan satu sweep sampai selesai,
-                lalu hasilnya otomatis masuk ke halaman ini.
+                Belum ada folder scan tersimpan. Jalankan satu sweep sampai selesai,
+                lalu hasilnya otomatis disimpan ke JSON dan muncul di halaman ini.
               </div>
             ) : (
               <div className="session-history-layout">
                 <div className="session-folder-list">
                   {scanSessions.map((session) => (
-                    <button
-                      type="button"
+                    <article
                       className={`session-folder-card ${
                         selectedScanSession?.id === session.id ? "selected" : ""
                       }`}
                       key={session.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setSelectedSessionId(session.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedSessionId(session.id);
+                        }
+                      }}
                     >
-                      <span className="folder-icon">▰</span>
-                      <span>
-                        <strong>{session.title}</strong>
-                        <small>
-                          {session.config.start_frequency_mhz}–
-                          {session.config.end_frequency_mhz} MHz · {session.detectionCount} points
-                        </small>
-                      </span>
-                    </button>
+                      <div className="session-folder-main">
+                        <span className="folder-icon">▰</span>
+                        <span>
+                          <strong>{session.title}</strong>
+                          <small>
+                            {session.config.start_frequency_mhz}–
+                            {session.config.end_frequency_mhz} MHz · {session.detectionCount} points
+                          </small>
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="session-delete-button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDeleteScanSession(session.id, session.title);
+                        }}
+                      >
+                        DELETE
+                      </button>
+                    </article>
                   ))}
                 </div>
 
@@ -2304,68 +2565,12 @@ function App() {
                         </div>
                       </div>
 
-                      <div className="scan-history-table session-table">
-                        <div className="scan-history-head">
-                          <span>#</span>
-                          <span>Frequency</span>
-                          <span>Power</span>
-                          <span>Window</span>
-                          <span>Technology candidates</span>
-                        </div>
-
-                        <div className="scan-history-list">
-                          {selectedScanSession.detections.map((detection, index) => {
-                            const technologyCandidates = buildTechnologyCandidates(detection);
-
-                            return (
-                              <article
-                                className="scan-history-row clickable"
-                                key={detection.history_id ?? `${detection.frequency_mhz}-${index}`}
-                                role="button"
-                                tabIndex={0}
-                                onClick={() =>
-                                  setSelectedDetectionDetail({
-                                    detection,
-                                    displayIndex: index + 1,
-                                    sourceLabel: selectedScanSession?.title ?? "SCAN HISTORY DETAIL",
-                                  })
-                                }
-                                onKeyDown={(event) => {
-                                  if (event.key === "Enter" || event.key === " ") {
-                                    event.preventDefault();
-                                    setSelectedDetectionDetail({
-                                      detection,
-                                      displayIndex: index + 1,
-                                      sourceLabel: selectedScanSession?.title ?? "SCAN HISTORY DETAIL",
-                                    });
-                                  }
-                                }}
-                              >
-                                <span className="scan-history-index">
-                                  {String(index + 1).padStart(3, "0")}
-                                </span>
-
-                                <strong>{formatMHz(detection.frequency_mhz)}</strong>
-
-                                <span className="history-power">
-                                  {formatDb(detection.power_db)}
-                                </span>
-
-                                <span className="history-window">
-                                  {detection.window_label ??
-                                    formatWindowMHz(
-                                      detection.window_start_mhz,
-                                      detection.window_end_mhz
-                                    )}
-                                </span>
-
-                                <HistoryCandidateTable
-                                  technologyCandidates={technologyCandidates}
-                                />
-                              </article>
-                            );
-                          })}
-                        </div>
+                      <div className="session-card-history-panel">
+                        <DetectionCardGrid
+                          detections={selectedScanSession.detections}
+                          sourceLabel={selectedScanSession?.title ?? "SCAN HISTORY DETAIL"}
+                          onOpen={setSelectedDetectionDetail}
+                        />
                       </div>
                     </>
                   )}
