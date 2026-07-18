@@ -62,3 +62,50 @@ class ChannelLookupResponse(BaseModel):
     input_fcn: int
     candidate_count: int
     candidates: list[ChannelCandidateResponse]
+
+
+class ChannelCreate(BaseModel):
+    input_mode: str = Field(
+        min_length=1,
+        max_length=50,
+    )
+    input_fcn: int = Field(ge=0)
+    candidate_key: str = Field(
+        min_length=1,
+        max_length=255,
+    )
+
+
+class ChannelUpdate(BaseModel):
+    input_mode: str = Field(
+        min_length=1,
+        max_length=50,
+    )
+    input_fcn: int = Field(ge=0)
+    candidate_key: str = Field(
+        min_length=1,
+        max_length=255,
+    )
+
+
+class ChannelResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    machine_id: int
+    channel_number: str
+
+    input_mode: str
+    input_fcn: int
+
+    freq_dl_mhz: float | None
+    freq_ul_mhz: float | None
+
+    fcn_dl: int | None
+    fcn_ul: int | None
+
+    band: str
+    mode: str
+
+    created_at: datetime
+    updated_at: datetime

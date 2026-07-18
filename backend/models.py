@@ -1,7 +1,7 @@
 from sqlalchemy import (
     Column,
     DateTime,
-    Float,
+    Numeric,
     ForeignKey,
     Integer,
     String,
@@ -57,8 +57,8 @@ class Channel(Base):
     input_mode = Column(String(50), nullable=False)
     input_fcn = Column(Integer, nullable=False)
 
-    freq_dl_mhz = Column(Float, nullable=True)
-    freq_ul_mhz = Column(Float, nullable=True)
+    freq_dl_mhz = Column(Numeric(12, 6), nullable=True)
+    freq_ul_mhz = Column(Numeric(12, 6), nullable=True)
 
     fcn_dl = Column(Integer, nullable=True)
     fcn_ul = Column(Integer, nullable=True)

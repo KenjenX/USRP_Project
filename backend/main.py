@@ -23,6 +23,7 @@ from backend.lte_classifier import classify_lte
 from backend.nr_classifier import classify_nr
 from backend.machine_routes import router as machine_router
 from backend.channel_lookup_routes import router as channel_lookup_router
+from backend.channel_routes import router as channel_router
 
 # =========================
 # KONFIGURASI USRP
@@ -70,6 +71,7 @@ app.add_middleware(
 )
 app.include_router(machine_router)
 app.include_router(channel_lookup_router)
+app.include_router(channel_router)
 
 
 class ScanRequest(BaseModel):
