@@ -3638,3 +3638,341 @@ body {
   box-shadow: 0 0 4px rgba(208, 222, 0, 0.24);
 }
 
+
+/* =========================================================
+   SCAN HISTORY — GENERAL THEME + SAVED SPECTRUM PREVIEW
+   ========================================================= */
+.scan-session-section {
+  padding: 16px 20px 20px;
+  color: var(--ui-text);
+  background: #0a1f3b;
+}
+
+.scan-session-section > .panel-heading {
+  min-height: 52px;
+  align-items: center;
+  padding: 0 2px 10px;
+  border-bottom: 1px solid rgba(74, 116, 178, 0.24);
+}
+
+.scan-session-section > .panel-heading h3 {
+  margin-top: 5px;
+  font-size: 1rem;
+}
+
+.scan-session-section > .panel-heading .detected-count {
+  color: #aab8cc;
+  font-size: 0.58rem;
+}
+
+.scan-session-section > .panel-heading .detected-count strong {
+  color: #65dcff;
+  font-size: 1.45rem;
+}
+
+.scan-session-section .scan-history-action-bar {
+  margin-top: 12px;
+  padding: 9px 11px;
+  border: 1px solid rgba(74, 116, 178, 0.28);
+  color: #90a6c4;
+  background: #102b50;
+}
+
+.scan-session-section .history-delete-all-button,
+.scan-session-section .session-delete-button {
+  border-color: rgba(201, 90, 108, 0.62);
+  color: #ffd8df;
+  background: rgba(117, 35, 53, 0.35);
+}
+
+.scan-session-section .history-delete-all-button:hover,
+.scan-session-section .session-delete-button:hover {
+  border-color: #e0788b;
+  background: rgba(150, 45, 65, 0.48);
+}
+
+.scan-session-section .session-history-layout {
+  grid-template-columns: minmax(220px, 250px) minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.scan-session-section .session-folder-list {
+  max-height: calc(100vh - 195px);
+  padding-right: 4px;
+  overflow-y: auto;
+  scrollbar-color: #456da5 #07182d;
+}
+
+.scan-session-section .session-folder-card {
+  padding: 11px;
+  border: 1px solid rgba(67, 108, 168, 0.46);
+  border-left: 3px solid transparent;
+  border-radius: 3px;
+  color: #e9f1ff;
+  background: linear-gradient(180deg, #102d53, #0b2444);
+  box-shadow: 0 5px 12px rgba(2, 10, 23, 0.18);
+}
+
+.scan-session-section .session-folder-card:hover {
+  border-color: rgba(91, 146, 224, 0.7);
+  background: linear-gradient(180deg, #163963, #102c51);
+}
+
+.scan-session-section .session-folder-card.selected {
+  border-color: #65cfff;
+  border-left-color: #65cfff;
+  background: linear-gradient(180deg, #17436d, #10345a);
+  box-shadow:
+    inset 0 0 0 1px rgba(101, 207, 255, 0.08),
+    0 0 16px rgba(59, 166, 224, 0.08);
+}
+
+.scan-session-section .folder-icon {
+  border-color: rgba(222, 188, 91, 0.52);
+  color: #e8c45d;
+  background: rgba(112, 88, 28, 0.26);
+}
+
+.scan-session-section .session-folder-card strong {
+  color: #ffffff;
+  font-size: 0.72rem;
+}
+
+.scan-session-section .session-folder-card small {
+  color: #8fa8c6;
+  font-size: 0.56rem;
+}
+
+.scan-session-section .session-detail-panel {
+  border: 1px solid rgba(66, 106, 165, 0.4);
+  border-radius: 3px;
+  background: #081b34;
+}
+
+.scan-session-section .session-summary-grid {
+  background: rgba(72, 111, 168, 0.16);
+}
+
+.scan-session-section .session-summary-grid div {
+  padding: 11px 12px;
+  background: #0c2747;
+}
+
+.scan-session-section .session-summary-grid span {
+  color: #7f9abc;
+  font-size: 0.54rem;
+}
+
+.scan-session-section .session-summary-grid strong {
+  color: #ffffff;
+  font-size: 0.68rem;
+}
+
+.history-spectrum-preview {
+  margin: 12px;
+  padding: 10px;
+  border: 1px solid rgba(69, 109, 167, 0.42);
+  border-radius: 3px;
+  background: #091d37;
+}
+
+.history-spectrum-heading,
+.session-detection-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.history-spectrum-heading {
+  min-height: 35px;
+  padding: 0 4px 8px;
+}
+
+.history-spectrum-heading h4,
+.session-detection-heading h4 {
+  margin: 4px 0 0;
+  color: #ffffff;
+  font-size: 0.78rem;
+}
+
+.history-spectrum-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 12px;
+  color: #879fbd;
+  font-size: 0.54rem;
+  font-weight: 800;
+}
+
+.history-spectrum-meta span {
+  padding: 4px 6px;
+  border: 1px solid rgba(70, 111, 170, 0.28);
+  background: #102b50;
+}
+
+.history-spectrum-unavailable {
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  border: 1px dashed rgba(76, 116, 176, 0.4);
+  color: #8fa6c2;
+  background: #07182d;
+  font-size: 0.68rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.history-spectrum-preview .history-spectrum-chart {
+  height: 220px;
+  margin-top: 0;
+  border: 2px solid #101822;
+  border-radius: 2px;
+  background: #020505;
+  box-shadow: inset 0 0 0 1px rgba(76, 94, 122, 0.5);
+}
+
+.history-spectrum-preview .chart-plot {
+  top: 8px;
+  right: 9px;
+  bottom: 28px;
+  left: 44px;
+  background:
+    linear-gradient(rgba(113, 124, 113, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(113, 124, 113, 0.18) 1px, transparent 1px),
+    #020505;
+  background-size: 20px 20px;
+}
+
+.history-spectrum-preview .chart-y-axis {
+  top: 8px;
+  bottom: 28px;
+  width: 42px;
+}
+
+.history-spectrum-preview .chart-x-axis {
+  right: 9px;
+  bottom: 0;
+  left: 44px;
+}
+
+.history-spectrum-preview .spectrum-svg {
+  color: #f4f400;
+  filter: drop-shadow(0 0 2px rgba(244, 244, 0, 0.55));
+}
+
+.history-spectrum-preview .spectrum-area {
+  opacity: 0.1;
+}
+
+.history-spectrum-preview .threshold-visual {
+  border-top-color: #e22020;
+}
+
+.history-spectrum-preview .threshold-visual span {
+  color: #ffb7b7;
+  background: rgba(35, 2, 2, 0.82);
+}
+
+.session-card-history-panel {
+  padding: 0 12px 12px;
+}
+
+.session-detection-heading {
+  min-height: 42px;
+  padding: 8px 4px 4px;
+  border-top: 1px solid rgba(70, 110, 168, 0.2);
+}
+
+.session-detection-heading > span {
+  color: #8ea5c2;
+  font-size: 0.56rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.session-card-history-panel .figma-signal-card-grid {
+  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
+  justify-content: stretch;
+  gap: 10px;
+  max-height: 520px;
+  margin-top: 8px;
+}
+
+.session-card-history-panel .figma-signal-card {
+  width: 100%;
+  padding: 11px;
+  border-color: rgba(67, 117, 198, 0.65);
+  border-radius: 5px;
+  background: linear-gradient(180deg, #173a70 0%, #102d58 100%);
+}
+
+.session-card-history-panel .figma-band-card,
+.session-card-history-panel .figma-band-card.gsm,
+.session-card-history-panel .figma-band-card.umts,
+.session-card-history-panel .figma-band-card.lte,
+.session-card-history-panel .figma-band-card.nr {
+  border-color: rgba(126, 167, 239, 0.78);
+  background: linear-gradient(180deg, #244d91 0%, #1b3c75 100%);
+}
+
+.session-card-history-panel .figma-band-icon {
+  border-color: rgba(212, 228, 255, 0.2);
+  background: #345a99;
+}
+
+@media (max-width: 1180px) {
+  .scan-session-section .session-history-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .scan-session-section .session-folder-list {
+    display: grid;
+    max-height: none;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .scan-session-section {
+    padding: 12px;
+  }
+
+  .history-spectrum-heading,
+  .session-detection-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .history-spectrum-meta {
+    justify-content: flex-start;
+  }
+
+  .history-spectrum-preview .history-spectrum-chart {
+    height: 190px;
+  }
+
+  .session-card-history-panel .figma-signal-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   GENERAL DETECTION GRID — FIXED EMPTY SLOTS
+   Card tidak melebar ketika hasil deteksi hanya sedikit.
+   Empty grid tracks tetap dipertahankan dan card terisi dari kiri ke kanan.
+   ========================================================= */
+.general-detected-panel .figma-signal-card-grid {
+  width: 100%;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  justify-content: stretch;
+}
+
+.general-detected-panel .figma-signal-card {
+  width: 100%;
+}
+

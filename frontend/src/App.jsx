@@ -876,6 +876,51 @@ function normalizePersistentDetection(detection, index = 0) {
   };
 }
 
+function normalizeSpectrumPreview(preview) {
+  if (!preview || typeof preview !== "object") {
+    return null;
+  }
+
+  const frequencyValues = Array.isArray(preview.frequency_mhz)
+    ? preview.frequency_mhz.map(Number)
+    : [];
+  const powerValues = Array.isArray(preview.power_db)
+    ? preview.power_db.map(Number)
+    : [];
+  const pointCount = Math.min(frequencyValues.length, powerValues.length);
+
+  if (pointCount === 0) {
+    return null;
+  }
+
+  const normalizedFrequency = [];
+  const normalizedPower = [];
+
+  for (let index = 0; index < pointCount; index += 1) {
+    const frequency = frequencyValues[index];
+    const power = powerValues[index];
+
+    if (!Number.isFinite(frequency) || !Number.isFinite(power)) {
+      continue;
+    }
+
+    normalizedFrequency.push(frequency);
+    normalizedPower.push(power);
+  }
+
+  if (normalizedFrequency.length === 0) {
+    return null;
+  }
+
+  return {
+    ...preview,
+    frequency_mhz: normalizedFrequency,
+    power_db: normalizedPower,
+    point_count: normalizedFrequency.length,
+  };
+}
+
+
 function normalizePersistentScanSession(session, index = 0) {
   const detections = Array.isArray(session.detections)
     ? session.detections.map((detection, detectionIndex) =>
@@ -909,6 +954,9 @@ function normalizePersistentScanSession(session, index = 0) {
     config: session.config ?? {},
     sweep: session.sweep ?? {},
     peak: session.peak ?? null,
+    spectrumPreview: normalizeSpectrumPreview(
+      session.spectrumPreview ?? session.spectrum_preview
+    ),
     detections,
     detectionCount:
       Number.isFinite(Number(session.detectionCount))
@@ -919,6 +967,206 @@ function normalizePersistentScanSession(session, index = 0) {
   };
 }
 
+
+
+function HistoricalSpectrumPanel({ session }) {
+  const preview = session?.spectrumPreview ?? null;
+  const config = session?.config ?? {};
+  const thresholdValue = Number(
+    preview?.threshold_db ?? config.threshold_db ?? 0
+  );
+  const start = Number(
+    preview?.start_frequency_mhz ?? config.start_frequency_mhz
+  );
+  const end = Number(
+    preview?.end_frequency_mhz ?? config.end_frequency_mhz
+  );
+
+  const chartScale = useMemo(() => {
+    const safeThreshold = Number.isFinite(thresholdValue)
+      ? thresholdValue
+      : 0;
+    const minDb = CHART_REFERENCE_MIN_DB;
+    const maxDb =
+      (safeThreshold - THRESHOLD_TARGET_TOP_RATIO * minDb) /
+      (1 - THRESHOLD_TARGET_TOP_RATIO);
+
+    return { minDb, maxDb };
+  }, [thresholdValue]);
+
+  const chartPath = useMemo(() => {
+    if (!preview) {
+      return { linePoints: "", areaPoints: "" };
+    }
+
+    return buildSpectrumSvgPath({
+      frequencyValues: preview.frequency_mhz ?? [],
+      powerValues: preview.power_db ?? [],
+      start,
+      end,
+      chartScale,
+    });
+  }, [preview, start, end, chartScale]);
+
+  const frequencyTicks = useMemo(() => {
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      return [];
+    }
+
+    const tickCount = 10;
+
+    return Array.from({ length: tickCount + 1 }, (_, index) => {
+      const value = start + ((end - start) / tickCount) * index;
+
+      return {
+        label: Number(value.toFixed(2)).toString(),
+        position: (index / tickCount) * 100,
+      };
+    });
+  }, [start, end]);
+
+  const chartDbTicks = useMemo(() => {
+    const safeThreshold = Number.isFinite(thresholdValue)
+      ? thresholdValue
+      : 0;
+    const values = [-100, -50, safeThreshold]
+      .filter(
+        (value, index, source) =>
+          value >= chartScale.minDb &&
+          value <= chartScale.maxDb &&
+          source.findIndex((item) => Math.abs(item - value) < 0.001) === index
+      )
+      .sort((a, b) => b - a);
+
+    return values.map((value) => ({
+      value,
+      position:
+        ((chartScale.maxDb - value) /
+          (chartScale.maxDb - chartScale.minDb)) *
+        100,
+      isThreshold: Math.abs(value - safeThreshold) < 0.001,
+    }));
+  }, [chartScale, thresholdValue]);
+
+  const thresholdTop = useMemo(() => {
+    const value = Number.isFinite(thresholdValue) ? thresholdValue : 0;
+
+    return clamp(
+      ((chartScale.maxDb - value) /
+        (chartScale.maxDb - chartScale.minDb)) *
+        100,
+      0,
+      100
+    );
+  }, [chartScale, thresholdValue]);
+
+  return (
+    <section className="history-spectrum-preview">
+      <div className="history-spectrum-heading">
+        <div>
+          <p className="section-kicker">SAVED SPECTRUM</p>
+          <h4>Historical Spectrum Preview</h4>
+        </div>
+
+        {preview && (
+          <div className="history-spectrum-meta">
+            <span>{preview.point_count ?? preview.frequency_mhz.length} preview points</span>
+            <span>{preview.source_point_count ?? "-"} source FFT points</span>
+          </div>
+        )}
+      </div>
+
+      {!preview || !chartPath.linePoints ? (
+        <div className="history-spectrum-unavailable">
+          Spectrum preview tidak tersedia untuk session lama. Jalankan scan baru
+          setelah update backend untuk menyimpan visual grafik.
+        </div>
+      ) : (
+        <div className="spectrum-chart history-spectrum-chart">
+          <div className="chart-y-axis" aria-hidden="true">
+            {chartDbTicks.map(({ value, position, isThreshold }) => (
+              <span
+                key={`history-y-${value}`}
+                className={isThreshold ? "threshold-y-tick" : ""}
+                style={{ top: `${position}%` }}
+              >
+                {value} dB
+              </span>
+            ))}
+          </div>
+
+          <div className="chart-plot">
+            {chartDbTicks.map(({ value, position }) => (
+              <div
+                key={`history-horizontal-${value}`}
+                className="chart-h-grid-line"
+                style={{ top: `${position}%` }}
+              />
+            ))}
+
+            {frequencyTicks.map(({ label, position }) => (
+              <div
+                key={`history-vertical-${label}-${position}`}
+                className="chart-v-grid-line"
+                style={{ left: `${position}%` }}
+              />
+            ))}
+
+            <div
+              className="threshold-visual"
+              style={{ top: `${thresholdTop}%` }}
+            >
+              <span>Threshold {Number.isFinite(thresholdValue) ? thresholdValue : 0} dB</span>
+            </div>
+
+            <svg
+              className="spectrum-svg"
+              viewBox={`0 0 1000 ${CHART_SVG_HEIGHT}`}
+              preserveAspectRatio="none"
+              aria-label="Historical spectrum preview"
+            >
+              <polygon
+                points={chartPath.areaPoints}
+                className="spectrum-area"
+              />
+
+              <polyline
+                points={chartPath.linePoints}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.25"
+                vectorEffect="non-scaling-stroke"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                shapeRendering="geometricPrecision"
+              />
+            </svg>
+          </div>
+
+          <div className="chart-x-axis" aria-hidden="true">
+            {frequencyTicks.map(({ label, position }, index) => (
+              <span
+                key={`history-x-${label}-${position}`}
+                className={
+                  index === 0
+                    ? "first-x-label"
+                    : index === frequencyTicks.length - 1
+                      ? "last-x-label"
+                      : ""
+                }
+                style={{ left: `${position}%` }}
+              >
+                {label}
+              </span>
+            ))}
+
+            <small className="chart-x-unit">MHz</small>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
 
 
 const TECHNOLOGY_DETAIL_GROUPS = [
@@ -2592,7 +2840,17 @@ function App() {
                         </div>
                       </div>
 
+                      <HistoricalSpectrumPanel session={selectedScanSession} />
+
                       <div className="session-card-history-panel">
+                        <div className="session-detection-heading">
+                          <div>
+                            <p className="section-kicker">DETECTED SIGNALS</p>
+                            <h4>Saved Frequency Detection</h4>
+                          </div>
+                          <span>{selectedScanSession.detectionCount} points</span>
+                        </div>
+
                         <DetectionCardGrid
                           detections={selectedScanSession.detections}
                           sourceLabel={selectedScanSession?.title ?? "SCAN HISTORY DETAIL"}

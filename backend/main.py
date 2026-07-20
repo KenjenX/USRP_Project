@@ -59,6 +59,10 @@ DETECTION_MODE = "threshold_points"
 # Folder ini akan dibuat otomatis dan sebaiknya tetap masuk .gitignore.
 SCAN_HISTORY_DIR = Path(__file__).resolve().parent / "scan_history"
 
+# Jumlah titik maksimum untuk visual spectrum yang disimpan ke setiap file
+# Scan History. Data FFT penuh tidak disimpan agar file JSON tetap ringan.
+SPECTRUM_PREVIEW_TARGET_POINTS = 1600
+
 
 app = FastAPI(title="USRP B210 Spectrum API")
 
@@ -107,6 +111,12 @@ scan_state = {
     },
     "detections": [],
     "last_window_detections": [],
+    "spectrum_preview": {
+        "frequency_mhz": [],
+        "power_db": [],
+        "source_point_count": 0,
+        "point_count": 0,
+    },
     "last_peak": None,
     "last_error": None,
     "session_id": None,
@@ -292,6 +302,163 @@ def calculate_total_windows(start_mhz: float, end_mhz: float) -> int:
     return max(1, int(ceil(scan_width_mhz / SWEEP_WINDOW_MHZ)))
 
 
+def create_empty_spectrum_preview() -> dict:
+    """
+    Membuat accumulator spectrum preview untuk satu scan session.
+    """
+
+    return {
+        "frequency_mhz": [],
+        "power_db": [],
+        "source_point_count": 0,
+        "point_count": 0,
+    }
+
+
+def downsample_spectrum_peak_preserving(
+    frequency_values,
+    power_values,
+    target_points: int,
+) -> tuple[list[float], list[float]]:
+    """
+    Mengecilkan satu window FFT sambil mempertahankan nilai minimum dan
+    maksimum setiap bucket. Puncak sinyal tetap terlihat, tetapi jumlah data
+    yang disimpan ke JSON jauh lebih kecil daripada FFT mentah.
+    """
+
+    frequency_array = np.asarray(frequency_values, dtype=float)
+    power_array = np.asarray(power_values, dtype=float)
+
+    point_count = min(len(frequency_array), len(power_array))
+
+    if point_count <= 0 or target_points <= 0:
+        return [], []
+
+    frequency_array = frequency_array[:point_count]
+    power_array = power_array[:point_count]
+
+    finite_mask = np.isfinite(frequency_array) & np.isfinite(power_array)
+    frequency_array = frequency_array[finite_mask]
+    power_array = power_array[finite_mask]
+    point_count = len(frequency_array)
+
+    if point_count <= 0:
+        return [], []
+
+    if point_count <= target_points:
+        return frequency_array.tolist(), power_array.tolist()
+
+    bucket_count = max(1, target_points // 2)
+    bucket_edges = np.linspace(
+        0,
+        point_count,
+        bucket_count + 1,
+        dtype=int,
+    )
+
+    selected_indexes: list[int] = []
+
+    for bucket_index in range(bucket_count):
+        start_index = int(bucket_edges[bucket_index])
+        end_index = int(bucket_edges[bucket_index + 1])
+
+        if end_index <= start_index:
+            continue
+
+        bucket_power = power_array[start_index:end_index]
+        minimum_index = start_index + int(np.argmin(bucket_power))
+        maximum_index = start_index + int(np.argmax(bucket_power))
+
+        selected_indexes.extend(sorted({minimum_index, maximum_index}))
+
+    if target_points % 2 == 1 and selected_indexes:
+        selected_indexes.append(point_count - 1)
+
+    selected_indexes = sorted(set(selected_indexes))[:target_points]
+
+    return (
+        frequency_array[selected_indexes].tolist(),
+        power_array[selected_indexes].tolist(),
+    )
+
+
+def append_spectrum_preview_window(
+    preview: dict,
+    spectrum: dict,
+    total_windows: int,
+) -> None:
+    """
+    Menambahkan preview dari satu window ke accumulator session.
+
+    Alokasi titik dibagi menurut jumlah window, sehingga scan pendek tetap
+    memiliki detail tinggi dan sweep 50–6000 MHz tetap sekitar 1.600 titik.
+    """
+
+    frequency_values = spectrum.get("frequency_mhz", [])
+    power_values = spectrum.get("power_db", [])
+    source_point_count = min(len(frequency_values), len(power_values))
+
+    if source_point_count <= 0:
+        return
+
+    points_per_window = max(
+        8,
+        int(ceil(SPECTRUM_PREVIEW_TARGET_POINTS / max(1, total_windows))),
+    )
+
+    preview_frequency, preview_power = downsample_spectrum_peak_preserving(
+        frequency_values,
+        power_values,
+        points_per_window,
+    )
+
+    preview["frequency_mhz"].extend(preview_frequency)
+    preview["power_db"].extend(preview_power)
+    preview["source_point_count"] += int(source_point_count)
+    preview["point_count"] = len(preview["frequency_mhz"])
+
+
+def finalize_spectrum_preview(state: dict) -> dict | None:
+    """
+    Menyiapkan spectrum preview final yang aman disimpan ke JSON.
+    """
+
+    preview = deepcopy(state.get("spectrum_preview") or {})
+    frequency_values = preview.get("frequency_mhz", [])
+    power_values = preview.get("power_db", [])
+    point_count = min(len(frequency_values), len(power_values))
+
+    if point_count <= 0:
+        return None
+
+    frequency_values = frequency_values[:point_count]
+    power_values = power_values[:point_count]
+
+    order = sorted(
+        range(point_count),
+        key=lambda index: float(frequency_values[index]),
+    )
+
+    sorted_frequency = [float(frequency_values[index]) for index in order]
+    sorted_power = [float(power_values[index]) for index in order]
+
+    config = state.get("config", {})
+
+    return {
+        "format": "peak_preserving_min_max_v1",
+        "frequency_mhz": sorted_frequency,
+        "power_db": sorted_power,
+        "point_count": len(sorted_frequency),
+        "source_point_count": int(preview.get("source_point_count", 0)),
+        "target_point_count": SPECTRUM_PREVIEW_TARGET_POINTS,
+        "start_frequency_mhz": config.get("start_frequency_mhz"),
+        "end_frequency_mhz": config.get("end_frequency_mhz"),
+        "threshold_db": config.get("threshold_db"),
+        "min_power_db": min(sorted_power),
+        "max_power_db": max(sorted_power),
+    }
+
+
 def ensure_scan_history_dir() -> None:
     """
     Membuat folder penyimpanan riwayat scan jika belum ada.
@@ -346,6 +513,7 @@ def build_scan_session_payload(state: dict, completed_at: str) -> dict:
 
     session_id = state.get("session_id") or create_scan_session_id()
     detections = state.get("detections", [])
+    spectrum_preview = finalize_spectrum_preview(state)
 
     return {
         "id": session_id,
@@ -358,6 +526,7 @@ def build_scan_session_payload(state: dict, completed_at: str) -> dict:
         "config": state.get("config", {}),
         "sweep": state.get("sweep", {}),
         "peak": state.get("last_peak"),
+        "spectrum_preview": spectrum_preview,
         "detections": detections,
         "detectionCount": len(detections),
         "detection_count": len(detections),
@@ -804,6 +973,7 @@ def start_scan(request: ScanRequest):
         }
         scan_state["detections"] = []
         scan_state["last_window_detections"] = []
+        scan_state["spectrum_preview"] = create_empty_spectrum_preview()
         scan_state["last_peak"] = None
         scan_state["last_error"] = None
         scan_state["session_id"] = session_id
@@ -857,6 +1027,7 @@ def scan_results():
         "detection_count": len(state["detections"]),
         "detections": state["detections"],
         "last_window_detections": state["last_window_detections"],
+        "spectrum_preview": finalize_spectrum_preview(state),
         "last_peak": state["last_peak"],
         "last_error": state["last_error"],
         "session_id": state["session_id"],
@@ -948,6 +1119,7 @@ def get_spectrum():
             "peak": state["last_peak"],
             "detections": state["last_window_detections"],
             "detection_count": len(state["detections"]),
+            "spectrum_preview": finalize_spectrum_preview(state),
             "session_id": state["session_id"],
             "completed_at": state["completed_at"],
             "session_saved": state["session_saved"],
@@ -990,6 +1162,7 @@ def get_spectrum():
             "peak": finished_state["last_peak"],
             "detections": finished_state["last_window_detections"],
             "detection_count": len(finished_state["detections"]),
+            "spectrum_preview": finalize_spectrum_preview(finished_state),
             "session_id": finished_state["session_id"],
             "completed_at": finished_state["completed_at"],
             "session_saved": finished_state["session_saved"],
@@ -1009,6 +1182,11 @@ def get_spectrum():
     with state_lock:
         scan_state["detections"].extend(scan_result["detections"])
         scan_state["last_window_detections"] = scan_result["detections"]
+        append_spectrum_preview_window(
+            scan_state["spectrum_preview"],
+            scan_result["spectrum"],
+            scan_state["sweep"]["total_windows"],
+        )
         scan_state["last_peak"] = scan_result["peak"]
         scan_state["sweep"]["last_window_start_mhz"] = window_start_mhz
         scan_state["sweep"]["last_window_end_mhz"] = window_end_mhz
@@ -1048,6 +1226,7 @@ def get_spectrum():
         "detections": scan_result["detections"],
         "last_window_detection_count": len(scan_result["detections"]),
         "detection_count": len(updated_state["detections"]),
+        "spectrum_preview": finalize_spectrum_preview(updated_state),
         "session_id": updated_state["session_id"],
         "completed_at": updated_state["completed_at"],
         "session_saved": updated_state["session_saved"],
