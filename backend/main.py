@@ -4,6 +4,9 @@ from threading import Lock
 from copy import deepcopy
 from math import ceil
 import json
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -177,38 +180,106 @@ def get_usrp():
 
 
 def check_usrp_connection():
+    """Mengecek USRP lewat proses UHD terpisah agar API lain tidak macet.
+
+    Sebelumnya endpoint /api/device memanggil ``uhd.usrp.MultiUSRP`` langsung
+    di proses FastAPI. Pada beberapa kondisi Windows, pencarian UHD dapat
+    menunggu sangat lama ketika perangkat tidak terhubung dan membuat Machine,
+    Channel, Swagger, serta Scan History ikut tidak responsif.
+
+    Pemeriksaan ini menjalankan ``uhd_find_devices`` sebagai child process.
+    Jika UHD macet, child process dihentikan setelah timeout; proses FastAPI
+    tetap hidup sehingga CRUD tidak bergantung pada keberadaan USRP.
     """
-    Mengecek koneksi USRP untuk indikator frontend.
 
-    get_usrp() memakai cache device agar scan tidak terus membuka ulang
-    perangkat. Karena itu endpoint status perlu mencoba membaca properti
-    ringan dari device. Jika gagal, cache di-reset agar indikator bisa
-    berubah merah ketika USRP dicabut / tidak terdeteksi.
-    """
+    discovered_tool = (
+        shutil.which("uhd_find_devices.exe")
+        or shutil.which("uhd_find_devices")
+    )
 
-    global usrp_device
+    candidate_paths = [
+        Path(r"C:\Program Files\UHD\bin\uhd_find_devices.exe"),
+        Path(r"C:\Program Files (x86)\UHD\bin\uhd_find_devices.exe"),
+    ]
 
-    try:
-        usrp = get_usrp()
+    tool_path = Path(discovered_tool) if discovered_tool else None
 
-        with device_lock:
-            # Operasi ringan untuk memastikan object UHD masih responsif.
-            usrp.get_rx_antenna(CHANNEL)
-            usrp.get_rx_rate(CHANNEL)
+    if tool_path is None:
+        tool_path = next(
+            (candidate for candidate in candidate_paths if candidate.exists()),
+            None,
+        )
 
-        return usrp
-
-    except HTTPException:
-        raise
-
-    except Exception as error:
-        with device_lock:
-            usrp_device = None
-
+    if tool_path is None:
         raise HTTPException(
             status_code=503,
-            detail=f"USRP tidak terdeteksi atau terputus: {error}",
+            detail=(
+                "USRP offline: uhd_find_devices.exe tidak ditemukan. "
+                "Pastikan UHD terpasang atau folder UHD/bin ada di PATH."
+            ),
+        )
+
+    creation_flags = 0
+    if os.name == "nt" and hasattr(subprocess, "CREATE_NO_WINDOW"):
+        creation_flags = subprocess.CREATE_NO_WINDOW
+
+    try:
+        result = subprocess.run(
+            [str(tool_path), "--args", f"serial={USRP_SERIAL}"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=4,
+            check=False,
+            creationflags=creation_flags,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "USRP offline: pemeriksaan perangkat melewati batas waktu "
+                "4 detik. API CRUD tetap dapat digunakan."
+            ),
         ) from error
+    except Exception as error:
+        raise HTTPException(
+            status_code=503,
+            detail=f"USRP offline: pemeriksaan perangkat gagal: {error}",
+        ) from error
+
+    output = "\n".join(
+        part.strip()
+        for part in (result.stdout, result.stderr)
+        if part and part.strip()
+    )
+    normalized_output = output.lower()
+
+    no_device_markers = (
+        "no uhd devices found",
+        "no devices found",
+        "lookup error",
+        "keyerror",
+    )
+    target_found = USRP_SERIAL.lower() in normalized_output
+    explicitly_missing = any(
+        marker in normalized_output for marker in no_device_markers
+    )
+
+    if result.returncode != 0 or explicitly_missing or not target_found:
+        detail = "USRP offline: perangkat dengan serial target tidak ditemukan."
+
+        # Batasi pesan UHD agar indikator frontend tidak menjadi terlalu panjang.
+        if output:
+            compact_output = " ".join(output.split())
+            detail = f"{detail} {compact_output[:220]}"
+
+        raise HTTPException(status_code=503, detail=detail)
+
+    return {
+        "connected": True,
+        "tool": str(tool_path),
+    }
 
 
 def get_current_state():

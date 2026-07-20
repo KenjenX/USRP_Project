@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
+import SpecificChannelPage from "./SpecificChannelPage.jsx";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
 const SPECTRUM_REFRESH_MS = 250;
-const DEVICE_REFRESH_MS = 2000;
+
+// Saat Vite dan FastAPI dinyalakan hampir bersamaan, frontend dapat terbuka
+// beberapa detik lebih dulu daripada backend. Scan history akan dicoba ulang
+// otomatis agar user tidak perlu me-refresh halaman secara manual.
+const INITIAL_HISTORY_RETRY_DELAYS_MS = [0, 1000, 2000, 4000, 8000];
+
+// Tidak ada polling otomatis /api/device.
+// USRP hanya diakses ketika user menjalankan scan agar CRUD tetap independen.
 
 // Jumlah window history yang disimpan di frontend.
 // Scan 50–6000 MHz dengan window 56 MHz butuh sekitar 107 window,
@@ -1177,12 +1185,6 @@ function App() {
   const [isScanning, setIsScanning] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
 
-  const [device, setDevice] = useState({
-    status: "checking",
-    device: "USRP B210",
-    antenna: "RX2",
-  });
-
   const [spectrum, setSpectrum] = useState({
     frequency_mhz: [],
     power_db: [],
@@ -1341,53 +1343,77 @@ function App() {
   }, [selectedDetectionDetail]);
 
   useEffect(() => {
-    loadPersistentScanSessions().catch((error) => {
-      setErrorMessage(`Scan history error: ${error.message}`);
-    });
-  }, [loadPersistentScanSessions]);
-
-  // Cek status USRP secara berkala agar indikator langsung merah
-  // ketika perangkat dicabut / backend tidak dapat mendeteksi USRP.
-  useEffect(() => {
     let cancelled = false;
-    let intervalId;
+    let retryTimerId;
+    let attemptIndex = 0;
 
-    async function checkDevice() {
+    async function loadHistoryWithRetry() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/device`);
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.detail || "USRP tidak dapat diakses.");
-        }
+        await loadPersistentScanSessions();
 
         if (!cancelled) {
-          setDevice({
-            ...data,
-            status: "ready",
-            lastError: "",
-          });
+          setErrorMessage((previousMessage) =>
+            previousMessage.startsWith("Scan history error:")
+              ? ""
+              : previousMessage
+          );
         }
       } catch (error) {
-        if (!cancelled) {
-          setDevice({
-            status: "offline",
-            device: "USRP B210",
-            antenna: "RX2",
-            lastError: error.message,
-          });
+        if (cancelled) {
+          return;
         }
+
+        attemptIndex += 1;
+
+        if (attemptIndex < INITIAL_HISTORY_RETRY_DELAYS_MS.length) {
+          retryTimerId = window.setTimeout(
+            loadHistoryWithRetry,
+            INITIAL_HISTORY_RETRY_DELAYS_MS[attemptIndex]
+          );
+          return;
+        }
+
+        setErrorMessage(`Scan history error: ${error.message}`);
       }
     }
 
-    checkDevice();
-    intervalId = window.setInterval(checkDevice, DEVICE_REFRESH_MS);
+    loadHistoryWithRetry();
 
     return () => {
       cancelled = true;
-      window.clearInterval(intervalId);
+      window.clearTimeout(retryTimerId);
     };
-  }, []);
+  }, [loadPersistentScanSessions]);
+
+  // Muat ulang setiap kali tab Scan History dibuka. Ini memastikan session
+  // yang tersimpan di backend selalu muncul tanpa refresh browser.
+  useEffect(() => {
+    if (activeTab !== "history") {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    loadPersistentScanSessions()
+      .then(() => {
+        if (!cancelled) {
+          setErrorMessage((previousMessage) =>
+            previousMessage.startsWith("Scan history error:")
+              ? ""
+              : previousMessage
+          );
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setErrorMessage(`Scan history error: ${error.message}`);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, loadPersistentScanSessions]);
 
   // Ambil data spectrum baru setiap 250 ms saat scan berjalan.
   useEffect(() => {
@@ -1996,7 +2022,6 @@ function App() {
   }, [scanSessions, selectedSessionId]);
 
   const detectedCount = currentScanHistorySorted.length;
-  const isDeviceReady = device.status === "ready";
 
   return (
     <main className="app-shell">
@@ -2139,24 +2164,6 @@ function App() {
             <h2>Frequency Scanner Dashboard</h2>
           </div>
 
-          <div className={`connection-status ${isDeviceReady ? "online" : "offline"}`}>
-            <span
-              className={
-                isDeviceReady
-                  ? "status-dot"
-                  : "status-dot status-dot-offline"
-              }
-            />
-
-            <span className="connection-text">
-              <strong>{isDeviceReady ? "USRP CONNECTED" : "USRP OFFLINE"}</strong>
-              <small>
-                {isDeviceReady
-                  ? `${device.device} · ${device.antenna}`
-                  : device.lastError ?? "USRP tidak terdeteksi"}
-              </small>
-            </span>
-          </div>
         </header>
 
         <nav className="tabs">
@@ -2175,6 +2182,14 @@ function App() {
           >
             Scan History
             <span className="tab-badge">{scanSessions.length}</span>
+          </button>
+
+          <button
+            type="button"
+            className={activeTab === "specific" ? "tab active-tab" : "tab"}
+            onClick={() => setActiveTab("specific")}
+          >
+            Specific
           </button>
         </nav>
 
@@ -2579,14 +2594,7 @@ function App() {
             )}
           </section>
         ) : (
-          <section className="specific-panel">
-            <p className="section-kicker">COMING SOON</p>
-            <h3>Specific Channel Scanner</h3>
-            <p>
-              Halaman Specific akan dibuat setelah spectrum USRP stabil tampil
-              di halaman General.
-            </p>
-          </section>
+          <SpecificChannelPage apiBaseUrl={API_BASE_URL} />
         )}
       </section>
 
