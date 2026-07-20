@@ -6,13 +6,18 @@ body,
   margin: 0;
 }
 
+html,
+body {
+  width: 100%;
+}
+
 body {
   min-height: 100vh;
-  background: #07131e;
+  background: #102745;
 }
 
 #root {
   width: 100%;
-  max-width: 1600px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
 }

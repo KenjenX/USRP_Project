@@ -31,7 +31,7 @@ from backend.channel_routes import router as channel_router
 # =========================
 # KONFIGURASI USRP
 # =========================
-USRP_SERIAL = "000000929"
+USRP_SERIAL = "8004374"
 CHANNEL = 0
 RX_ANTENNA = "RX2"
 GAIN_DB = 35

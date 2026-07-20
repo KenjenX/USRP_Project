@@ -2290,3 +2290,1351 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================
+   UI REDESIGN — General page based on the supplied Figma view
+   ========================================================= */
+:root {
+  --ui-bg: #142b4b;
+  --ui-bg-deep: #081a31;
+  --ui-panel: #0b213e;
+  --ui-panel-2: #102b50;
+  --ui-line: rgba(91, 145, 229, 0.38);
+  --ui-text: #f6f8ff;
+  --ui-muted: #aebbd3;
+  --ui-blue: #315a9d;
+  --ui-blue-bright: #4f7ac7;
+  --ui-green: #07850a;
+  --ui-yellow: #f3f300;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: none;
+  min-height: 100%;
+  background: #102745;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+#root {
+  display: block;
+}
+
+.app-shell {
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-rows: 72px minmax(calc(100vh - 72px), auto);
+  color: var(--ui-text);
+  background:
+    linear-gradient(135deg, rgba(59, 100, 166, 0.18), transparent 28%),
+    linear-gradient(180deg, #1b3962 0%, #112947 100%);
+}
+
+.app-header {
+  position: relative;
+  z-index: 20;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: 335px minmax(0, 1fr) 110px;
+  align-items: stretch;
+  min-width: 0;
+  border-top: 2px solid rgba(75, 118, 190, 0.8);
+  border-bottom: 4px solid #254979;
+  background: linear-gradient(180deg, #1c3765 0%, #172c50 100%);
+  box-shadow: 0 5px 14px rgba(2, 10, 23, 0.34);
+}
+
+.app-header::after {
+  content: "";
+  position: absolute;
+  right: 18px;
+  bottom: -4px;
+  left: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #234c86, #375f9a 76%, transparent);
+  pointer-events: none;
+}
+
+.app-header-brand {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 0 22px;
+  clip-path: polygon(0 0, 100% 0, 73% 100%, 0 100%);
+  color: #ffffff;
+  background:
+    linear-gradient(135deg, rgba(74, 110, 170, 0.45), rgba(21, 42, 77, 0.84));
+  letter-spacing: 0.14em;
+}
+
+.app-header-brand::after {
+  content: "";
+  position: absolute;
+  right: 43px;
+  bottom: 0;
+  width: 1px;
+  height: 100%;
+  background: rgba(91, 136, 210, 0.32);
+  transform: skewX(-39deg);
+}
+
+.app-header-brand-mark {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  place-items: center;
+  color: #f5f7ff;
+  font-size: 1.25rem;
+}
+
+.app-header-brand strong {
+  font-size: 1.08rem;
+  white-space: nowrap;
+}
+
+.app-tabs {
+  height: 100%;
+  margin: 0;
+  padding: 0 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  border: 0;
+  background: transparent;
+}
+
+.app-tabs .tab {
+  position: relative;
+  min-width: 175px;
+  height: 48px;
+  margin-left: -12px;
+  padding: 0 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  clip-path: polygon(16% 0, 100% 0, 84% 100%, 0 100%);
+  border: 1px solid rgba(93, 135, 202, 0.32);
+  color: rgba(255, 255, 255, 0.68);
+  background: #111d2b;
+  font-size: 0.94rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  transition: 0.16s ease;
+}
+
+.app-tabs .tab:hover {
+  color: #ffffff;
+  filter: brightness(1.12);
+}
+
+.app-tabs .tab.active-tab {
+  z-index: 2;
+  border: 1px solid rgba(110, 154, 226, 0.56);
+  color: #ffffff;
+  background: linear-gradient(180deg, #355b9d 0%, #274879 100%);
+  box-shadow: inset 0 -2px 0 rgba(15, 29, 50, 0.5);
+}
+
+.app-tabs .tab.active-tab::after {
+  display: none;
+}
+
+.top-tab-icon {
+  font-size: 1rem;
+}
+
+.app-tabs .tab-badge {
+  min-width: 18px;
+  height: 18px;
+  margin-left: 0;
+  padding: 0 5px;
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.22);
+  font-size: 0.58rem;
+}
+
+.sdr-badge {
+  align-self: center;
+  justify-self: center;
+  min-width: 82px;
+  padding: 6px 12px;
+  color: #f5f5f5;
+  background: #111b2b;
+  font-size: 0.92rem;
+  font-weight: 900;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.sidebar {
+  grid-column: 1;
+  grid-row: 2;
+  min-height: calc(100vh - 72px);
+  padding: 16px 13px;
+  overflow-y: auto;
+  border-right: 1px solid rgba(35, 73, 126, 0.9);
+  background:
+    linear-gradient(150deg, rgba(38, 70, 113, 0.22), transparent 38%),
+    #142c4b;
+}
+
+.sidebar-nav-card {
+  display: flex;
+  width: 100%;
+  min-height: 64px;
+  align-items: center;
+  gap: 14px;
+  padding: 0 21px;
+  border: 0;
+  border-radius: 7px;
+  color: #ffffff;
+  background: #0b213f;
+  box-shadow: 0 8px 13px rgba(3, 12, 26, 0.25);
+  font-size: 0.92rem;
+  text-align: left;
+}
+
+.sidebar-nav-card span {
+  font-size: 1.15rem;
+}
+
+.sidebar-nav-card.selected {
+  background: linear-gradient(180deg, #102847, #0a1e38);
+}
+
+.sidebar-divider {
+  display: none;
+}
+
+.settings-section,
+.sidebar-detected-counter,
+.sidebar-status,
+.sidebar-live-peak {
+  margin-top: 14px;
+  padding: 12px 10px 15px;
+  border: 0;
+  border-radius: 7px;
+  background: #0b213f;
+  box-shadow: 0 8px 13px rgba(3, 12, 26, 0.22);
+}
+
+.settings-section h2,
+.sidebar-detected-counter h2 {
+  margin: 0 0 13px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid #315584;
+  color: #ffffff;
+  font-size: 0.98rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.settings-section label {
+  margin: 11px 0 6px;
+  color: #eef3ff;
+  font-size: 0.7rem;
+}
+
+.input-unit {
+  min-height: 34px;
+  border: 0;
+  background: #173664;
+}
+
+.input-unit input {
+  min-width: 0;
+  padding: 8px;
+  color: #ffffff;
+  text-align: left;
+}
+
+.input-unit span {
+  min-width: 44px;
+  padding: 9px 8px;
+  color: #ffffff;
+  background: #10284b;
+  text-align: center;
+}
+
+.scan-button {
+  min-height: 40px;
+  margin-top: 16px;
+  padding: 10px;
+  border: 0;
+  border-radius: 7px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #0a9410 0%, #067207 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+}
+
+.scan-button:hover:not(:disabled) {
+  transform: none;
+  filter: brightness(1.12);
+  box-shadow: 0 0 16px rgba(0, 255, 20, 0.13);
+}
+
+.scan-button.scan-active {
+  color: #ffffff;
+  background: linear-gradient(180deg, #b52d39, #7f1f29);
+}
+
+.sidebar-detected-counter {
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.sidebar-detected-counter h2 {
+  width: 100%;
+  border-bottom: 0;
+  text-align: center;
+  letter-spacing: 0.06em;
+}
+
+.sidebar-detected-counter strong {
+  margin-top: 46px;
+  color: #ffffff;
+  font-size: 3.15rem;
+  line-height: 1;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.32);
+}
+
+.sidebar-detected-counter span {
+  margin-top: 9px;
+  color: #7f98bb;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sidebar-status,
+.sidebar-live-peak {
+  padding: 12px;
+}
+
+.sidebar-status {
+  margin-top: 14px;
+}
+
+.sidebar-status strong {
+  font-size: 0.78rem;
+}
+
+.sidebar-status span,
+.sidebar-live-peak,
+.sidebar-live-message,
+.sidebar-error-message {
+  font-size: 0.62rem;
+}
+
+.dashboard {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  min-height: calc(100vh - 72px);
+  padding: 10px;
+  background:
+    linear-gradient(135deg, rgba(65, 103, 162, 0.15), transparent 25%),
+    #17345a;
+}
+
+.general-spectrum-panel,
+.general-detected-panel,
+.scan-session-section,
+.specific-workspace {
+  border: 0;
+  border-radius: 7px;
+  background: #0a1f3b;
+  box-shadow: 0 5px 14px rgba(4, 13, 30, 0.25);
+}
+
+.general-spectrum-panel {
+  padding: 8px;
+}
+
+.general-spectrum-panel .panel-heading {
+  min-height: 28px;
+  align-items: center;
+  padding: 0 6px;
+}
+
+.general-spectrum-panel .panel-heading h3 {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.general-spectrum-panel .section-kicker {
+  display: none;
+}
+
+.general-spectrum-panel .legend {
+  gap: 10px;
+  font-size: 0.58rem;
+}
+
+.general-spectrum-panel .sweep-progress-card {
+  margin-top: 5px;
+  padding: 6px 8px;
+  font-size: 0.57rem;
+}
+
+.general-spectrum-panel .spectrum-chart {
+  height: 215px;
+  margin-top: 5px;
+  border: 2px solid #101822;
+  border-radius: 2px;
+  background: #020505;
+  box-shadow: inset 0 0 0 1px rgba(76, 94, 122, 0.5);
+}
+
+.general-spectrum-panel .chart-plot {
+  top: 8px;
+  right: 9px;
+  bottom: 28px;
+  left: 44px;
+  background:
+    linear-gradient(rgba(113, 124, 113, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(113, 124, 113, 0.18) 1px, transparent 1px),
+    #020505;
+  background-size: 20px 20px;
+}
+
+.general-spectrum-panel .chart-y-axis {
+  top: 8px;
+  bottom: 28px;
+  width: 42px;
+}
+
+.general-spectrum-panel .chart-x-axis {
+  right: 9px;
+  bottom: 0;
+  left: 44px;
+}
+
+.general-spectrum-panel .spectrum-svg {
+  color: var(--ui-yellow);
+  filter: drop-shadow(0 0 2px rgba(244, 244, 0, 0.58));
+}
+
+.general-spectrum-panel .spectrum-area {
+  opacity: 0.11;
+}
+
+.general-spectrum-panel .spectrum-history-svg,
+.general-spectrum-panel .spectrum-history-line {
+  color: rgba(208, 222, 0, 0.42);
+  stroke: rgba(208, 222, 0, 0.42);
+}
+
+.general-spectrum-panel .threshold-visual {
+  border-top-color: #e22020;
+}
+
+.general-spectrum-panel .threshold-visual span {
+  color: #ffb7b7;
+  background: rgba(35, 2, 2, 0.82);
+}
+
+.general-detected-panel {
+  min-height: 455px;
+  margin-top: 10px;
+  padding: 16px 20px;
+}
+
+.general-detected-panel .panel-heading {
+  align-items: center;
+}
+
+.general-detected-panel .panel-heading h3 {
+  font-size: 0.94rem;
+}
+
+.general-detected-panel .detected-count {
+  color: #bdc9dd;
+  font-size: 0.58rem;
+}
+
+.general-detected-panel .detected-count strong {
+  color: #ffffff;
+  font-size: 1.25rem;
+}
+
+.general-detected-panel .scan-history-toolbar {
+  margin-top: 10px;
+  padding: 7px 10px;
+  border: 0;
+  color: #8aa2c5;
+  background: #102b50;
+  font-size: 0.58rem;
+}
+
+.general-detected-panel .figma-signal-card-grid {
+  grid-template-columns: repeat(auto-fill, minmax(250px, 270px));
+  justify-content: start;
+  gap: 12px;
+  max-height: 480px;
+  margin-top: 12px;
+  padding: 2px 10px 2px 2px;
+}
+
+.general-detected-panel .figma-signal-card {
+  padding: 12px;
+  border-color: rgba(67, 117, 198, 0.65);
+  border-radius: 6px;
+  background: linear-gradient(180deg, #173a70 0%, #102d58 100%);
+}
+
+.general-detected-panel .figma-band-card {
+  border-color: rgba(126, 167, 239, 0.8);
+  border-radius: 6px;
+  background: linear-gradient(180deg, #244d91 0%, #1b3c75 100%);
+}
+
+.general-detected-panel .figma-band-card.gsm,
+.general-detected-panel .figma-band-card.umts,
+.general-detected-panel .figma-band-card.lte,
+.general-detected-panel .figma-band-card.nr {
+  border-color: rgba(126, 167, 239, 0.8);
+  background: linear-gradient(180deg, #244d91 0%, #1b3c75 100%);
+}
+
+.general-detected-panel .figma-band-icon {
+  border-color: rgba(212, 228, 255, 0.22);
+  background: #345a99;
+}
+
+.general-detected-panel .empty-state {
+  min-height: 300px;
+  display: grid;
+  place-items: center;
+  border-color: rgba(76, 114, 175, 0.24);
+  background: #0b213f;
+}
+
+.scan-session-section,
+.specific-workspace {
+  min-height: calc(100vh - 92px);
+}
+
+@media (max-width: 1080px) {
+  .app-header {
+    grid-template-columns: 270px minmax(0, 1fr) 90px;
+  }
+
+  .app-tabs .tab {
+    min-width: 145px;
+    padding: 0 20px;
+  }
+
+  .app-shell {
+    grid-template-columns: 245px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 820px) {
+  .app-shell {
+    display: block;
+  }
+
+  .app-header {
+    position: sticky;
+    top: 0;
+    display: flex;
+    min-height: 66px;
+    padding: 0 10px;
+  }
+
+  .app-header-brand {
+    min-width: 190px;
+    clip-path: none;
+    padding: 0 10px;
+  }
+
+  .app-header-brand::after {
+    display: none;
+  }
+
+  .app-tabs {
+    flex: 1;
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  .app-tabs .tab {
+    min-width: 128px;
+    margin-left: 0;
+    clip-path: none;
+  }
+
+  .sdr-badge {
+    display: none;
+  }
+
+  .sidebar {
+    min-height: auto;
+  }
+
+  .dashboard {
+    min-height: auto;
+  }
+
+  .sidebar-detected-counter {
+    min-height: 140px;
+  }
+
+  .sidebar-detected-counter strong {
+    margin-top: 20px;
+  }
+}
+
+@media (max-width: 620px) {
+  .app-header-brand {
+    min-width: 160px;
+  }
+
+  .app-header-brand strong {
+    font-size: 0.82rem;
+  }
+
+  .app-tabs .tab {
+    min-width: 108px;
+    padding: 0 10px;
+    font-size: 0.7rem;
+  }
+
+  .top-tab-icon {
+    display: none;
+  }
+
+  .dashboard {
+    padding: 7px;
+  }
+
+  .general-spectrum-panel .legend {
+    display: none;
+  }
+
+  .general-spectrum-panel .spectrum-chart {
+    height: 190px;
+  }
+
+  .general-detected-panel {
+    padding: 12px;
+  }
+
+  .general-detected-panel .figma-signal-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   SIGNAL DETAIL CARD / MODAL — GENERAL UI THEME
+   Menyamakan popup detail titik scan dengan tema biru gelap
+   pada halaman General tanpa mengubah logika data.
+   ========================================================= */
+.signal-detail-backdrop {
+  padding: 18px;
+  background: rgba(3, 11, 24, 0.84);
+  backdrop-filter: blur(5px);
+}
+
+.signal-detail-modal {
+  position: relative;
+  width: min(920px, 96vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  border: 1px solid rgba(89, 137, 213, 0.78);
+  border-left: 4px solid #55ef9a;
+  border-radius: 4px;
+  color: var(--ui-text);
+  background:
+    linear-gradient(135deg, rgba(58, 94, 151, 0.1), transparent 30%),
+    #0b213f;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.58),
+    inset 0 0 0 1px rgba(118, 166, 238, 0.06);
+  scrollbar-color: #5d7190 #eff1f4;
+  scrollbar-width: auto;
+}
+
+.signal-detail-modal::-webkit-scrollbar {
+  width: 10px;
+}
+
+.signal-detail-modal::-webkit-scrollbar-track {
+  background: #eef0f3;
+}
+
+.signal-detail-modal::-webkit-scrollbar-thumb {
+  border: 2px solid #eef0f3;
+  border-radius: 999px;
+  background: #68778c;
+}
+
+.signal-detail-header {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  min-height: 70px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(106, 154, 226, 0.55);
+  background:
+    linear-gradient(135deg, rgba(82, 123, 188, 0.22), transparent 45%),
+    linear-gradient(180deg, #315889 0%, #274b79 100%);
+  box-shadow: 0 4px 12px rgba(3, 12, 27, 0.24);
+}
+
+.signal-detail-header::after {
+  content: "";
+  position: absolute;
+  right: 54px;
+  bottom: 0;
+  width: 105px;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, #4c78bd, transparent);
+  pointer-events: none;
+}
+
+.signal-detail-kicker {
+  margin: 0 0 4px;
+  color: #86c8ff;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+}
+
+.signal-detail-header h3 {
+  color: #ffffff;
+  font-size: 0.96rem;
+  letter-spacing: 0.06em;
+}
+
+.signal-detail-close {
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: #ffffff;
+  font-size: 1.7rem;
+  transition: 0.16s ease;
+}
+
+.signal-detail-close:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.signal-detail-status-row {
+  padding: 14px 18px 0;
+}
+
+.signal-detail-status,
+.signal-detail-status-row > span {
+  padding: 6px 9px;
+  border-radius: 2px;
+  background: #102b50;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+}
+
+.signal-detail-status.active {
+  border-color: rgba(85, 239, 154, 0.72);
+  color: #baffd7;
+  background: rgba(20, 113, 75, 0.28);
+  box-shadow: inset 3px 0 0 #55ef9a;
+}
+
+.signal-detail-summary-grid {
+  gap: 10px;
+  padding: 12px 18px 14px;
+}
+
+.signal-detail-summary-card {
+  padding: 12px 13px;
+  border: 1px solid rgba(77, 123, 192, 0.34);
+  border-radius: 4px;
+  background: #0a1e38;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.signal-detail-summary-card.wide {
+  border-left: 3px solid #4d79bd;
+}
+
+.signal-detail-summary-card span,
+.candidate-detail-main-grid span,
+.candidate-frequency-grid span {
+  margin-bottom: 6px;
+  color: #91a9cb;
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+}
+
+.signal-detail-summary-card strong,
+.candidate-detail-main-grid strong,
+.candidate-frequency-grid strong {
+  color: #ffffff;
+  font-size: 0.82rem;
+}
+
+.signal-detail-section-title,
+.candidate-detail-section-label {
+  margin: 0 18px 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(82, 132, 205, 0.24);
+  border-radius: 3px;
+  color: #98cfff;
+  background: linear-gradient(90deg, #244979, #1e3d68);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+}
+
+.signal-detail-candidate-summary-grid {
+  gap: 8px;
+  padding: 0 18px 14px;
+}
+
+.signal-detail-candidate-summary-card {
+  position: relative;
+  padding: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(89, 137, 213, 0.45);
+  border-radius: 4px;
+  background: linear-gradient(180deg, #173a69, #102d55);
+}
+
+.signal-detail-candidate-summary-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: #5f8acc;
+}
+
+.signal-detail-candidate-summary-card.gsm,
+.signal-detail-candidate-summary-card.umts,
+.signal-detail-candidate-summary-card.lte,
+.signal-detail-candidate-summary-card.nr {
+  background: linear-gradient(180deg, #173a69, #102d55);
+}
+
+.signal-detail-candidate-summary-card.gsm {
+  border-color: rgba(214, 190, 87, 0.52);
+}
+
+.signal-detail-candidate-summary-card.gsm::before {
+  background: #d6be57;
+}
+
+.signal-detail-candidate-summary-card.umts {
+  border-color: rgba(94, 151, 224, 0.58);
+}
+
+.signal-detail-candidate-summary-card.umts::before {
+  background: #5e97e0;
+}
+
+.signal-detail-candidate-summary-card.lte {
+  border-color: rgba(70, 202, 144, 0.58);
+}
+
+.signal-detail-candidate-summary-card.lte::before {
+  background: #46ca90;
+}
+
+.signal-detail-candidate-summary-card.nr {
+  border-color: rgba(154, 121, 225, 0.6);
+}
+
+.signal-detail-candidate-summary-card.nr::before {
+  background: #9a79e1;
+}
+
+.signal-detail-candidate-summary-card span,
+.signal-detail-candidate-summary-card small {
+  color: #a7bad5;
+  font-size: 0.52rem;
+}
+
+.signal-detail-candidate-summary-card strong {
+  margin: 4px 0 2px;
+  color: #ffffff;
+  font-size: 1.12rem;
+}
+
+.signal-detail-accordion-list {
+  gap: 9px;
+  padding: 0 18px 18px;
+}
+
+.signal-detail-technology-group {
+  border: 1px solid rgba(86, 137, 211, 0.46);
+  border-radius: 4px;
+  background: #0a1e38;
+}
+
+.signal-detail-technology-group.gsm,
+.signal-detail-technology-group.umts,
+.signal-detail-technology-group.lte,
+.signal-detail-technology-group.nr {
+  border-color: rgba(86, 137, 211, 0.46);
+}
+
+.signal-detail-technology-toggle,
+.signal-detail-technology-group.gsm .signal-detail-technology-toggle,
+.signal-detail-technology-group.umts .signal-detail-technology-toggle,
+.signal-detail-technology-group.lte .signal-detail-technology-toggle,
+.signal-detail-technology-group.nr .signal-detail-technology-toggle {
+  min-height: 44px;
+  padding: 9px 11px;
+  border-bottom: 1px solid transparent;
+  background: linear-gradient(90deg, #244b7e, #17355d);
+}
+
+.signal-detail-technology-group.open .signal-detail-technology-toggle {
+  border-bottom-color: rgba(92, 143, 218, 0.34);
+}
+
+.signal-detail-technology-toggle:hover {
+  filter: brightness(1.08);
+}
+
+.technology-toggle-left i {
+  width: 34px;
+  height: 28px;
+  border: 1px solid rgba(216, 231, 255, 0.16);
+  border-radius: 4px;
+  background: #315b96;
+}
+
+.signal-detail-technology-group.gsm .technology-toggle-left i {
+  background: #6e6328;
+}
+
+.signal-detail-technology-group.umts .technology-toggle-left i {
+  background: #315b96;
+}
+
+.signal-detail-technology-group.lte .technology-toggle-left i {
+  background: #267653;
+}
+
+.signal-detail-technology-group.nr .technology-toggle-left i {
+  background: #57428f;
+}
+
+.technology-toggle-left strong {
+  font-size: 0.82rem;
+}
+
+.technology-toggle-right {
+  color: #c8d7ec;
+  font-size: 0.58rem;
+}
+
+.signal-detail-candidate-list.compact {
+  gap: 8px;
+  padding: 9px;
+  background: #081a31;
+}
+
+.signal-detail-candidate-card {
+  border: 1px solid rgba(84, 134, 207, 0.44);
+  border-radius: 4px;
+  background: #0b213f;
+}
+
+.signal-detail-candidate-card.gsm,
+.signal-detail-candidate-card.umts,
+.signal-detail-candidate-card.lte,
+.signal-detail-candidate-card.nr {
+  border-color: rgba(84, 134, 207, 0.44);
+}
+
+.candidate-detail-header {
+  min-height: 42px;
+  padding: 9px 10px;
+  background: linear-gradient(90deg, #1f4474, #16345b);
+}
+
+.candidate-detail-header span {
+  width: 35px;
+  height: 28px;
+  border-radius: 4px;
+  background: #315b96;
+}
+
+.candidate-detail-header strong {
+  font-size: 0.82rem;
+}
+
+.candidate-detail-main-grid,
+.candidate-frequency-grid {
+  gap: 1px;
+  padding: 0;
+  background: rgba(82, 128, 195, 0.12);
+}
+
+.candidate-detail-main-grid > div,
+.candidate-frequency-grid > div {
+  padding: 10px;
+  background: #0a1f3a;
+}
+
+.candidate-detail-section-label {
+  margin: 9px 10px 0;
+  padding: 7px 9px;
+  border: 0;
+  color: #9ccfff;
+  background: #213f68;
+}
+
+.candidate-detected-side strong {
+  color: #69efa8;
+}
+
+.signal-detail-empty {
+  border-radius: 3px;
+  color: #afc0d8;
+  background: #0a1e38;
+}
+
+.signal-detail-footer {
+  padding: 0 18px 18px;
+}
+
+.signal-detail-footer button {
+  min-width: 108px;
+  padding: 9px 14px;
+  border: 1px solid rgba(96, 148, 224, 0.58);
+  border-radius: 3px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #315b96, #244676);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+}
+
+.signal-detail-footer button:hover {
+  border-color: #85b9ff;
+  background: linear-gradient(180deg, #3b69ab, #2b5188);
+}
+
+@media (max-width: 720px) {
+  .signal-detail-backdrop {
+    padding: 8px;
+  }
+
+  .signal-detail-modal {
+    width: 100%;
+    max-height: 96vh;
+  }
+
+  .signal-detail-header {
+    padding: 12px 14px;
+  }
+
+  .signal-detail-summary-grid,
+  .signal-detail-candidate-summary-grid,
+  .signal-detail-accordion-list {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .signal-detail-section-title {
+    margin-right: 12px;
+    margin-left: 12px;
+  }
+}
+
+/* =========================================================
+   SIGNAL DETAIL MODAL — MUTED GENERAL THEME
+   Hanya mengurangi saturasi/kontras warna.
+   Ukuran, grid, padding, dan layout tidak diubah.
+   ========================================================= */
+.signal-detail-backdrop {
+  background: rgba(3, 10, 22, 0.86);
+}
+
+.signal-detail-modal {
+  border-color: rgba(76, 116, 176, 0.58);
+  border-left-color: #4cb77f;
+  background:
+    linear-gradient(135deg, rgba(51, 79, 126, 0.07), transparent 30%),
+    #091c34;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.58),
+    inset 0 0 0 1px rgba(91, 132, 192, 0.04);
+}
+
+.signal-detail-header {
+  border-bottom-color: rgba(83, 126, 188, 0.4);
+  background:
+    linear-gradient(135deg, rgba(70, 102, 151, 0.12), transparent 45%),
+    linear-gradient(180deg, #294b76 0%, #213f68 100%);
+}
+
+.signal-detail-header::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(79, 119, 180, 0.72),
+    transparent
+  );
+}
+
+.signal-detail-kicker {
+  color: #82b5df;
+}
+
+.signal-detail-status,
+.signal-detail-status-row > span {
+  border-color: rgba(79, 119, 178, 0.28);
+  background: #0e2747;
+}
+
+.signal-detail-status.active {
+  border-color: rgba(76, 183, 127, 0.55);
+  color: #a7d9be;
+  background: rgba(30, 92, 66, 0.24);
+  box-shadow: inset 3px 0 0 #4cb77f;
+}
+
+.signal-detail-summary-card {
+  border-color: rgba(72, 111, 170, 0.28);
+  background: #091c34;
+}
+
+.signal-detail-summary-card.wide {
+  border-left-color: #456d9f;
+}
+
+.signal-detail-summary-card span,
+.candidate-detail-main-grid span,
+.candidate-frequency-grid span {
+  color: #8ea5c2;
+}
+
+.signal-detail-section-title,
+.candidate-detail-section-label {
+  border-color: rgba(73, 112, 170, 0.2);
+  color: #96bddf;
+  background: linear-gradient(90deg, #1d3a61, #183352);
+}
+
+/* Semua summary card memakai dasar biru yang sama.
+   Warna teknologi hanya menjadi aksen tipis pada border atas. */
+.signal-detail-candidate-summary-card,
+.signal-detail-candidate-summary-card.gsm,
+.signal-detail-candidate-summary-card.umts,
+.signal-detail-candidate-summary-card.lte,
+.signal-detail-candidate-summary-card.nr {
+  border-color: rgba(76, 116, 176, 0.42);
+  background: linear-gradient(180deg, #14345c, #0e294a);
+}
+
+.signal-detail-candidate-summary-card::before {
+  background: #5579aa;
+}
+
+.signal-detail-candidate-summary-card.gsm {
+  border-color: rgba(151, 140, 83, 0.42);
+}
+
+.signal-detail-candidate-summary-card.gsm::before {
+  background: #918856;
+}
+
+.signal-detail-candidate-summary-card.umts {
+  border-color: rgba(83, 126, 181, 0.46);
+}
+
+.signal-detail-candidate-summary-card.umts::before {
+  background: #527caf;
+}
+
+.signal-detail-candidate-summary-card.lte {
+  border-color: rgba(67, 142, 112, 0.46);
+}
+
+.signal-detail-candidate-summary-card.lte::before {
+  background: #478b70;
+}
+
+.signal-detail-candidate-summary-card.nr {
+  border-color: rgba(109, 91, 158, 0.46);
+}
+
+.signal-detail-candidate-summary-card.nr::before {
+  background: #6b5a96;
+}
+
+.signal-detail-candidate-summary-card span,
+.signal-detail-candidate-summary-card small {
+  color: #9badc5;
+}
+
+.signal-detail-technology-group,
+.signal-detail-technology-group.gsm,
+.signal-detail-technology-group.umts,
+.signal-detail-technology-group.lte,
+.signal-detail-technology-group.nr {
+  border-color: rgba(72, 112, 171, 0.4);
+  background: #091c34;
+}
+
+/* Header accordion dibuat dominan biru agar menyatu dengan halaman General. */
+.signal-detail-technology-toggle,
+.signal-detail-technology-group.gsm .signal-detail-technology-toggle,
+.signal-detail-technology-group.umts .signal-detail-technology-toggle,
+.signal-detail-technology-group.lte .signal-detail-technology-toggle,
+.signal-detail-technology-group.nr .signal-detail-technology-toggle {
+  background: linear-gradient(90deg, #1e416d, #153253);
+}
+
+.signal-detail-technology-group.open .signal-detail-technology-toggle {
+  border-bottom-color: rgba(76, 116, 176, 0.28);
+}
+
+.technology-toggle-left i,
+.signal-detail-technology-group.umts .technology-toggle-left i {
+  border-color: rgba(199, 217, 241, 0.12);
+  background: #2a507f;
+}
+
+.signal-detail-technology-group.gsm .technology-toggle-left i {
+  background: #5a552f;
+}
+
+.signal-detail-technology-group.lte .technology-toggle-left i {
+  background: #315f50;
+}
+
+.signal-detail-technology-group.nr .technology-toggle-left i {
+  background: #4a4168;
+}
+
+.technology-toggle-right {
+  color: #b4c4d9;
+}
+
+.signal-detail-candidate-list.compact {
+  background: #07182d;
+}
+
+.signal-detail-candidate-card,
+.signal-detail-candidate-card.gsm,
+.signal-detail-candidate-card.umts,
+.signal-detail-candidate-card.lte,
+.signal-detail-candidate-card.nr {
+  border-color: rgba(72, 112, 171, 0.36);
+  background: #091d36;
+}
+
+.candidate-detail-header {
+  background: linear-gradient(90deg, #1b3a61, #142f4e);
+}
+
+.candidate-detail-header span {
+  background: #294f7c;
+}
+
+.candidate-detail-main-grid,
+.candidate-frequency-grid {
+  background: rgba(72, 111, 168, 0.09);
+}
+
+.candidate-detail-main-grid > div,
+.candidate-frequency-grid > div {
+  background: #091c34;
+}
+
+.candidate-detail-section-label {
+  color: #94b9db;
+  background: #1b3659;
+}
+
+.candidate-detected-side strong {
+  color: #86c3a3;
+}
+
+.signal-detail-empty {
+  color: #a5b5ca;
+  background: #091c34;
+}
+
+.signal-detail-footer button {
+  border-color: rgba(80, 121, 180, 0.48);
+  background: linear-gradient(180deg, #294f7c, #203f67);
+}
+
+.signal-detail-footer button:hover {
+  border-color: #7199c9;
+  background: linear-gradient(180deg, #315b8c, #274a76);
+}
+
+/* Restore original Signal Detail modal dimensions.
+   Diletakkan paling akhir agar mengalahkan rule redesign 920px. */
+.signal-detail-modal {
+  width: min(680px, 96vw);
+  max-height: min(840px, 92vh);
+}
+
+/* =========================================================
+   GENERAL DETECTION GRID — FILL AVAILABLE WIDTH
+   Menghilangkan ruang kosong di sisi kanan daftar kartu.
+   ========================================================= */
+.general-detected-panel .figma-signal-card-grid {
+  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  justify-content: stretch;
+}
+
+.general-detected-panel .figma-signal-card {
+  width: 100%;
+}
+
+/* =========================================================
+   GENERAL SPECTRUM LEGEND — MATCH CHART COLORS
+   Hanya menyelaraskan warna indikator legenda.
+   ========================================================= */
+.general-spectrum-panel .spectrum-line {
+  background: #f4f400;
+  box-shadow: 0 0 5px rgba(244, 244, 0, 0.45);
+}
+
+.general-spectrum-panel .threshold-line {
+  background: #e22020;
+  box-shadow: 0 0 4px rgba(226, 32, 32, 0.4);
+}
+
+.general-spectrum-panel .legend-detection-marker {
+  border-color: #dfffee;
+  background: #68e7a3;
+  box-shadow: 0 0 7px rgba(104, 231, 163, 0.75);
+}
+
+.general-spectrum-panel .history-line {
+  background: rgba(208, 222, 0, 0.55);
+  box-shadow: 0 0 4px rgba(208, 222, 0, 0.24);
+}
+

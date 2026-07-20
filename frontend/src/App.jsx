@@ -2024,21 +2024,60 @@ function App() {
   const detectedCount = currentScanHistorySorted.length;
 
   return (
-    <main className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-mark">◢</span>
-
-          <div>
-            <p className="brand-small">USRP B210</p>
-            <h1>TOOLS SCANNER</h1>
-          </div>
+    <main className={`app-shell active-${activeTab}`}>
+      <header className="app-header">
+        <div className="app-header-brand">
+          <span className="app-header-brand-mark">◈</span>
+          <strong>TOOLS SCANNER</strong>
         </div>
 
-        <div className="sidebar-divider" />
+        <nav className="tabs app-tabs" aria-label="Main navigation">
+          <button
+            type="button"
+            className={activeTab === "general" ? "tab active-tab" : "tab"}
+            onClick={() => setActiveTab("general")}
+          >
+            <span className="top-tab-icon">◈</span>
+            General
+          </button>
+
+          <button
+            type="button"
+            className={activeTab === "history" ? "tab active-tab" : "tab"}
+            onClick={() => setActiveTab("history")}
+          >
+            <span className="top-tab-icon">▰</span>
+            Scan History
+            <span className="tab-badge">{scanSessions.length}</span>
+          </button>
+
+          <button
+            type="button"
+            className={activeTab === "specific" ? "tab active-tab" : "tab"}
+            onClick={() => setActiveTab("specific")}
+          >
+            <span className="top-tab-icon">◎</span>
+            Specific
+          </button>
+        </nav>
+
+        <div className="sdr-badge">SDR 1</div>
+      </header>
+
+      <aside className="sidebar">
+        <button
+          type="button"
+          className={`sidebar-nav-card ${
+            activeTab === "general" ? "selected" : ""
+          }`}
+          onClick={() => setActiveTab("general")}
+        >
+          <span>◈</span>
+          <strong>General</strong>
+        </button>
 
         <section className="settings-section">
-          <h2>SCAN SETTINGS</h2>
+          <h2>Setting Threshold</h2>
 
           <label htmlFor="threshold">Threshold</label>
           <div className="input-unit">
@@ -2086,6 +2125,14 @@ function App() {
                 ? "STOP SCAN"
                 : "START SCAN"}
           </button>
+        </section>
+
+        <section className="sidebar-detected-counter">
+          <h2>Frequency Detected</h2>
+          <strong>{detectedCount}</strong>
+          <span>
+            {detectedCount === 1 ? "threshold point" : "threshold points"}
+          </span>
         </section>
 
         <section className="sidebar-status">
@@ -2158,44 +2205,9 @@ function App() {
       </aside>
 
       <section className="dashboard">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">REALTIME SPECTRUM MONITORING</p>
-            <h2>Frequency Scanner Dashboard</h2>
-          </div>
-
-        </header>
-
-        <nav className="tabs">
-          <button
-            type="button"
-            className={activeTab === "general" ? "tab active-tab" : "tab"}
-            onClick={() => setActiveTab("general")}
-          >
-            General
-          </button>
-
-          <button
-            type="button"
-            className={activeTab === "history" ? "tab active-tab" : "tab"}
-            onClick={() => setActiveTab("history")}
-          >
-            Scan History
-            <span className="tab-badge">{scanSessions.length}</span>
-          </button>
-
-          <button
-            type="button"
-            className={activeTab === "specific" ? "tab active-tab" : "tab"}
-            onClick={() => setActiveTab("specific")}
-          >
-            Specific
-          </button>
-        </nav>
-
         {activeTab === "general" ? (
           <>
-            <section className="spectrum-panel">
+            <section className="spectrum-panel general-spectrum-panel">
               <div className="panel-heading">
                 <div>
                   <p className="section-kicker">LIVE VIEW</p>
@@ -2428,11 +2440,11 @@ function App() {
               </div>
             </section>
 
-            <section className="detected-section classification-section">
+            <section className="detected-section classification-section general-detected-panel">
               <div className="panel-heading">
                 <div>
-                  <p className="section-kicker">CURRENT SCAN</p>
-                  <h3>Current Scan History</h3>
+                  <p className="section-kicker">DETECTED SIGNALS</p>
+                  <h3>Frequency Detection</h3>
                 </div>
 
                 <div className="detected-count">
