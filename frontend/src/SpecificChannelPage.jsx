@@ -39,10 +39,7 @@ function toFiniteNumber(value) {
   }
 
   const numberValue = Number(value);
-
-  return Number.isFinite(numberValue)
-    ? numberValue
-    : null;
+  return Number.isFinite(numberValue) ? numberValue : null;
 }
 
 function getChannelTargetFrequencies(channel) {
@@ -71,6 +68,7 @@ function buildChannelScanResult({
   channel,
   scanConfig,
   scanDetections,
+  channelMeasurements,
   sweepInfo,
 }) {
   const targets = getChannelTargetFrequencies(channel);
@@ -111,6 +109,111 @@ function buildChannelScanResult({
     };
   }
 
+  const matchingMeasurements = (
+    Array.isArray(channelMeasurements) ? channelMeasurements : []
+  )
+    .filter(
+      (measurement) =>
+        Number(measurement?.channel_id) === Number(channel?.id) &&
+        toFiniteNumber(measurement?.power_db) !== null
+    )
+    .map((measurement) => ({
+      side: measurement.side ?? null,
+      targetFrequencyMhz: toFiniteNumber(
+        measurement.target_frequency_mhz
+      ),
+      matchedFrequencyMhz: toFiniteNumber(
+        measurement.measured_frequency_mhz
+      ),
+      powerDb: toFiniteNumber(measurement.power_db),
+      aboveThreshold:
+        typeof measurement.above_threshold === "boolean"
+          ? measurement.above_threshold
+          : toFiniteNumber(measurement.power_db) >= (thresholdDb ?? 0),
+    }))
+    .filter(
+      (measurement) =>
+        measurement.powerDb !== null &&
+        inRangeTargets.some(
+          (target) =>
+            target.side === measurement.side ||
+            Math.abs(
+              target.frequencyMhz -
+                (measurement.targetFrequencyMhz ??
+                  measurement.matchedFrequencyMhz ??
+                  target.frequencyMhz)
+            ) <= CHANNEL_MATCH_TOLERANCE_MHZ
+        )
+    );
+
+  if (matchingMeasurements.length > 0) {
+    const strongestMeasurement = matchingMeasurements.reduce(
+      (strongest, measurement) =>
+        !strongest || measurement.powerDb > strongest.powerDb
+          ? measurement
+          : strongest,
+      null
+    );
+
+    const isAboveThreshold = matchingMeasurements.some(
+      (measurement) => measurement.aboveThreshold
+    );
+
+    const allInRangeTargetsMeasured = inRangeTargets.every(
+      (target) =>
+        matchingMeasurements.some(
+          (measurement) =>
+            target.side === measurement.side ||
+            Math.abs(
+              target.frequencyMhz -
+                (measurement.targetFrequencyMhz ??
+                  measurement.matchedFrequencyMhz ??
+                  target.frequencyMhz)
+            ) <= CHANNEL_MATCH_TOLERANCE_MHZ
+        )
+    );
+
+    if (isAboveThreshold) {
+      return {
+        key: "on",
+        label: "ON",
+        detail: `${strongestMeasurement.side ?? "Channel"} melewati ${
+          thresholdDb ?? 0
+        } dB`,
+        side: strongestMeasurement.side,
+        targetFrequencyMhz: strongestMeasurement.targetFrequencyMhz,
+        matchedFrequencyMhz: strongestMeasurement.matchedFrequencyMhz,
+        powerDb: strongestMeasurement.powerDb,
+      };
+    }
+
+    if (!allInRangeTargetsMeasured) {
+      return {
+        key: "not-scanned",
+        label: "NOT SCANNED",
+        detail: "Menunggu sweep mengukur target Channel lainnya",
+        side: strongestMeasurement.side,
+        targetFrequencyMhz: strongestMeasurement.targetFrequencyMhz,
+        matchedFrequencyMhz: strongestMeasurement.matchedFrequencyMhz,
+        powerDb: strongestMeasurement.powerDb,
+      };
+    }
+
+    return {
+      key: "off",
+      label: "OFF",
+      detail: `${strongestMeasurement.side ?? "Channel"} berada di bawah ${
+        thresholdDb ?? 0
+      } dB`,
+      side: strongestMeasurement.side,
+      targetFrequencyMhz: strongestMeasurement.targetFrequencyMhz,
+      matchedFrequencyMhz: strongestMeasurement.matchedFrequencyMhz,
+      powerDb: strongestMeasurement.powerDb,
+    };
+  }
+
+  // Fallback kompatibilitas untuk response backend lama yang belum memiliki
+  // channel_measurements dan hanya mengirim detection di atas threshold.
   let strongestMatch = null;
 
   (Array.isArray(scanDetections) ? scanDetections : []).forEach(
@@ -557,6 +660,7 @@ function SpecificChannelPage({
   chartDbTicks,
   thresholdTop,
   scanDetections,
+  channelMeasurements,
   sweepInfo,
   onSelectedMachineChange,
 }) {
@@ -697,6 +801,7 @@ function SpecificChannelPage({
               channel,
               scanConfig,
               scanDetections,
+              channelMeasurements,
               sweepInfo,
             })
           : buildUnavailableChannelScanResult(unavailableScanDetail)
@@ -708,6 +813,7 @@ function SpecificChannelPage({
     channels,
     scanConfig,
     scanDetections,
+    channelMeasurements,
     scanMatchesSelectedMachine,
     sweepInfo,
     unavailableScanDetail,
@@ -1872,7 +1978,7 @@ function SpecificChannelPage({
                             <strong>{formatFcn(channel.fcn_ul)}</strong>
                           </div>
                           <div className="channel-scan-detail">
-                            <span>Detected Power</span>
+                            <span>Measured Power</span>
                             <strong className={scanResult.key}>
                               {formatScanPower(scanResult.powerDb)}
                             </strong>

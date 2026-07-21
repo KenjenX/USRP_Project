@@ -121,6 +121,12 @@ scan_state = {
     "scan_mode": None,
     "selected_machine_id": None,
     "selected_machine_name": None,
+    # Target Channel hanya dipakai oleh Specific Scan. Data ini diambil sekali
+    # saat scan dimulai agar backend tidak perlu query database setiap window.
+    "specific_channel_targets": [],
+    # Measurement aktual per Channel/side. Bentuk internal berupa dict agar
+    # hasil target yang sama pada batas window dapat diperbarui tanpa duplikat.
+    "channel_measurements": {},
     "config": default_config.copy(),
     "sweep": {
         "current_start_mhz": default_config["start_frequency_mhz"],
@@ -380,13 +386,14 @@ def resolve_specific_machine(machine_id: int) -> dict:
                 detail="Machine untuk Specific Scan tidak ditemukan.",
             )
 
-        channel_count = (
+        channels = (
             db.query(Channel)
             .filter(Channel.machine_id == machine_id)
-            .count()
+            .order_by(Channel.id.asc())
+            .all()
         )
 
-        if channel_count <= 0:
+        if not channels:
             raise HTTPException(
                 status_code=422,
                 detail=(
@@ -395,13 +402,80 @@ def resolve_specific_machine(machine_id: int) -> dict:
                 ),
             )
 
+        channel_targets: list[dict] = []
+
+        for channel in channels:
+            channel_target_frequencies: list[tuple[str, float]] = []
+
+            if channel.freq_dl_mhz is not None:
+                channel_target_frequencies.append(
+                    ("DL", float(channel.freq_dl_mhz))
+                )
+
+            if channel.freq_ul_mhz is not None:
+                uplink_frequency = float(channel.freq_ul_mhz)
+
+                # TDD dapat memiliki DL dan UL pada frekuensi yang sama.
+                # Satu measurement cukup agar kartu tidak menghitung target
+                # identik dua kali.
+                already_registered = any(
+                    abs(existing_frequency - uplink_frequency) < 0.000001
+                    for _, existing_frequency in channel_target_frequencies
+                )
+
+                if not already_registered:
+                    channel_target_frequencies.append(
+                        ("UL", uplink_frequency)
+                    )
+
+            for side, target_frequency_mhz in channel_target_frequencies:
+                channel_targets.append(
+                    {
+                        "channel_id": int(channel.id),
+                        "channel_number": str(channel.channel_number),
+                        "side": side,
+                        "target_frequency_mhz": target_frequency_mhz,
+                    }
+                )
+
+        if not channel_targets:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Specific Scan membutuhkan minimal satu frekuensi DL/UL "
+                    f'pada Machine "{machine.name}".'
+                ),
+            )
+
         return {
             "id": int(machine.id),
             "name": str(machine.name),
-            "channel_count": int(channel_count),
+            "channel_count": len(channels),
+            "channel_targets": channel_targets,
         }
     finally:
         db.close()
+
+
+def get_channel_measurements(state: dict) -> list[dict]:
+    """Mengubah measurement internal menjadi list stabil untuk response JSON."""
+
+    measurements = state.get("channel_measurements") or {}
+
+    if isinstance(measurements, dict):
+        values = list(measurements.values())
+    elif isinstance(measurements, list):
+        values = measurements
+    else:
+        values = []
+
+    return sorted(
+        (deepcopy(item) for item in values),
+        key=lambda item: (
+            int(item.get("channel_id", 0)),
+            str(item.get("side", "")),
+        ),
+    )
 
 
 def calculate_total_windows(start_mhz: float, end_mhz: float) -> int:
@@ -654,6 +728,7 @@ def build_scan_session_payload(state: dict, completed_at: str) -> dict:
         "peak": state.get("last_peak"),
         "spectrum_preview": spectrum_preview,
         "detections": detections,
+        "channel_measurements": get_channel_measurements(state),
         "detectionCount": len(detections),
         "detection_count": len(detections),
         "last_error": state.get("last_error"),
@@ -879,6 +954,78 @@ def build_detections_from_threshold_points(
     return detections
 
 
+def build_channel_measurements_from_fft(
+    *,
+    frequency_axis_mhz,
+    power_db,
+    threshold_db: float,
+    window_start_mhz: float,
+    window_end_mhz: float,
+    window_index: int,
+    channel_targets: list[dict] | None,
+) -> list[dict]:
+    """
+    Mengambil nilai power FFT terdekat untuk setiap target Channel Specific.
+
+    Berbeda dari detections, measurement tetap dibuat walaupun power berada
+    di bawah threshold. Nilai ini dipakai kartu Specific sebagai Measured Power.
+    """
+
+    if not channel_targets:
+        return []
+
+    frequency_array = np.asarray(frequency_axis_mhz, dtype=float)
+    power_array = np.asarray(power_db, dtype=float)
+    point_count = min(len(frequency_array), len(power_array))
+
+    if point_count <= 0:
+        return []
+
+    frequency_array = frequency_array[:point_count]
+    power_array = power_array[:point_count]
+    measurements: list[dict] = []
+
+    for target in channel_targets:
+        target_frequency_mhz = float(target["target_frequency_mhz"])
+
+        if (
+            target_frequency_mhz < window_start_mhz - 0.000001
+            or target_frequency_mhz > window_end_mhz + 0.000001
+        ):
+            continue
+
+        nearest_index = int(
+            np.argmin(np.abs(frequency_array - target_frequency_mhz))
+        )
+        measured_frequency_mhz = float(frequency_array[nearest_index])
+        measured_power_db = float(power_array[nearest_index])
+        frequency_offset_khz = (
+            measured_frequency_mhz - target_frequency_mhz
+        ) * 1000.0
+
+        measurements.append(
+            {
+                "channel_id": int(target["channel_id"]),
+                "channel_number": str(target["channel_number"]),
+                "side": str(target["side"]),
+                "target_frequency_mhz": target_frequency_mhz,
+                "measured_frequency_mhz": measured_frequency_mhz,
+                "frequency_offset_khz": frequency_offset_khz,
+                "power_db": measured_power_db,
+                "threshold_db": float(threshold_db),
+                "above_threshold": bool(
+                    measured_power_db >= threshold_db
+                ),
+                "fft_index": nearest_index,
+                "window_index": int(window_index),
+                "window_start_mhz": float(window_start_mhz),
+                "window_end_mhz": float(window_end_mhz),
+            }
+        )
+
+    return measurements
+
+
 def get_display_spectrum(
     frequency_axis_mhz,
     power_db,
@@ -897,6 +1044,7 @@ def scan_frequency_window(
     window_end_mhz: float,
     threshold_db: float,
     window_index: int,
+    channel_targets: list[dict] | None = None,
 ) -> dict:
     """
     Membaca satu window frekuensi, menghitung FFT, dan mengambil semua
@@ -972,6 +1120,16 @@ def scan_frequency_window(
         window_index=window_index,
     )
 
+    channel_measurements = build_channel_measurements_from_fft(
+        frequency_axis_mhz=frequency_axis_mhz,
+        power_db=power_db,
+        threshold_db=threshold_db,
+        window_start_mhz=window_start_mhz,
+        window_end_mhz=window_end_mhz,
+        window_index=window_index,
+        channel_targets=channel_targets,
+    )
+
     (
         display_frequency_mhz,
         display_power_db,
@@ -1000,6 +1158,7 @@ def scan_frequency_window(
             "above_threshold": bool(peak_power_db >= threshold_db),
         },
         "detections": detections,
+        "channel_measurements": channel_measurements,
     }
 
 
@@ -1050,6 +1209,9 @@ def scan_status():
         "last_window_detection_count": len(
             state["last_window_detections"]
         ),
+        "channel_measurement_count": len(
+            get_channel_measurements(state)
+        ),
         "last_peak": state["last_peak"],
         "last_error": state["last_error"],
         "session_id": state["session_id"],
@@ -1073,6 +1235,7 @@ def start_scan(request: ScanRequest):
         else None
     )
     selected_machine_name = None
+    selected_channel_targets: list[dict] = []
 
     if requested_owner == SCAN_OWNER_GENERAL:
         selected_machine_id = None
@@ -1085,6 +1248,7 @@ def start_scan(request: ScanRequest):
         machine_identity = resolve_specific_machine(selected_machine_id)
         selected_machine_id = machine_identity["id"]
         selected_machine_name = machine_identity["name"]
+        selected_channel_targets = machine_identity["channel_targets"]
 
     scan_width_mhz = validate_scan_range(start_mhz, end_mhz)
     total_windows = calculate_total_windows(start_mhz, end_mhz)
@@ -1121,6 +1285,10 @@ def start_scan(request: ScanRequest):
         scan_state["scan_mode"] = SCAN_MODE_RANGE_SWEEP
         scan_state["selected_machine_id"] = selected_machine_id
         scan_state["selected_machine_name"] = selected_machine_name
+        scan_state["specific_channel_targets"] = deepcopy(
+            selected_channel_targets
+        )
+        scan_state["channel_measurements"] = {}
         scan_state["config"] = new_config
         scan_state["sweep"] = {
             "current_start_mhz": start_mhz,
@@ -1210,6 +1378,7 @@ def scan_results():
         "detection_count": len(state["detections"]),
         "detections": state["detections"],
         "last_window_detections": state["last_window_detections"],
+        "channel_measurements": get_channel_measurements(state),
         "spectrum_preview": finalize_spectrum_preview(state),
         "last_peak": state["last_peak"],
         "last_error": state["last_error"],
@@ -1303,6 +1472,7 @@ def get_spectrum():
             "peak": state["last_peak"],
             "detections": state["last_window_detections"],
             "detection_count": len(state["detections"]),
+            "channel_measurements": get_channel_measurements(state),
             "spectrum_preview": finalize_spectrum_preview(state),
             "session_id": state["session_id"],
             "completed_at": state["completed_at"],
@@ -1347,6 +1517,9 @@ def get_spectrum():
             "peak": finished_state["last_peak"],
             "detections": finished_state["last_window_detections"],
             "detection_count": len(finished_state["detections"]),
+            "channel_measurements": get_channel_measurements(
+                finished_state
+            ),
             "spectrum_preview": finalize_spectrum_preview(finished_state),
             "session_id": finished_state["session_id"],
             "completed_at": finished_state["completed_at"],
@@ -1360,6 +1533,11 @@ def get_spectrum():
             window_end_mhz=window_end_mhz,
             threshold_db=config["threshold_db"],
             window_index=window_index,
+            channel_targets=(
+                state.get("specific_channel_targets", [])
+                if state.get("scan_owner") == SCAN_OWNER_SPECIFIC
+                else []
+            ),
         )
     except HTTPException as error:
         release_scan_lock_after_error(
@@ -1392,6 +1570,26 @@ def get_spectrum():
     with state_lock:
         scan_state["detections"].extend(scan_result["detections"])
         scan_state["last_window_detections"] = scan_result["detections"]
+
+        for measurement in scan_result["channel_measurements"]:
+            measurement_key = (
+                f'{measurement["channel_id"]}:{measurement["side"]}'
+            )
+            previous_measurement = scan_state[
+                "channel_measurements"
+            ].get(measurement_key)
+
+            # Target yang tepat berada pada batas dua window dapat diukur dua
+            # kali. Simpan measurement dengan FFT bin paling dekat.
+            if (
+                previous_measurement is None
+                or abs(measurement["frequency_offset_khz"])
+                <= abs(previous_measurement["frequency_offset_khz"])
+            ):
+                scan_state["channel_measurements"][
+                    measurement_key
+                ] = measurement
+
         append_spectrum_preview_window(
             scan_state["spectrum_preview"],
             scan_result["spectrum"],
@@ -1437,6 +1635,7 @@ def get_spectrum():
         "detections": scan_result["detections"],
         "last_window_detection_count": len(scan_result["detections"]),
         "detection_count": len(updated_state["detections"]),
+        "channel_measurements": get_channel_measurements(updated_state),
         "spectrum_preview": finalize_spectrum_preview(updated_state),
         "session_id": updated_state["session_id"],
         "completed_at": updated_state["completed_at"],

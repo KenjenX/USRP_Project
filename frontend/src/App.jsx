@@ -1529,6 +1529,7 @@ function App() {
 
   const [peak, setPeak] = useState(null);
   const [detections, setDetections] = useState([]);
+  const [channelMeasurements, setChannelMeasurements] = useState([]);
   const [debugClusters, setDebugClusters] = useState({
     merge_gap_mhz: 0.05,
     raw_clusters: [],
@@ -1570,6 +1571,10 @@ function App() {
 
       if (Number.isFinite(Number(data?.detection_count))) {
         setTotalDetectionCount(Number(data.detection_count));
+      }
+
+      if (Array.isArray(data?.channel_measurements)) {
+        setChannelMeasurements(data.channel_measurements);
       }
 
       if (running) {
@@ -1644,6 +1649,11 @@ function App() {
               : []
           );
           setPeak(resultsData.last_peak ?? statusData.last_peak ?? null);
+          setChannelMeasurements(
+            Array.isArray(resultsData.channel_measurements)
+              ? resultsData.channel_measurements
+              : []
+          );
           setTotalDetectionCount(
             Number.isFinite(Number(resultsData.detection_count))
               ? Number(resultsData.detection_count)
@@ -1981,6 +1991,11 @@ function App() {
         setScanSelectedMachineName(data.selected_machine_name ?? null);
         setPeak(data.peak);
         setDetections(windowDetections);
+        setChannelMeasurements(
+          Array.isArray(data.channel_measurements)
+            ? data.channel_measurements
+            : []
+        );
         setDebugClusters(
           data.debug_clusters ?? {
             merge_gap_mhz: 0.05,
@@ -2660,6 +2675,7 @@ function App() {
       setTotalDetectionCount(0);
       setPeak(null);
       setDetections([]);
+      setChannelMeasurements([]);
       setDebugClusters({
         merge_gap_mhz: 0.05,
         raw_clusters: [],
@@ -3377,6 +3393,9 @@ function App() {
             thresholdTop={thresholdTop}
             scanDetections={
               scanOwner === "specific" ? currentScanHistorySorted : []
+            }
+            channelMeasurements={
+              scanOwner === "specific" ? channelMeasurements : []
             }
             sweepInfo={scanOwner === "specific" ? sweepInfo : null}
             onSelectedMachineChange={(machine) => {
