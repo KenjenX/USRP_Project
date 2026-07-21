@@ -1266,3 +1266,52 @@
 .specific-delete-confirm:hover:not(:disabled) {
   background: linear-gradient(180deg, #ca4651, #9b303a);
 }
+
+/* Separate scan ownership status */
+.specific-spectrum-status i.locked {
+  background: #d68b47;
+  box-shadow: 0 0 8px rgba(214, 139, 71, 0.68);
+}
+
+.specific-scan-isolation-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 10px 12px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(201, 147, 75, 0.52);
+  border-left: 4px solid #c58b45;
+  color: #f0d7ae;
+  background: rgba(105, 66, 20, 0.23);
+}
+
+.specific-scan-isolation-notice strong,
+.specific-scan-isolation-notice span {
+  display: block;
+}
+
+.specific-scan-isolation-notice strong {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.07em;
+}
+
+.specific-scan-isolation-notice span {
+  color: #d2c0a3;
+  font-size: 0.62rem;
+  line-height: 1.45;
+  text-align: right;
+}
+
+@media (max-width: 620px) {
+  .specific-scan-isolation-notice {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .specific-scan-isolation-notice span {
+    text-align: left;
+  }
+}
+

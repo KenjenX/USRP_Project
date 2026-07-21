@@ -63,6 +63,16 @@ SCAN_HISTORY_DIR = Path(__file__).resolve().parent / "scan_history"
 # Scan History. Data FFT penuh tidak disimpan agar file JSON tetap ringan.
 SPECTRUM_PREVIEW_TARGET_POINTS = 1600
 
+# Pemilik scan. General dan Specific tetap memakai satu perangkat dan satu
+# state backend, tetapi hanya satu mode yang boleh aktif pada satu waktu.
+SCAN_OWNER_GENERAL = "general"
+SCAN_OWNER_SPECIFIC = "specific"
+VALID_SCAN_OWNERS = {
+    SCAN_OWNER_GENERAL,
+    SCAN_OWNER_SPECIFIC,
+}
+SCAN_MODE_RANGE_SWEEP = "range_sweep"
+
 
 app = FastAPI(title="USRP B210 Spectrum API")
 
@@ -85,6 +95,12 @@ class ScanRequest(BaseModel):
     threshold_db: float
     start_frequency_mhz: float
     end_frequency_mhz: float
+    scan_owner: str = SCAN_OWNER_GENERAL
+    selected_machine_id: int | None = None
+
+
+class StopScanRequest(BaseModel):
+    scan_owner: str
 
 
 default_config = {
@@ -99,6 +115,9 @@ default_config = {
 scan_state = {
     "running": False,
     "completed": False,
+    "scan_owner": None,
+    "scan_mode": None,
+    "selected_machine_id": None,
     "config": default_config.copy(),
     "sweep": {
         "current_start_mhz": default_config["start_frequency_mhz"],
@@ -295,6 +314,26 @@ def check_usrp_connection():
 def get_current_state():
     with state_lock:
         return deepcopy(scan_state)
+
+
+def normalize_scan_owner(value: str) -> str:
+    owner = str(value or "").strip().lower()
+
+    if owner not in VALID_SCAN_OWNERS:
+        raise HTTPException(
+            status_code=422,
+            detail="scan_owner harus bernilai general atau specific.",
+        )
+
+    return owner
+
+
+def get_scan_identity(state: dict) -> dict:
+    return {
+        "scan_owner": state.get("scan_owner"),
+        "scan_mode": state.get("scan_mode"),
+        "selected_machine_id": state.get("selected_machine_id"),
+    }
 
 
 def calculate_total_windows(start_mhz: float, end_mhz: float) -> int:
@@ -499,11 +538,20 @@ def get_scan_history_file_path(session_id: str) -> Path:
     return SCAN_HISTORY_DIR / f"{safe_id}.json"
 
 
-def build_scan_history_title(completed_at: str | None, session_id: str) -> str:
-    if completed_at:
-        return f"Scan {completed_at.replace('T', ' ')}"
+def build_scan_history_title(
+    completed_at: str | None,
+    session_id: str,
+    scan_owner: str | None = None,
+) -> str:
+    owner_label = {
+        SCAN_OWNER_GENERAL: "General Scan",
+        SCAN_OWNER_SPECIFIC: "Specific Scan",
+    }.get(scan_owner, "Scan")
 
-    return session_id
+    if completed_at:
+        return f"{owner_label} {completed_at.replace('T', ' ')}"
+
+    return f"{owner_label} {session_id}"
 
 
 def build_scan_session_payload(state: dict, completed_at: str) -> dict:
@@ -518,11 +566,16 @@ def build_scan_session_payload(state: dict, completed_at: str) -> dict:
     return {
         "id": session_id,
         "session_id": session_id,
-        "title": build_scan_history_title(completed_at, session_id),
+        "title": build_scan_history_title(
+            completed_at,
+            session_id,
+            state.get("scan_owner"),
+        ),
         "startedAt": state.get("started_at"),
         "started_at": state.get("started_at"),
         "completedAt": completed_at,
         "completed_at": completed_at,
+        **get_scan_identity(state),
         "config": state.get("config", {}),
         "sweep": state.get("sweep", {}),
         "peak": state.get("last_peak"),
@@ -917,6 +970,7 @@ def scan_status():
     return {
         "running": state["running"],
         "completed": state["completed"],
+        **get_scan_identity(state),
         "config": state["config"],
         "sweep": state["sweep"],
         "detection_count": len(state["detections"]),
@@ -938,6 +992,25 @@ def start_scan(request: ScanRequest):
     start_mhz = float(request.start_frequency_mhz)
     end_mhz = float(request.end_frequency_mhz)
     threshold_db = float(request.threshold_db)
+    requested_owner = normalize_scan_owner(request.scan_owner)
+
+    selected_machine_id = (
+        int(request.selected_machine_id)
+        if request.selected_machine_id is not None
+        else None
+    )
+
+    if requested_owner == SCAN_OWNER_GENERAL:
+        selected_machine_id = None
+
+    if (
+        requested_owner == SCAN_OWNER_SPECIFIC
+        and selected_machine_id is None
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Specific Scan membutuhkan Machine yang dipilih.",
+        )
 
     scan_width_mhz = validate_scan_range(start_mhz, end_mhz)
     total_windows = calculate_total_windows(start_mhz, end_mhz)
@@ -955,9 +1028,24 @@ def start_scan(request: ScanRequest):
     now = datetime.now().isoformat(timespec="seconds")
     session_id = create_scan_session_id()
 
+    # Pemeriksaan dan pengambilan ownership dilakukan dalam lock yang sama.
+    # Request kedua tidak dapat menimpa scan yang masih berjalan.
     with state_lock:
+        if scan_state["running"]:
+            active_owner = scan_state.get("scan_owner") or "unknown"
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Scanner sedang digunakan oleh "
+                    f"{active_owner.title()} Scan."
+                ),
+            )
+
         scan_state["running"] = True
         scan_state["completed"] = False
+        scan_state["scan_owner"] = requested_owner
+        scan_state["scan_mode"] = SCAN_MODE_RANGE_SWEEP
+        scan_state["selected_machine_id"] = selected_machine_id
         scan_state["config"] = new_config
         scan_state["sweep"] = {
             "current_start_mhz": start_mhz,
@@ -981,20 +1069,38 @@ def start_scan(request: ScanRequest):
         scan_state["completed_at"] = None
         scan_state["updated_at"] = now
         scan_state["session_saved"] = False
+        started_state = deepcopy(scan_state)
 
     return {
-        "message": "Sweep scan USRP dimulai.",
+        "message": (
+            f"{requested_owner.title()} sweep scan dimulai."
+        ),
         "running": True,
         "completed": False,
+        **get_scan_identity(started_state),
         "config": new_config,
-        "sweep": get_current_state()["sweep"],
+        "sweep": started_state["sweep"],
         "session_id": session_id,
     }
 
 
 @app.post("/api/scan/stop")
-def stop_scan():
+def stop_scan(request: StopScanRequest):
+    requested_owner = normalize_scan_owner(request.scan_owner)
+
     with state_lock:
+        active_owner = scan_state.get("scan_owner")
+
+        if scan_state["running"] and active_owner != requested_owner:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Scan hanya dapat dihentikan dari halaman pemiliknya. "
+                    f"Scanner sedang digunakan oleh "
+                    f"{str(active_owner).title()} Scan."
+                ),
+            )
+
         scan_state["running"] = False
         scan_state["updated_at"] = datetime.now().isoformat(
             timespec="seconds"
@@ -1002,9 +1108,10 @@ def stop_scan():
         state = deepcopy(scan_state)
 
     return {
-        "message": "Scan USRP dihentikan.",
+        "message": f"{requested_owner.title()} Scan dihentikan.",
         "running": False,
         "completed": state["completed"],
+        **get_scan_identity(state),
         "config": state["config"],
         "sweep": state["sweep"],
         "detection_count": len(state["detections"]),
@@ -1022,6 +1129,7 @@ def scan_results():
     return {
         "running": state["running"],
         "completed": state["completed"],
+        **get_scan_identity(state),
         "config": state["config"],
         "sweep": state["sweep"],
         "detection_count": len(state["detections"]),
@@ -1110,6 +1218,7 @@ def get_spectrum():
         return {
             "running": False,
             "completed": state["completed"],
+            **get_scan_identity(state),
             "config": state["config"],
             "sweep": state["sweep"],
             "spectrum": {
@@ -1153,6 +1262,7 @@ def get_spectrum():
             "running": False,
             "completed": True,
             "timestamp": datetime.now().isoformat(timespec="seconds"),
+            **get_scan_identity(finished_state),
             "config": finished_state["config"],
             "sweep": finished_state["sweep"],
             "spectrum": {
@@ -1215,6 +1325,7 @@ def get_spectrum():
         "running": updated_state["running"],
         "completed": updated_state["completed"],
         "timestamp": datetime.now().isoformat(timespec="seconds"),
+        **get_scan_identity(updated_state),
         "config": updated_state["config"],
         "sweep": updated_state["sweep"],
         "current_window": scan_result["window"],

@@ -4092,3 +4092,73 @@ body {
     width: 100%;
   }
 }
+
+/* =========================================================
+   SEPARATE SCAN MODES — stage 1 owner lock and isolation
+   ========================================================= */
+.scan-button.scan-locked {
+  cursor: not-allowed;
+  border-color: rgba(255, 197, 92, 0.5);
+  color: #ffe4a8;
+  background: rgba(116, 79, 21, 0.34);
+}
+
+.sidebar-scan-owner {
+  display: block;
+  margin-bottom: 5px;
+  color: #8fc7e8;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.scan-mode-isolation-panel {
+  min-height: calc(100vh - 92px);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  padding: 34px;
+  border: 1px solid rgba(79, 124, 191, 0.46);
+  border-radius: 7px;
+  color: #eef5ff;
+  background:
+    linear-gradient(135deg, rgba(57, 96, 154, 0.14), transparent 40%),
+    #0a1f3b;
+  box-shadow: 0 8px 22px rgba(1, 8, 20, 0.26);
+  text-align: center;
+}
+
+.scan-mode-isolation-icon {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 14px;
+  place-items: center;
+  border: 1px solid rgba(113, 156, 219, 0.55);
+  border-radius: 50%;
+  color: #a9c8f4;
+  background: rgba(42, 76, 126, 0.34);
+  font-size: 1rem;
+}
+
+.scan-mode-isolation-icon.running {
+  border-color: rgba(255, 198, 91, 0.62);
+  color: #ffcf73;
+  background: rgba(122, 82, 20, 0.28);
+  box-shadow: 0 0 20px rgba(255, 198, 91, 0.12);
+}
+
+.scan-mode-isolation-panel h3 {
+  margin: 7px 0 9px;
+  color: #ffffff;
+  font-size: 1.05rem;
+}
+
+.scan-mode-isolation-panel > p:last-child {
+  max-width: 620px;
+  margin: 0;
+  color: #9fb2ce;
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+

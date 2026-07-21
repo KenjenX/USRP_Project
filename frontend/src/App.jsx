@@ -940,12 +940,38 @@ function normalizePersistentScanSession(session, index = 0) {
     session.started_at ??
     null;
 
+  const scanOwner =
+    session.scanOwner ??
+    session.scan_owner ??
+    null;
+
+  const scanOwnerLabel =
+    scanOwner === "specific"
+      ? "Specific Scan"
+      : scanOwner === "general"
+        ? "General Scan"
+        : "Scan";
+
+  const generatedTitle = completedAt
+    ? `${scanOwnerLabel} ${String(completedAt).replace("T", " ")}`
+    : `${scanOwnerLabel} #${String(index + 1).padStart(3, "0")}`;
+
   return {
     ...session,
     id,
+    scanOwner,
+    scanMode:
+      session.scanMode ??
+      session.scan_mode ??
+      null,
+    selectedMachineId:
+      session.selectedMachineId ??
+      session.selected_machine_id ??
+      null,
     title:
-      session.title ??
-      `Scan #${String(index + 1).padStart(3, "0")}`,
+      scanOwner
+        ? generatedTitle
+        : session.title ?? generatedTitle,
     startedAt:
       session.startedAt ??
       session.started_at ??
@@ -1413,6 +1439,33 @@ function SignalDetailModal({ detail, onClose }) {
   );
 }
 
+
+function ScanModeIsolationPanel({ owner, isRunning }) {
+  const ownerLabel = owner === "specific" ? "Specific" : "General";
+  const targetLabel = owner === "specific" ? "General" : "Specific";
+
+  return (
+    <section className="scan-mode-isolation-panel">
+      <div className={`scan-mode-isolation-icon ${isRunning ? "running" : "saved"}`}>
+        {isRunning ? "●" : "■"}
+      </div>
+
+      <p className="section-kicker">SEPARATE SCAN MODE</p>
+      <h3>
+        {isRunning
+          ? `${ownerLabel} Scan sedang berjalan`
+          : `Hasil terakhir berasal dari ${ownerLabel} Scan`}
+      </h3>
+      <p>
+        Data ${ownerLabel} tidak ditampilkan pada halaman {targetLabel}.
+        {isRunning
+          ? ` Kembali ke halaman ${ownerLabel} untuk menghentikan scan.`
+          : ` Jalankan ${targetLabel} Scan untuk membuat hasil khusus halaman ini.`}
+      </p>
+    </section>
+  );
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState("general");
 
@@ -1432,6 +1485,9 @@ function App() {
 
   const [isScanning, setIsScanning] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
+  const [scanOwner, setScanOwner] = useState(null);
+  const [scanMode, setScanMode] = useState(null);
+  const [selectedSpecificMachineId, setSelectedSpecificMachineId] = useState(null);
 
   const [spectrum, setSpectrum] = useState({
     frequency_mhz: [],
@@ -1735,6 +1791,8 @@ function App() {
         );
 
         setSpectrum(spectrumData);
+        setScanOwner(data.scan_owner ?? null);
+        setScanMode(data.scan_mode ?? null);
         setPeak(data.peak);
         setDetections(windowDetections);
         setDebugClusters(
@@ -1836,9 +1894,30 @@ function App() {
                 `scan-${Date.now()}`;
               const completedAt = data.completed_at ?? timestamp;
 
+              const fallbackOwner =
+                data.scan_owner ??
+                activeScanMetaRef.current?.request?.scan_owner ??
+                null;
+
+              const fallbackOwnerLabel =
+                fallbackOwner === "specific"
+                  ? "Specific Scan"
+                  : fallbackOwner === "general"
+                    ? "General Scan"
+                    : "Scan";
+
               const fallbackSession = {
                 id: sessionId,
-                title: `Scan ${formatDateTime(completedAt)}`,
+                title: `${fallbackOwnerLabel} ${String(completedAt).replace(
+                  "T",
+                  " "
+                )}`,
+                scanOwner: fallbackOwner,
+                scanMode: data.scan_mode ?? null,
+                selectedMachineId:
+                  data.selected_machine_id ??
+                  activeScanMetaRef.current?.request?.selected_machine_id ??
+                  null,
                 startedAt:
                   activeScanMetaRef.current?.startedAt ?? completedAt,
                 completedAt,
@@ -2202,14 +2281,57 @@ function App() {
   }, [detectionMarkers, scanConfig]);
 
   async function handleScan() {
+    const requestedOwner =
+      activeTab === "specific"
+        ? "specific"
+        : activeTab === "general"
+          ? "general"
+          : null;
+
+    if (!requestedOwner) {
+      setErrorMessage(
+        "Scan hanya dapat dimulai dari halaman General atau Specific."
+      );
+      return;
+    }
+
+    if (
+      isScanning &&
+      scanOwner &&
+      scanOwner !== requestedOwner
+    ) {
+      setErrorMessage(
+        `Scanner sedang digunakan oleh ${
+          scanOwner === "general" ? "General" : "Specific"
+        } Scan. Kembali ke halaman tersebut untuk menghentikannya.`
+      );
+      return;
+    }
+
+    if (
+      requestedOwner === "specific" &&
+      !selectedSpecificMachineId &&
+      !isScanning
+    ) {
+      setErrorMessage(
+        "Pilih Machine pada halaman Specific sebelum memulai Specific Scan."
+      );
+      return;
+    }
+
     setErrorMessage("");
     setIsBusy(true);
 
     try {
-      // Jika sedang scan, tombol menjadi Stop Scan.
       if (isScanning) {
         const response = await fetch(`${API_BASE_URL}/api/scan/stop`, {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            scan_owner: requestedOwner,
+          }),
         });
 
         const data = await response.json();
@@ -2219,7 +2341,11 @@ function App() {
         }
 
         setIsScanning(false);
-        setStatusMessage("Scan USRP dihentikan.");
+        setScanOwner(data.scan_owner ?? scanOwner);
+        setScanMode(data.scan_mode ?? scanMode);
+        setStatusMessage(
+          `${requestedOwner === "general" ? "General" : "Specific"} Scan dihentikan.`
+        );
         return;
       }
 
@@ -2227,6 +2353,11 @@ function App() {
         threshold_db: Number(threshold),
         start_frequency_mhz: Number(startFrequency),
         end_frequency_mhz: Number(endFrequency),
+        scan_owner: requestedOwner,
+        selected_machine_id:
+          requestedOwner === "specific"
+            ? Number(selectedSpecificMachineId)
+            : null,
       };
 
       if (
@@ -2251,6 +2382,8 @@ function App() {
         throw new Error(data.detail || "Gagal memulai scan.");
       }
 
+      setScanOwner(data.scan_owner ?? requestedOwner);
+      setScanMode(data.scan_mode ?? "range_sweep");
       setScanConfig(data.config);
       setSpectrum({
         frequency_mhz: [],
@@ -2275,7 +2408,9 @@ function App() {
         merged_clusters: [],
       });
       setIsScanning(true);
-      setStatusMessage("Scan USRP dimulai. Menunggu data spectrum...");
+      setStatusMessage(
+        `${requestedOwner === "general" ? "General" : "Specific"} Scan dimulai. Menunggu data spectrum...`
+      );
     } catch (error) {
       setErrorMessage(error.message);
       setStatusMessage("Scan belum dimulai.");
@@ -2303,6 +2438,24 @@ function App() {
   }, [scanSessions, selectedSessionId]);
 
   const detectedCount = currentScanHistorySorted.length;
+  const currentPageScanOwner =
+    activeTab === "general"
+      ? "general"
+      : activeTab === "specific"
+        ? "specific"
+        : null;
+  const scannerOwnedByOtherPage = Boolean(
+    isScanning &&
+    currentPageScanOwner &&
+    scanOwner &&
+    scanOwner !== currentPageScanOwner
+  );
+  const scanOwnerLabel =
+    scanOwner === "specific"
+      ? "Specific"
+      : scanOwner === "general"
+        ? "General"
+        : null;
 
   return (
     <main className={`app-shell active-${activeTab}`}>
@@ -2401,16 +2554,32 @@ function App() {
 
           <button
             type="button"
-            className={`scan-button ${isScanning ? "scan-active" : ""}`}
+            className={`scan-button ${
+              isScanning && !scannerOwnedByOtherPage ? "scan-active" : ""
+            } ${scannerOwnedByOtherPage ? "scan-locked" : ""}`}
             onClick={handleScan}
-            disabled={isBusy}
+            disabled={
+              isBusy ||
+              activeTab === "history" ||
+              scannerOwnedByOtherPage
+            }
           >
-            <span className="scan-icon">{isScanning ? "■" : "▶"}</span>
+            <span className="scan-icon">
+              {scannerOwnedByOtherPage
+                ? "⌁"
+                : isScanning
+                  ? "■"
+                  : "▶"}
+            </span>
             {isBusy
               ? "PROCESSING..."
-              : isScanning
-                ? "STOP SCAN"
-                : "START SCAN"}
+              : activeTab === "history"
+                ? "SCAN DISABLED"
+                : scannerOwnedByOtherPage
+                  ? `${scanOwnerLabel?.toUpperCase()} SCAN ACTIVE`
+                  : isScanning
+                    ? `STOP ${currentPageScanOwner?.toUpperCase()} SCAN`
+                    : `START ${currentPageScanOwner?.toUpperCase()} SCAN`}
           </button>
         </section>
 
@@ -2428,6 +2597,11 @@ function App() {
           <strong className={isScanning ? "status-running" : "status-idle"}>
             {isScanning ? "RUNNING" : "STANDBY"}
           </strong>
+
+          <span className="sidebar-scan-owner">
+            Owner: {scanOwnerLabel ?? "-"}
+            {scanMode ? ` · ${scanMode.replaceAll("_", " ")}` : ""}
+          </span>
 
           <span>
             Range: {scanConfig.start_frequency_mhz}–
@@ -2493,7 +2667,13 @@ function App() {
 
       <section className="dashboard">
         {activeTab === "general" ? (
-          <>
+          scanOwner === "specific" ? (
+            <ScanModeIsolationPanel
+              owner="specific"
+              isRunning={isScanning}
+            />
+          ) : (
+            <>
             <section className="spectrum-panel general-spectrum-panel">
               <div className="panel-heading">
                 <div>
@@ -2778,6 +2958,7 @@ function App() {
               )}
             </section>
           </>
+          )
         ) : activeTab === "history" ? (
           <section className="detected-section scan-session-section">
             <div className="panel-heading">
@@ -2907,13 +3088,25 @@ function App() {
             apiBaseUrl={API_BASE_URL}
             scanConfig={scanConfig}
             isScanning={isScanning}
-            spectrumChart={spectrumChart}
-            spectrumHistoryCharts={spectrumHistoryCharts}
+            scanOwner={scanOwner}
+            scanMode={scanMode}
+            scannerLocked={scanOwner === "general"}
+            spectrumChart={
+              scanOwner === "specific"
+                ? spectrumChart
+                : { linePoints: "", areaPoints: "" }
+            }
+            spectrumHistoryCharts={
+              scanOwner === "specific" ? spectrumHistoryCharts : []
+            }
             frequencyTicks={frequencyTicks}
             chartDbTicks={chartDbTicks}
             thresholdTop={thresholdTop}
-            scanDetections={currentScanHistorySorted}
-            sweepInfo={sweepInfo}
+            scanDetections={
+              scanOwner === "specific" ? currentScanHistorySorted : []
+            }
+            sweepInfo={scanOwner === "specific" ? sweepInfo : null}
+            onSelectedMachineChange={setSelectedSpecificMachineId}
           />
         )}
       </section>

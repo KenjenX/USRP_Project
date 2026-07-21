@@ -353,24 +353,40 @@ function CandidateSummary({ candidate, compact = false }) {
 function SpecificSpectrumPanel({
   scanConfig,
   isScanning,
+  scanOwner,
+  scannerLocked,
   spectrumChart,
   spectrumHistoryCharts,
   frequencyTicks,
   chartDbTicks,
   thresholdTop,
-  scanDetections,
-  sweepInfo,
 }) {
+  const ownScanRunning = isScanning && scanOwner === "specific";
   const hasSpectrum = Boolean(
-    spectrumChart?.linePoints || spectrumHistoryCharts?.length
+    !scannerLocked &&
+    (spectrumChart?.linePoints || spectrumHistoryCharts?.length)
   );
 
   return (
     <section className="specific-spectrum-panel">
       <div className="specific-spectrum-titlebar status-only">
         <div className="specific-spectrum-status">
-          <i className={isScanning ? "running" : "standby"} />
-          {isScanning ? "SCANNING" : "STANDBY"}
+          <i
+            className={
+              ownScanRunning
+                ? "running"
+                : scannerLocked
+                  ? "locked"
+                  : "standby"
+            }
+          />
+          {scannerLocked
+            ? isScanning
+              ? "GENERAL SCAN ACTIVE"
+              : "GENERAL RESULT ISOLATED"
+            : ownScanRunning
+              ? "SPECIFIC SCANNING"
+              : "STANDBY"}
         </div>
       </div>
 
@@ -453,9 +469,13 @@ function SpecificSpectrumPanel({
             </>
           ) : (
             <div className="chart-placeholder">
-              {isScanning
-                ? "Menerima spectrum dari USRP..."
-                : "Tekan START SCAN untuk menampilkan spectrum."}
+              {scannerLocked
+                ? isScanning
+                  ? "Scanner sedang digunakan oleh General Scan."
+                  : "Hasil General Scan tidak digunakan untuk status Channel."
+                : ownScanRunning
+                  ? "Menerima spectrum Specific Scan..."
+                  : "Tekan START SPECIFIC SCAN untuk menampilkan spectrum."}
             </div>
           )}
         </div>
@@ -487,6 +507,9 @@ function SpecificChannelPage({
   apiBaseUrl,
   scanConfig,
   isScanning,
+  scanOwner,
+  scanMode,
+  scannerLocked,
   spectrumChart,
   spectrumHistoryCharts,
   frequencyTicks,
@@ -494,6 +517,7 @@ function SpecificChannelPage({
   thresholdTop,
   scanDetections,
   sweepInfo,
+  onSelectedMachineChange,
 }) {
   const [machines, setMachines] = useState([]);
   const [selectedMachineId, setSelectedMachineId] = useState(null);
@@ -742,6 +766,10 @@ function SpecificChannelPage({
       setLoadingChannels(false);
     });
   }, [loadChannels, selectedMachineId]);
+
+  useEffect(() => {
+    onSelectedMachineChange?.(selectedMachineId ?? null);
+  }, [onSelectedMachineChange, selectedMachineId]);
 
   useEffect(() => {
     function handleEscape(event) {
@@ -1195,12 +1223,28 @@ function SpecificChannelPage({
         <SpecificSpectrumPanel
           scanConfig={scanConfig}
           isScanning={isScanning}
+          scanOwner={scanOwner}
+          scannerLocked={scannerLocked}
           spectrumChart={spectrumChart}
           spectrumHistoryCharts={spectrumHistoryCharts}
           frequencyTicks={frequencyTicks}
           chartDbTicks={chartDbTicks}
           thresholdTop={thresholdTop}
         />
+
+        {scannerLocked && (
+          <div className="specific-scan-isolation-notice">
+            <strong>
+              {isScanning
+                ? "GENERAL SCAN SEDANG BERJALAN"
+                : "HASIL GENERAL SCAN DIISOLASI"}
+            </strong>
+            <span>
+              Status ON/OFF Channel hanya diperbarui oleh Specific Scan.
+              {scanMode ? ` Mode aktif: ${scanMode.replaceAll("_", " ")}.` : ""}
+            </span>
+          </div>
+        )}
 
         {(noticeMessage || errorMessage) && (
           <div
