@@ -520,6 +520,7 @@ function SpecificChannelPage({
   const [busyAction, setBusyAction] = useState("");
   const [noticeMessage, setNoticeMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState(null);
 
   const [workspaceView, setWorkspaceView] = useState("machines");
   const [machineEditorOpen, setMachineEditorOpen] = useState(false);
@@ -756,6 +757,21 @@ function SpecificChannelPage({
     return () => window.removeEventListener("keydown", handleEscape);
   }, [candidateModalOpen]);
 
+  useEffect(() => {
+    function handleDeleteDialogEscape(event) {
+      if (event.key === "Escape" && !busyAction.startsWith("delete-")) {
+        setDeleteDialog(null);
+      }
+    }
+
+    if (deleteDialog) {
+      window.addEventListener("keydown", handleDeleteDialogEscape);
+    }
+
+    return () =>
+      window.removeEventListener("keydown", handleDeleteDialogEscape);
+  }, [busyAction, deleteDialog]);
+
   function resetMachineForm() {
     setMachineForm({
       name: "",
@@ -846,16 +862,15 @@ function SpecificChannelPage({
     });
   }
 
-  async function handleDeleteMachine(machine) {
-    const confirmed = window.confirm(
-      `Hapus Machine "${machine.name}" beserta seluruh Channel di dalamnya?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
+  function handleDeleteMachine(machine) {
     clearMessages();
+    setDeleteDialog({
+      type: "machine",
+      item: machine,
+    });
+  }
+
+  async function confirmDeleteMachine(machine) {
     setBusyAction(`delete-machine-${machine.id}`);
 
     try {
@@ -1080,16 +1095,15 @@ function SpecificChannelPage({
     });
   }
 
-  async function handleDeleteChannel(channel) {
-    const confirmed = window.confirm(
-      `Hapus ${channel.channel_number} (${channel.band} · ${channel.mode})?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
+  function handleDeleteChannel(channel) {
     clearMessages();
+    setDeleteDialog({
+      type: "channel",
+      item: channel,
+    });
+  }
+
+  async function confirmDeleteChannel(channel) {
     setBusyAction(`delete-channel-${channel.id}`);
 
     try {
@@ -1120,6 +1134,22 @@ function SpecificChannelPage({
     } finally {
       setBusyAction("");
     }
+  }
+
+  async function confirmSpecificDelete() {
+    if (!deleteDialog?.item) {
+      return;
+    }
+
+    const currentDialog = deleteDialog;
+
+    if (currentDialog.type === "machine") {
+      await confirmDeleteMachine(currentDialog.item);
+    } else {
+      await confirmDeleteChannel(currentDialog.item);
+    }
+
+    setDeleteDialog(null);
   }
 
   function chooseCandidate(candidate) {
@@ -1719,6 +1749,72 @@ function SpecificChannelPage({
           </section>
         )}
       </section>
+
+      {deleteDialog && (
+        <div
+          className="specific-delete-backdrop"
+          role="presentation"
+          onClick={() => {
+            if (!busyAction.startsWith("delete-")) {
+              setDeleteDialog(null);
+            }
+          }}
+        >
+          <section
+            className="specific-delete-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={
+              deleteDialog.type === "machine"
+                ? "Konfirmasi hapus Machine"
+                : "Konfirmasi hapus Channel"
+            }
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="specific-delete-icon" aria-hidden="true">
+              !
+            </div>
+
+            <div className="specific-delete-content">
+              <p className="section-kicker">DELETE CONFIRMATION</p>
+
+              <h3>
+                {deleteDialog.type === "machine"
+                  ? `Hapus Machine "${deleteDialog.item.name}"?`
+                  : `Hapus ${deleteDialog.item.channel_number}?`}
+              </h3>
+
+              <p>
+                {deleteDialog.type === "machine"
+                  ? "Seluruh Channel yang tersimpan di dalam Machine ini juga akan dihapus permanen."
+                  : `${deleteDialog.item.band} · ${deleteDialog.item.mode} akan dihapus permanen dari Machine ini.`}
+              </p>
+            </div>
+
+            <div className="specific-delete-actions">
+              <button
+                type="button"
+                className="specific-delete-cancel"
+                disabled={busyAction.startsWith("delete-")}
+                onClick={() => setDeleteDialog(null)}
+              >
+                CANCEL
+              </button>
+
+              <button
+                type="button"
+                className="specific-delete-confirm"
+                disabled={busyAction.startsWith("delete-")}
+                onClick={confirmSpecificDelete}
+              >
+                {busyAction.startsWith("delete-")
+                  ? "DELETING..."
+                  : "DELETE"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {candidateModalOpen && (
         <div

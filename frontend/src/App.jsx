@@ -1451,6 +1451,8 @@ function App() {
   const [scanSessions, setScanSessions] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [selectedDetectionDetail, setSelectedDetectionDetail] = useState(null);
+  const [historyDeleteDialog, setHistoryDeleteDialog] = useState(null);
+  const [isDeletingHistory, setIsDeletingHistory] = useState(false);
 
   const currentScanHistoryRef = useRef([]);
   const activeScanMetaRef = useRef(null);
@@ -1506,73 +1508,104 @@ function App() {
     []
   );
 
-  async function handleDeleteScanSession(sessionId, sessionTitle) {
+  function handleDeleteScanSession(sessionId, sessionTitle) {
     if (!sessionId) {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Hapus scan history "${sessionTitle ?? sessionId}"? File JSON di backend akan dihapus permanen.`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      setErrorMessage("");
-
-      const response = await fetch(
-        `${API_BASE_URL}/api/scan/history/${encodeURIComponent(sessionId)}`,
-        { method: "DELETE" }
-      );
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || "Gagal menghapus scan history.");
-      }
-
-      setSelectedDetectionDetail(null);
-      await loadPersistentScanSessions();
-      setStatusMessage(`Scan history berhasil dihapus: ${sessionTitle ?? sessionId}.`);
-    } catch (error) {
-      setErrorMessage(`Delete history error: ${error.message}`);
-    }
+    setHistoryDeleteDialog({
+      type: "single",
+      sessionId,
+      sessionTitle: sessionTitle ?? sessionId,
+    });
   }
 
-  async function handleDeleteAllScanSessions() {
+  function handleDeleteAllScanSessions() {
     if (scanSessions.length === 0) {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Hapus semua scan history (${scanSessions.length} session)? Semua file JSON di backend akan dihapus permanen.`
-    );
+    setHistoryDeleteDialog({
+      type: "all",
+      sessionCount: scanSessions.length,
+    });
+  }
 
-    if (!confirmed) {
+  async function confirmHistoryDeletion() {
+    const dialog = historyDeleteDialog;
+
+    if (!dialog || isDeletingHistory) {
       return;
     }
 
+    setIsDeletingHistory(true);
+    setErrorMessage("");
+
     try {
-      setErrorMessage("");
+      if (dialog.type === "all") {
+        const response = await fetch(`${API_BASE_URL}/api/scan/history`, {
+          method: "DELETE",
+        });
+        const data = await response.json();
 
-      const response = await fetch(`${API_BASE_URL}/api/scan/history`, {
-        method: "DELETE",
-      });
-      const data = await response.json();
+        if (!response.ok) {
+          throw new Error(
+            data.detail || "Gagal menghapus semua scan history."
+          );
+        }
 
-      if (!response.ok) {
-        throw new Error(data.detail || "Gagal menghapus semua scan history.");
+        setSelectedDetectionDetail(null);
+        setScanSessions([]);
+        setSelectedSessionId(null);
+        setStatusMessage(
+          `Semua scan history berhasil dihapus. Total file: ${
+            data.deleted_count ?? 0
+          }.`
+        );
+      } else {
+        const response = await fetch(
+          `${API_BASE_URL}/api/scan/history/${encodeURIComponent(
+            dialog.sessionId
+          )}`,
+          { method: "DELETE" }
+        );
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || "Gagal menghapus scan history.");
+        }
+
+        setSelectedDetectionDetail(null);
+        await loadPersistentScanSessions();
+        setStatusMessage(
+          `Scan history berhasil dihapus: ${dialog.sessionTitle}.`
+        );
       }
 
-      setSelectedDetectionDetail(null);
-      setScanSessions([]);
-      setSelectedSessionId(null);
-      setStatusMessage(`Semua scan history berhasil dihapus. Total file: ${data.deleted_count ?? 0}.`);
+      setHistoryDeleteDialog(null);
     } catch (error) {
-      setErrorMessage(`Delete all history error: ${error.message}`);
+      setErrorMessage(`Delete history error: ${error.message}`);
+    } finally {
+      setIsDeletingHistory(false);
     }
   }
+
+  useEffect(() => {
+    if (!historyDeleteDialog) {
+      return undefined;
+    }
+
+    function handleDeleteDialogKeyDown(event) {
+      if (event.key === "Escape" && !isDeletingHistory) {
+        setHistoryDeleteDialog(null);
+      }
+    }
+
+    window.addEventListener("keydown", handleDeleteDialogKeyDown);
+
+    return () =>
+      window.removeEventListener("keydown", handleDeleteDialogKeyDown);
+  }, [historyDeleteDialog, isDeletingHistory]);
 
   useEffect(() => {
     if (!selectedDetectionDetail) {
@@ -2884,6 +2917,67 @@ function App() {
           />
         )}
       </section>
+
+      {historyDeleteDialog && (
+        <div
+          className="history-confirm-backdrop"
+          role="presentation"
+          onClick={() => {
+            if (!isDeletingHistory) {
+              setHistoryDeleteDialog(null);
+            }
+          }}
+        >
+          <section
+            className="history-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="history-confirm-title"
+            aria-describedby="history-confirm-description"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="history-confirm-icon" aria-hidden="true">
+              !
+            </div>
+
+            <div className="history-confirm-content">
+              <p className="section-kicker">DELETE CONFIRMATION</p>
+
+              <h3 id="history-confirm-title">
+                {historyDeleteDialog.type === "all"
+                  ? "Hapus semua Scan History?"
+                  : "Hapus Scan History?"}
+              </h3>
+
+              <p id="history-confirm-description">
+                {historyDeleteDialog.type === "all"
+                  ? `Semua ${historyDeleteDialog.sessionCount} session beserta file JSON di backend akan dihapus permanen.`
+                  : `Scan "${historyDeleteDialog.sessionTitle}" beserta file JSON di backend akan dihapus permanen.`}
+              </p>
+            </div>
+
+            <div className="history-confirm-actions">
+              <button
+                type="button"
+                className="history-confirm-cancel"
+                disabled={isDeletingHistory}
+                onClick={() => setHistoryDeleteDialog(null)}
+              >
+                CANCEL
+              </button>
+
+              <button
+                type="button"
+                className="history-confirm-delete"
+                disabled={isDeletingHistory}
+                onClick={confirmHistoryDeletion}
+              >
+                {isDeletingHistory ? "DELETING..." : "DELETE"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       <SignalDetailModal
         detail={selectedDetectionDetail}
