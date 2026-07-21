@@ -2313,16 +2313,22 @@ function App() {
       </header>
 
       <aside className="sidebar">
-        <button
-          type="button"
-          className={`sidebar-nav-card ${
-            activeTab === "general" ? "selected" : ""
-          }`}
-          onClick={() => setActiveTab("general")}
-        >
-          <span>◈</span>
-          <strong>General</strong>
-        </button>
+        <div className="sidebar-nav-card selected">
+          <span>
+            {activeTab === "specific"
+              ? "◎"
+              : activeTab === "history"
+                ? "▰"
+                : "◈"}
+          </span>
+          <strong>
+            {activeTab === "specific"
+              ? "Specific"
+              : activeTab === "history"
+                ? "Scan History"
+                : "General"}
+          </strong>
+        </div>
 
         <section className="settings-section">
           <h2>Setting Threshold</h2>
@@ -2864,7 +2870,18 @@ function App() {
             )}
           </section>
         ) : (
-          <SpecificChannelPage apiBaseUrl={API_BASE_URL} />
+          <SpecificChannelPage
+            apiBaseUrl={API_BASE_URL}
+            scanConfig={scanConfig}
+            isScanning={isScanning}
+            spectrumChart={spectrumChart}
+            spectrumHistoryCharts={spectrumHistoryCharts}
+            frequencyTicks={frequencyTicks}
+            chartDbTicks={chartDbTicks}
+            thresholdTop={thresholdTop}
+            scanDetections={currentScanHistorySorted}
+            sweepInfo={sweepInfo}
+          />
         )}
       </section>
 

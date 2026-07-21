@@ -29,6 +29,181 @@ const TECHNOLOGY_OPTIONS = [
   },
 ];
 
+// Frontend-only channel monitoring status. The backend can later become
+// the authoritative source without changing the card UI contract.
+const CHANNEL_MATCH_TOLERANCE_MHZ = 0.05;
+
+function toFiniteNumber(value) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function getChannelTargetFrequencies(channel) {
+  const targets = [];
+  const dlFrequency = toFiniteNumber(channel?.freq_dl_mhz);
+  const ulFrequency = toFiniteNumber(channel?.freq_ul_mhz);
+
+  if (dlFrequency !== null) {
+    targets.push({ side: "DL", frequencyMhz: dlFrequency });
+  }
+
+  if (
+    ulFrequency !== null &&
+    !targets.some(
+      (target) =>
+        Math.abs(target.frequencyMhz - ulFrequency) < 0.000001
+    )
+  ) {
+    targets.push({ side: "UL", frequencyMhz: ulFrequency });
+  }
+
+  return targets;
+}
+
+function buildChannelScanResult({
+  channel,
+  scanConfig,
+  scanDetections,
+  sweepInfo,
+}) {
+  const targets = getChannelTargetFrequencies(channel);
+  const scanStart = toFiniteNumber(scanConfig?.start_frequency_mhz);
+  const scanEnd = toFiniteNumber(scanConfig?.end_frequency_mhz);
+  const thresholdDb = toFiniteNumber(scanConfig?.threshold_db);
+
+  if (
+    targets.length === 0 ||
+    scanStart === null ||
+    scanEnd === null ||
+    scanEnd <= scanStart
+  ) {
+    return {
+      key: "not-scanned",
+      label: "NOT SCANNED",
+      detail: "Target frequency belum tersedia",
+      matchedFrequencyMhz: null,
+      powerDb: null,
+      side: null,
+    };
+  }
+
+  const inRangeTargets = targets.filter(
+    (target) =>
+      target.frequencyMhz >= scanStart - CHANNEL_MATCH_TOLERANCE_MHZ &&
+      target.frequencyMhz <= scanEnd + CHANNEL_MATCH_TOLERANCE_MHZ
+  );
+
+  if (inRangeTargets.length === 0) {
+    return {
+      key: "not-scanned",
+      label: "NOT SCANNED",
+      detail: "Frekuensi Channel di luar range scan",
+      matchedFrequencyMhz: null,
+      powerDb: null,
+      side: null,
+    };
+  }
+
+  let strongestMatch = null;
+
+  (Array.isArray(scanDetections) ? scanDetections : []).forEach(
+    (detection) => {
+      const detectedFrequency = toFiniteNumber(detection?.frequency_mhz);
+      const detectedPower = toFiniteNumber(detection?.power_db);
+
+      if (detectedFrequency === null || detectedPower === null) {
+        return;
+      }
+
+      inRangeTargets.forEach((target) => {
+        const difference = Math.abs(
+          detectedFrequency - target.frequencyMhz
+        );
+
+        if (difference > CHANNEL_MATCH_TOLERANCE_MHZ) {
+          return;
+        }
+
+        if (
+          !strongestMatch ||
+          detectedPower > strongestMatch.powerDb
+        ) {
+          strongestMatch = {
+            side: target.side,
+            targetFrequencyMhz: target.frequencyMhz,
+            matchedFrequencyMhz: detectedFrequency,
+            powerDb: detectedPower,
+          };
+        }
+      });
+    }
+  );
+
+  if (strongestMatch) {
+    return {
+      key: "on",
+      label: "ON",
+      detail: `${strongestMatch.side} melewati ${
+        thresholdDb ?? 0
+      } dB`,
+      ...strongestMatch,
+    };
+  }
+
+  const scannedWindows = toFiniteNumber(sweepInfo?.scanned_windows) ?? 0;
+  const progressPercent = toFiniteNumber(sweepInfo?.progress_percent) ?? 0;
+  const lastWindowEnd = toFiniteNumber(
+    sweepInfo?.last_window_end_mhz
+  );
+  const sweepCompleted =
+    Boolean(sweepInfo?.completed) || progressPercent >= 100;
+
+  if (scannedWindows <= 0 && !sweepCompleted) {
+    return {
+      key: "not-scanned",
+      label: "NOT SCANNED",
+      detail: "Belum ada hasil scan",
+      matchedFrequencyMhz: null,
+      powerDb: null,
+      side: null,
+    };
+  }
+
+  const allTargetsCovered = sweepCompleted || (
+    lastWindowEnd !== null &&
+    inRangeTargets.every(
+      (target) =>
+        target.frequencyMhz <=
+        lastWindowEnd + CHANNEL_MATCH_TOLERANCE_MHZ
+    )
+  );
+
+  if (allTargetsCovered) {
+    return {
+      key: "off",
+      label: "OFF",
+      detail: "Tidak ada power yang melewati threshold",
+      matchedFrequencyMhz: null,
+      powerDb: null,
+      side: null,
+    };
+  }
+
+  return {
+    key: "not-scanned",
+    label: "NOT SCANNED",
+    detail: "Menunggu sweep mencapai frekuensi Channel",
+    matchedFrequencyMhz: null,
+    powerDb: null,
+    side: null,
+  };
+}
+
+function formatScanPower(value) {
+  const numberValue = toFiniteNumber(value);
+  return numberValue === null ? "-" : `${numberValue.toFixed(2)} dB`;
+}
+
 function formatFrequency(value) {
   if (value === null || value === undefined || value === "") {
     return "-";
@@ -175,7 +350,151 @@ function CandidateSummary({ candidate, compact = false }) {
   );
 }
 
-function SpecificChannelPage({ apiBaseUrl }) {
+function SpecificSpectrumPanel({
+  scanConfig,
+  isScanning,
+  spectrumChart,
+  spectrumHistoryCharts,
+  frequencyTicks,
+  chartDbTicks,
+  thresholdTop,
+  scanDetections,
+  sweepInfo,
+}) {
+  const hasSpectrum = Boolean(
+    spectrumChart?.linePoints || spectrumHistoryCharts?.length
+  );
+
+  return (
+    <section className="specific-spectrum-panel">
+      <div className="specific-spectrum-titlebar status-only">
+        <div className="specific-spectrum-status">
+          <i className={isScanning ? "running" : "standby"} />
+          {isScanning ? "SCANNING" : "STANDBY"}
+        </div>
+      </div>
+
+      <div className="spectrum-chart specific-spectrum-chart">
+        <div className="chart-y-axis" aria-hidden="true">
+          {(chartDbTicks ?? []).map(({ value, position, isThreshold }) => (
+            <span
+              key={`specific-y-${value}`}
+              className={isThreshold ? "threshold-y-tick" : ""}
+              style={{ top: `${position}%` }}
+            >
+              {value} dB
+            </span>
+          ))}
+        </div>
+
+        <div className="chart-plot">
+          {(chartDbTicks ?? []).map(({ value, position }) => (
+            <div
+              key={`specific-horizontal-${value}`}
+              className="chart-h-grid-line"
+              style={{ top: `${position}%` }}
+            />
+          ))}
+
+          {(frequencyTicks ?? []).map(({ label, position }) => (
+            <div
+              key={`specific-vertical-${label}-${position}`}
+              className="chart-v-grid-line"
+              style={{ left: `${position}%` }}
+            />
+          ))}
+
+          <div
+            className="threshold-visual"
+            style={{ top: `${thresholdTop ?? 0}%` }}
+          >
+            <span>Threshold {scanConfig?.threshold_db ?? 0} dB</span>
+          </div>
+
+          {hasSpectrum ? (
+            <>
+              {(spectrumHistoryCharts ?? []).length > 1 && (
+                <svg
+                  className="spectrum-history-svg"
+                  viewBox="0 0 1000 260"
+                  preserveAspectRatio="none"
+                  aria-label="Specific sweep spectrum history"
+                >
+                  {spectrumHistoryCharts.slice(0, -1).map((segment) => (
+                    <polyline
+                      key={segment.id}
+                      points={segment.linePoints}
+                      className="spectrum-history-line"
+                      fill="none"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  ))}
+                </svg>
+              )}
+
+              <svg
+                className="spectrum-svg"
+                viewBox="0 0 1000 260"
+                preserveAspectRatio="none"
+                aria-label="Specific realtime spectrum"
+              >
+                <polygon
+                  points={spectrumChart?.areaPoints ?? ""}
+                  className="spectrum-area"
+                />
+                <polyline
+                  points={spectrumChart?.linePoints ?? ""}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.25"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+            </>
+          ) : (
+            <div className="chart-placeholder">
+              {isScanning
+                ? "Menerima spectrum dari USRP..."
+                : "Tekan START SCAN untuk menampilkan spectrum."}
+            </div>
+          )}
+        </div>
+
+        <div className="chart-x-axis" aria-hidden="true">
+          {(frequencyTicks ?? []).map(({ label, position }, index) => (
+            <span
+              key={`specific-x-${label}-${position}`}
+              className={
+                index === 0
+                  ? "first-x-label"
+                  : index === frequencyTicks.length - 1
+                    ? "last-x-label"
+                    : ""
+              }
+              style={{ left: `${position}%` }}
+            >
+              {label}
+            </span>
+          ))}
+          <small className="chart-x-unit">MHz</small>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SpecificChannelPage({
+  apiBaseUrl,
+  scanConfig,
+  isScanning,
+  spectrumChart,
+  spectrumHistoryCharts,
+  frequencyTicks,
+  chartDbTicks,
+  thresholdTop,
+  scanDetections,
+  sweepInfo,
+}) {
   const [machines, setMachines] = useState([]);
   const [selectedMachineId, setSelectedMachineId] = useState(null);
   const [channels, setChannels] = useState([]);
@@ -201,6 +520,13 @@ function SpecificChannelPage({ apiBaseUrl }) {
   const [busyAction, setBusyAction] = useState("");
   const [noticeMessage, setNoticeMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
+  const [workspaceView, setWorkspaceView] = useState("machines");
+  const [machineEditorOpen, setMachineEditorOpen] = useState(false);
+  const [channelEditorOpen, setChannelEditorOpen] = useState(false);
+  const [machineSearch, setMachineSearch] = useState("");
+  const [channelSearch, setChannelSearch] = useState("");
+  const [machineChannelCounts, setMachineChannelCounts] = useState({});
 
   const selectedMachine = useMemo(
     () =>
@@ -234,6 +560,72 @@ function SpecificChannelPage({ apiBaseUrl }) {
     [channelForm.input_mode]
   );
 
+  const filteredMachines = useMemo(() => {
+    const query = machineSearch.trim().toLowerCase();
+
+    if (!query) {
+      return machines;
+    }
+
+    return machines.filter((machine) =>
+      [machine.name, machine.description, machine.id]
+        .filter((value) => value !== null && value !== undefined)
+        .some((value) => String(value).toLowerCase().includes(query))
+    );
+  }, [machineSearch, machines]);
+
+  const filteredChannels = useMemo(() => {
+    const query = channelSearch.trim().toLowerCase();
+
+    if (!query) {
+      return channels;
+    }
+
+    return channels.filter((channel) =>
+      [
+        channel.channel_number,
+        channel.band,
+        channel.mode,
+        channel.input_mode,
+        channel.input_fcn,
+        channel.fcn_dl,
+        channel.fcn_ul,
+      ]
+        .filter((value) => value !== null && value !== undefined)
+        .some((value) => String(value).toLowerCase().includes(query))
+    );
+  }, [channelSearch, channels]);
+
+  const channelScanResults = useMemo(() => {
+    const results = new Map();
+
+    channels.forEach((channel) => {
+      results.set(
+        channel.id,
+        buildChannelScanResult({
+          channel,
+          scanConfig,
+          scanDetections,
+          sweepInfo,
+        })
+      );
+    });
+
+    return results;
+  }, [channels, scanConfig, scanDetections, sweepInfo]);
+
+  const channelStatusCounts = useMemo(() => {
+    const counts = { on: 0, off: 0, "not-scanned": 0 };
+
+    channelScanResults.forEach((result) => {
+      if (Object.hasOwn(counts, result.key)) {
+        counts[result.key] += 1;
+      }
+    });
+
+    return counts;
+  }, [channelScanResults]);
+
   const clearMessages = useCallback(() => {
     setNoticeMessage("");
     setErrorMessage("");
@@ -255,6 +647,28 @@ function SpecificChannelPage({ apiBaseUrl }) {
 
         const nextMachines = Array.isArray(data) ? data : [];
         setMachines(nextMachines);
+
+        const channelCountEntries = await Promise.all(
+          nextMachines.map(async (machine) => {
+            try {
+              const channelResponse = await fetch(
+                `${apiBaseUrl}/api/machines/${machine.id}/channels`
+              );
+              const channelData = await channelResponse.json();
+
+              return [
+                machine.id,
+                channelResponse.ok && Array.isArray(channelData)
+                  ? channelData.length
+                  : 0,
+              ];
+            } catch {
+              return [machine.id, 0];
+            }
+          })
+        );
+
+        setMachineChannelCounts(Object.fromEntries(channelCountEntries));
 
         setSelectedMachineId((previousMachineId) => {
           const preferredExists = nextMachines.some(
@@ -303,7 +717,12 @@ function SpecificChannelPage({ apiBaseUrl }) {
           );
         }
 
-        setChannels(Array.isArray(data) ? data : []);
+        const nextChannels = Array.isArray(data) ? data : [];
+        setChannels(nextChannels);
+        setMachineChannelCounts((previousCounts) => ({
+          ...previousCounts,
+          [machineId]: nextChannels.length,
+        }));
       } finally {
         setLoadingChannels(false);
       }
@@ -312,15 +731,13 @@ function SpecificChannelPage({ apiBaseUrl }) {
   );
 
   useEffect(() => {
-    loadMachines().catch((error) => {
-      setErrorMessage(error.message);
+    loadMachines().catch(() => {
       setLoadingMachines(false);
     });
   }, [loadMachines]);
 
   useEffect(() => {
-    loadChannels(selectedMachineId).catch((error) => {
-      setErrorMessage(error.message);
+    loadChannels(selectedMachineId).catch(() => {
       setLoadingChannels(false);
     });
   }, [loadChannels, selectedMachineId]);
@@ -345,6 +762,7 @@ function SpecificChannelPage({ apiBaseUrl }) {
       description: "",
     });
     setEditingMachineId(null);
+    setMachineEditorOpen(false);
   }
 
   function resetChannelForm() {
@@ -356,6 +774,7 @@ function SpecificChannelPage({ apiBaseUrl }) {
     setLookupCandidates([]);
     setSelectedCandidateKey("");
     setCandidateModalOpen(false);
+    setChannelEditorOpen(false);
   }
 
   async function handleMachineSubmit(event) {
@@ -418,6 +837,8 @@ function SpecificChannelPage({ apiBaseUrl }) {
 
   function startEditMachine(machine) {
     clearMessages();
+    setWorkspaceView("machines");
+    setMachineEditorOpen(true);
     setEditingMachineId(machine.id);
     setMachineForm({
       name: machine.name ?? "",
@@ -458,6 +879,7 @@ function SpecificChannelPage({ apiBaseUrl }) {
 
       if (selectedMachineId === machine.id) {
         resetChannelForm();
+        setWorkspaceView("machines");
       }
 
       await loadMachines();
@@ -632,6 +1054,8 @@ function SpecificChannelPage({ apiBaseUrl }) {
 
   async function startEditChannel(channel) {
     clearMessages();
+    setWorkspaceView("channels");
+    setChannelEditorOpen(true);
     setEditingChannelId(channel.id);
     setChannelForm({
       input_mode: channel.input_mode,
@@ -707,30 +1131,46 @@ function SpecificChannelPage({ apiBaseUrl }) {
     setErrorMessage("");
   }
 
+  function openCreateMachine() {
+    clearMessages();
+    setEditingMachineId(null);
+    setMachineForm({ name: "", description: "" });
+    setMachineEditorOpen(true);
+    setWorkspaceView("machines");
+  }
+
+  function openCreateChannel() {
+    clearMessages();
+    setEditingChannelId(null);
+    setChannelForm((previousForm) => ({
+      input_mode: previousForm.input_mode,
+      input_fcn: "",
+    }));
+    setLookupCandidates([]);
+    setSelectedCandidateKey("");
+    setCandidateModalOpen(false);
+    setChannelEditorOpen(true);
+  }
+
+  function selectMachine(machine) {
+    clearMessages();
+    setSelectedMachineId(machine.id);
+    resetChannelForm();
+    setWorkspaceView("channels");
+  }
+
   return (
     <>
-      <section className="specific-workspace">
-        <header className="specific-workspace-header">
-          <div>
-            <p className="section-kicker">MACHINE CHANNEL CONFIGURATION</p>
-            <h3>Specific Channel Manager</h3>
-            <p>
-              Buat Machine, masukkan Technology/Profile dan FCN, lalu
-              pilih kandidat band sebelum Channel disimpan ke MySQL.
-            </p>
-          </div>
-
-          <div className="specific-workspace-stats">
-            <div>
-              <span>Machines</span>
-              <strong>{machines.length}</strong>
-            </div>
-            <div>
-              <span>Selected channels</span>
-              <strong>{channels.length}</strong>
-            </div>
-          </div>
-        </header>
+      <section className="specific-workspace specific-figma-workspace">
+        <SpecificSpectrumPanel
+          scanConfig={scanConfig}
+          isScanning={isScanning}
+          spectrumChart={spectrumChart}
+          spectrumHistoryCharts={spectrumHistoryCharts}
+          frequencyTicks={frequencyTicks}
+          chartDbTicks={chartDbTicks}
+          thresholdTop={thresholdTop}
+        />
 
         {(noticeMessage || errorMessage) && (
           <div
@@ -742,69 +1182,110 @@ function SpecificChannelPage({ apiBaseUrl }) {
           </div>
         )}
 
-        <div className="specific-layout">
-          <aside className="specific-machine-panel">
-            <div className="specific-panel-heading">
-              <div>
-                <p className="section-kicker">STEP 1</p>
-                <h4>Machines</h4>
+        {workspaceView === "machines" ? (
+          <section className="specific-figma-content machine-view">
+            <div className="specific-figma-toolbar">
+              <div className="specific-toolbar-count">
+                <strong>{machines.length}</strong>
+                <span>{machines.length === 1 ? "Machine" : "Machines"}</span>
               </div>
-              <span>{machines.length}</span>
+
+              <button
+                type="button"
+                className="specific-toolbar-button primary"
+                onClick={openCreateMachine}
+              >
+                ＋ ADD MACHINE
+              </button>
+
+              <label className="specific-search-box">
+                <span>⌕</span>
+                <input
+                  type="search"
+                  value={machineSearch}
+                  onChange={(event) => setMachineSearch(event.target.value)}
+                  placeholder="Search machine"
+                />
+              </label>
             </div>
 
-            <form
-              className="specific-machine-form"
-              onSubmit={handleMachineSubmit}
-            >
-              <label htmlFor="specific-machine-name">Machine name</label>
-              <input
-                id="specific-machine-name"
-                type="text"
-                maxLength={100}
-                value={machineForm.name}
-                onChange={(event) =>
-                  setMachineForm((previousForm) => ({
-                    ...previousForm,
-                    name: event.target.value,
-                  }))
-                }
-                placeholder="Contoh: Machine-X"
-              />
+            {machineEditorOpen && (
+              <form
+                className="specific-editor-panel machine-editor"
+                onSubmit={handleMachineSubmit}
+              >
+                <div className="specific-editor-heading">
+                  <div>
+                    <span>{editingMachineId ? "EDIT MACHINE" : "NEW MACHINE"}</span>
+                    <strong>
+                      {editingMachineId
+                        ? "Update machine information"
+                        : "Create a new machine"}
+                    </strong>
+                  </div>
 
-              <label htmlFor="specific-machine-description">
-                Description
-              </label>
-              <textarea
-                id="specific-machine-description"
-                rows={3}
-                value={machineForm.description}
-                onChange={(event) =>
-                  setMachineForm((previousForm) => ({
-                    ...previousForm,
-                    description: event.target.value,
-                  }))
-                }
-                placeholder="Keterangan Machine"
-              />
+                  <button
+                    type="button"
+                    className="specific-editor-close"
+                    onClick={resetMachineForm}
+                    aria-label="Close machine editor"
+                  >
+                    ×
+                  </button>
+                </div>
 
-              <div className="specific-form-actions">
-                <button
-                  type="submit"
-                  className="specific-primary-button"
-                  disabled={
-                    busyAction === "create-machine" ||
+                <div className="specific-editor-fields machine-fields">
+                  <div className="specific-field">
+                    <label htmlFor="specific-machine-name">Machine name</label>
+                    <input
+                      id="specific-machine-name"
+                      type="text"
+                      maxLength={100}
+                      value={machineForm.name}
+                      onChange={(event) =>
+                        setMachineForm((previousForm) => ({
+                          ...previousForm,
+                          name: event.target.value,
+                        }))
+                      }
+                      placeholder="Contoh: Machine-X"
+                    />
+                  </div>
+
+                  <div className="specific-field">
+                    <label htmlFor="specific-machine-description">Description</label>
+                    <input
+                      id="specific-machine-description"
+                      type="text"
+                      value={machineForm.description}
+                      onChange={(event) =>
+                        setMachineForm((previousForm) => ({
+                          ...previousForm,
+                          description: event.target.value,
+                        }))
+                      }
+                      placeholder="Keterangan Machine"
+                    />
+                  </div>
+                </div>
+
+                <div className="specific-form-actions">
+                  <button
+                    type="submit"
+                    className="specific-primary-button"
+                    disabled={
+                      busyAction === "create-machine" ||
+                      busyAction === "update-machine"
+                    }
+                  >
+                    {busyAction === "create-machine" ||
                     busyAction === "update-machine"
-                  }
-                >
-                  {busyAction === "create-machine" ||
-                  busyAction === "update-machine"
-                    ? "PROCESSING..."
-                    : editingMachineId
-                      ? "UPDATE MACHINE"
-                      : "CREATE MACHINE"}
-                </button>
+                      ? "PROCESSING..."
+                      : editingMachineId
+                        ? "UPDATE MACHINE"
+                        : "CREATE MACHINE"}
+                  </button>
 
-                {editingMachineId && (
                   <button
                     type="button"
                     className="specific-secondary-button"
@@ -812,208 +1293,260 @@ function SpecificChannelPage({ apiBaseUrl }) {
                   >
                     CANCEL
                   </button>
+                </div>
+              </form>
+            )}
+
+            <div className="specific-machine-table-shell">
+              <div className="specific-machine-table-head">
+                <span>No</span>
+                <span>Machine</span>
+                <span>Description</span>
+                <span>Channel</span>
+                <span>Action</span>
+              </div>
+
+              <div className="specific-machine-table-body">
+                {loadingMachines ? (
+                  <div className="specific-table-empty">Memuat Machine...</div>
+                ) : filteredMachines.length === 0 ? (
+                  <div className="specific-table-empty">
+                    {machines.length === 0
+                      ? "Belum ada Machine. Tekan ADD MACHINE untuk membuat Machine pertama."
+                      : "Machine tidak ditemukan."}
+                  </div>
+                ) : (
+                  filteredMachines.map((machine, index) => (
+                    <article
+                      className={`specific-machine-table-row ${
+                        selectedMachineId === machine.id ? "selected" : ""
+                      }`}
+                      key={machine.id}
+                    >
+                      <span className="machine-row-number">{index + 1}</span>
+
+                      <span className="machine-row-name">
+                        <i>M</i>
+                        <strong>{machine.name}</strong>
+                      </span>
+
+                      <span className="machine-row-description">
+                        {machine.description || "Tanpa deskripsi"}
+                      </span>
+
+                      <strong className="machine-row-count">
+                        {machineChannelCounts[machine.id] ?? 0}
+                      </strong>
+
+                      <span className="machine-row-actions">
+                        <button
+                          type="button"
+                          className="select"
+                          onClick={() => selectMachine(machine)}
+                        >
+                          SELECT
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => startEditMachine(machine)}
+                        >
+                          EDIT
+                        </button>
+                        <button
+                          type="button"
+                          className="danger"
+                          disabled={busyAction === `delete-machine-${machine.id}`}
+                          onClick={() => handleDeleteMachine(machine)}
+                        >
+                          DELETE
+                        </button>
+                      </span>
+                    </article>
+                  ))
                 )}
               </div>
-            </form>
-
-            <div className="specific-machine-list">
-              {loadingMachines ? (
-                <div className="specific-empty-state">
-                  Memuat Machine...
-                </div>
-              ) : machines.length === 0 ? (
-                <div className="specific-empty-state">
-                  Belum ada Machine. Buat Machine pertama.
-                </div>
-              ) : (
-                machines.map((machine) => (
-                  <article
-                    className={`specific-machine-card ${
-                      selectedMachineId === machine.id ? "selected" : ""
-                    }`}
-                    key={machine.id}
-                  >
-                    <button
-                      type="button"
-                      className="specific-machine-select"
-                      onClick={() => {
-                        clearMessages();
-                        setSelectedMachineId(machine.id);
-                        resetChannelForm();
-                      }}
-                    >
-                      <span className="specific-machine-icon">M</span>
-                      <span>
-                        <strong>{machine.name}</strong>
-                        <small>
-                          {machine.description || "Tanpa deskripsi"}
-                        </small>
-                      </span>
-                    </button>
-
-                    <div className="specific-card-actions">
-                      <button
-                        type="button"
-                        onClick={() => startEditMachine(machine)}
-                      >
-                        EDIT
-                      </button>
-                      <button
-                        type="button"
-                        className="danger"
-                        disabled={
-                          busyAction === `delete-machine-${machine.id}`
-                        }
-                        onClick={() => handleDeleteMachine(machine)}
-                      >
-                        DELETE
-                      </button>
-                    </div>
-                  </article>
-                ))
-              )}
             </div>
-          </aside>
+          </section>
+        ) : (
+          <section className="specific-figma-content channel-view">
+            <div className="specific-figma-toolbar channel-toolbar">
+              <button
+                type="button"
+                className="specific-toolbar-button back"
+                onClick={() => {
+                  resetChannelForm();
+                  setWorkspaceView("machines");
+                }}
+              >
+                ← BACK
+              </button>
 
-          <section className="specific-channel-panel">
-            <div className="specific-panel-heading">
-              <div>
-                <p className="section-kicker">STEP 2</p>
-                <h4>
-                  {selectedMachine
-                    ? `${selectedMachine.name} Channels`
-                    : "Select a Machine"}
-                </h4>
+              <div className="specific-selected-machine-chip">
+                <strong>{selectedMachine?.name ?? "Machine"}</strong>
               </div>
 
-              {selectedMachine && (
-                <span>{channels.length}</span>
-              )}
+              <button
+                type="button"
+                className="specific-toolbar-button primary"
+                onClick={openCreateChannel}
+              >
+                ＋ ADD CHANNEL
+              </button>
+
+              <label className="specific-search-box">
+                <span>⌕</span>
+                <input
+                  type="search"
+                  value={channelSearch}
+                  onChange={(event) => setChannelSearch(event.target.value)}
+                  placeholder="Search channel"
+                />
+              </label>
+
             </div>
 
             {!selectedMachine ? (
               <div className="specific-channel-empty">
-                Pilih Machine di panel kiri atau buat Machine baru untuk
-                mulai menambahkan Channel.
+                Machine tidak ditemukan. Kembali ke daftar Machine dan pilih kembali.
               </div>
             ) : (
               <>
-                <form
-                  id="specific-channel-form"
-                  className="specific-channel-form"
-                  onSubmit={handleChannelSubmit}
-                >
-                  {editingChannel && (
-                    <div className="specific-editing-banner">
+                {channelEditorOpen && (
+                  <form
+                    id="specific-channel-form"
+                    className="specific-editor-panel specific-channel-form"
+                    onSubmit={handleChannelSubmit}
+                  >
+                    <div className="specific-editor-heading">
                       <div>
-                        <span>EDIT MODE ACTIVE</span>
-                        <strong>EDITING {editingChannel.channel_number}</strong>
-                        <p>
-                          Ubah Technology/Profile atau FCN, klik FIND CHANNEL,
-                          pilih kandidat, lalu tekan UPDATE CHANNEL.
-                        </p>
+                        <span>
+                          {editingChannelId ? "EDIT CHANNEL" : "NEW CHANNEL"}
+                        </span>
+                        <strong>
+                          {editingChannelId
+                            ? `Editing ${editingChannel?.channel_number ?? "Channel"}`
+                            : `Add channel to ${selectedMachine.name}`}
+                        </strong>
                       </div>
 
-                      <small>
-                        Data saat ini: {editingChannel.input_mode} · FCN{" "}
-                        {editingChannel.input_fcn}
-                      </small>
+                      <button
+                        type="button"
+                        className="specific-editor-close"
+                        onClick={resetChannelForm}
+                        aria-label="Close channel editor"
+                      >
+                        ×
+                      </button>
                     </div>
-                  )}
 
-                  <div className="specific-field">
-                    <label htmlFor="specific-input-mode">
-                      Technology/Profile
-                    </label>
-                    <select
-                      id="specific-input-mode"
-                      value={channelForm.input_mode}
-                      onChange={(event) => {
-                        const nextMode = event.target.value;
+                    {editingChannel && (
+                      <div className="specific-editing-banner">
+                        <div>
+                          <span>EDIT MODE ACTIVE</span>
+                          <strong>EDITING {editingChannel.channel_number}</strong>
+                          <p>
+                            Ubah Technology/Profile atau FCN, klik FIND CHANNEL,
+                            pilih kandidat, lalu tekan UPDATE CHANNEL.
+                          </p>
+                        </div>
+                        <small>
+                          Data saat ini: {editingChannel.input_mode} · FCN {" "}
+                          {editingChannel.input_fcn}
+                        </small>
+                      </div>
+                    )}
 
-                        setChannelForm((previousForm) => ({
-                          ...previousForm,
-                          input_mode: nextMode,
-                        }));
-                        setLookupCandidates([]);
-                        setSelectedCandidateKey("");
-                        setCandidateModalOpen(false);
-                        setErrorMessage("");
-                        setNoticeMessage(
-                          editingChannelId !== null
-                            ? `Mode edit ${editingChannel?.channel_number ?? "Channel"} tetap aktif. Klik FIND CHANNEL untuk mencari kandidat baru.`
-                            : ""
-                        );
-                      }}
-                    >
-                      {TECHNOLOGY_OPTIONS.map((option) => (
-                        <option value={option.value} key={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                    <div className="specific-editor-fields channel-fields">
+                      <div className="specific-field">
+                        <label htmlFor="specific-input-mode">
+                          Technology/Profile
+                        </label>
+                        <select
+                          id="specific-input-mode"
+                          value={channelForm.input_mode}
+                          onChange={(event) => {
+                            const nextMode = event.target.value;
+                            setChannelForm((previousForm) => ({
+                              ...previousForm,
+                              input_mode: nextMode,
+                            }));
+                            setLookupCandidates([]);
+                            setSelectedCandidateKey("");
+                            setCandidateModalOpen(false);
+                            setErrorMessage("");
+                            setNoticeMessage(
+                              editingChannelId !== null
+                                ? `Mode edit ${editingChannel?.channel_number ?? "Channel"} tetap aktif. Klik FIND CHANNEL untuk mencari kandidat baru.`
+                                : ""
+                            );
+                          }}
+                        >
+                          {TECHNOLOGY_OPTIONS.map((option) => (
+                            <option value={option.value} key={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                  <div className="specific-field">
-                    <label htmlFor="specific-input-fcn">
-                      {currentTechnology.fcnLabel}
-                    </label>
-                    <input
-                      id="specific-input-fcn"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={channelForm.input_fcn}
-                      onChange={(event) => {
-                        setChannelForm((previousForm) => ({
-                          ...previousForm,
-                          input_fcn: event.target.value,
-                        }));
-                        setLookupCandidates([]);
-                        setSelectedCandidateKey("");
-                        setCandidateModalOpen(false);
-                        setErrorMessage("");
-                        setNoticeMessage(
-                          editingChannelId !== null
-                            ? `Mode edit ${editingChannel?.channel_number ?? "Channel"} tetap aktif. Klik FIND CHANNEL untuk memvalidasi FCN baru.`
-                            : ""
-                        );
-                      }}
-                      placeholder={`Masukkan ${currentTechnology.fcnLabel}`}
-                    />
-                  </div>
+                      <div className="specific-field">
+                        <label htmlFor="specific-input-fcn">
+                          {currentTechnology.fcnLabel}
+                        </label>
+                        <input
+                          id="specific-input-fcn"
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={channelForm.input_fcn}
+                          onChange={(event) => {
+                            setChannelForm((previousForm) => ({
+                              ...previousForm,
+                              input_fcn: event.target.value,
+                            }));
+                            setLookupCandidates([]);
+                            setSelectedCandidateKey("");
+                            setCandidateModalOpen(false);
+                            setErrorMessage("");
+                            setNoticeMessage(
+                              editingChannelId !== null
+                                ? `Mode edit ${editingChannel?.channel_number ?? "Channel"} tetap aktif. Klik FIND CHANNEL untuk memvalidasi FCN baru.`
+                                : ""
+                            );
+                          }}
+                          placeholder={`Masukkan ${currentTechnology.fcnLabel}`}
+                        />
+                      </div>
+                    </div>
 
-                  <div className="specific-channel-form-buttons">
-                    <button
-                      type="button"
-                      className="specific-secondary-button find"
-                      disabled={busyAction === "lookup"}
-                      onClick={() => runChannelLookup()}
-                    >
-                      {busyAction === "lookup"
-                        ? "SEARCHING..."
-                        : "FIND CHANNEL"}
-                    </button>
+                    <div className="specific-channel-form-buttons">
+                      <button
+                        type="button"
+                        className="specific-secondary-button find"
+                        disabled={busyAction === "lookup"}
+                        onClick={() => runChannelLookup()}
+                      >
+                        {busyAction === "lookup" ? "SEARCHING..." : "FIND CHANNEL"}
+                      </button>
 
-                    <button
-                      type="submit"
-                      className="specific-primary-button"
-                      disabled={
-                        !selectedCandidateKey ||
-                        busyAction === "create-channel" ||
-                        busyAction === "update-channel"
-                      }
-                    >
-                      {busyAction === "update-channel"
-                        ? "UPDATING..."
-                        : busyAction === "create-channel"
-                          ? "SAVING..."
-                          : editingChannelId
-                            ? "UPDATE CHANNEL"
-                            : "SAVE CHANNEL"}
-                    </button>
+                      <button
+                        type="submit"
+                        className="specific-primary-button"
+                        disabled={
+                          !selectedCandidateKey ||
+                          busyAction === "create-channel" ||
+                          busyAction === "update-channel"
+                        }
+                      >
+                        {busyAction === "update-channel"
+                          ? "UPDATING..."
+                          : busyAction === "create-channel"
+                            ? "SAVING..."
+                            : editingChannelId
+                              ? "UPDATE CHANNEL"
+                              : "SAVE CHANNEL"}
+                      </button>
 
-                    {editingChannelId && (
                       <button
                         type="button"
                         className="specific-secondary-button"
@@ -1021,20 +1554,17 @@ function SpecificChannelPage({ apiBaseUrl }) {
                       >
                         CANCEL
                       </button>
-                    )}
-                  </div>
-                </form>
+                    </div>
+                  </form>
+                )}
 
-                {selectedCandidate && (
+                {selectedCandidate && channelEditorOpen && (
                   <div className="specific-selected-candidate">
                     <div className="specific-selected-heading">
                       <div>
-                        <p className="section-kicker">
-                          SELECTED CANDIDATE
-                        </p>
+                        <p className="section-kicker">SELECTED CANDIDATE</p>
                         <h5>
-                          {selectedCandidate.band} ·{" "}
-                          {selectedCandidate.mode}
+                          {selectedCandidate.band} · {selectedCandidate.mode}
                         </h5>
                       </div>
 
@@ -1048,43 +1578,78 @@ function SpecificChannelPage({ apiBaseUrl }) {
                         </button>
                       )}
                     </div>
-
                     <CandidateSummary candidate={selectedCandidate} />
                   </div>
                 )}
 
-                <div className="specific-channel-list-heading">
+                <div className="specific-channel-monitor-summary">
                   <div>
-                    <p className="section-kicker">SAVED CHANNELS</p>
-                    <h5>Channel slots</h5>
+                    <span className="monitor-summary-label">CHANNEL STATUS</span>
+                    <small>Hasil current/last scan pada range yang dipilih</small>
                   </div>
-                  <span>{channels.length}</span>
+
+                  <div className="monitor-summary-counts">
+                    <span className="on">
+                      ON <strong>{channelStatusCounts.on}</strong>
+                    </span>
+                    <span className="off">
+                      OFF <strong>{channelStatusCounts.off}</strong>
+                    </span>
+                    <span className="not-scanned">
+                      NOT SCANNED {" "}
+                      <strong>{channelStatusCounts["not-scanned"]}</strong>
+                    </span>
+                  </div>
                 </div>
 
                 {loadingChannels ? (
+                  <div className="specific-channel-empty">Memuat Channel...</div>
+                ) : filteredChannels.length === 0 ? (
                   <div className="specific-channel-empty">
-                    Memuat Channel...
-                  </div>
-                ) : channels.length === 0 ? (
-                  <div className="specific-channel-empty">
-                    Machine ini belum mempunyai Channel.
+                    {channels.length === 0
+                      ? "Machine ini belum mempunyai Channel. Tekan ADD CHANNEL untuk menambahkan Channel pertama."
+                      : "Channel tidak ditemukan berdasarkan pencarian atau filter."}
                   </div>
                 ) : (
-                  <div className="specific-saved-channel-grid">
-                    {channels.map((channel) => (
+                  <div className="specific-saved-channel-grid figma-channel-grid">
+                    {filteredChannels.map((channel) => {
+                      const scanResult =
+                        channelScanResults.get(channel.id) ??
+                        buildChannelScanResult({
+                          channel,
+                          scanConfig,
+                          scanDetections,
+                          sweepInfo,
+                        });
+
+                      return (
                       <article
-                        className={`specific-saved-channel-card ${
+                        className={`specific-saved-channel-card figma-channel-card status-${scanResult.key} ${
                           editingChannelId === channel.id ? "editing" : ""
                         }`}
                         key={channel.id}
                       >
                         <header>
-                          <div>
-                            <span>{channel.channel_number}</span>
-                            <strong>{channel.band}</strong>
+                          <div className="figma-channel-identity">
+                            <span className="figma-channel-radio">◉</span>
+                            <span>
+                              <strong>{channel.channel_number}</strong>
+                              <small>FCN {formatFcn(channel.input_fcn)}</small>
+                            </span>
                           </div>
-                          <small>{channel.mode}</small>
+
+                          <span
+                            className={`figma-channel-state ${scanResult.key}`}
+                            title={scanResult.detail}
+                          >
+                            {scanResult.label}
+                          </span>
                         </header>
+
+                        <div className="figma-channel-title">
+                          <strong>{channel.band}</strong>
+                          <span>{channel.mode}</span>
+                        </div>
 
                         <div className="specific-saved-channel-details">
                           <div>
@@ -1093,19 +1658,15 @@ function SpecificChannelPage({ apiBaseUrl }) {
                           </div>
                           <div>
                             <span>Input FCN</span>
-                            <strong>{channel.input_fcn}</strong>
+                            <strong>{formatFcn(channel.input_fcn)}</strong>
                           </div>
                           <div>
                             <span>DL frequency</span>
-                            <strong>
-                              {formatFrequency(channel.freq_dl_mhz)}
-                            </strong>
+                            <strong>{formatFrequency(channel.freq_dl_mhz)}</strong>
                           </div>
                           <div>
                             <span>UL frequency</span>
-                            <strong>
-                              {formatFrequency(channel.freq_ul_mhz)}
-                            </strong>
+                            <strong>{formatFrequency(channel.freq_ul_mhz)}</strong>
                           </div>
                           <div>
                             <span>DL FCN</span>
@@ -1115,13 +1676,22 @@ function SpecificChannelPage({ apiBaseUrl }) {
                             <span>UL FCN</span>
                             <strong>{formatFcn(channel.fcn_ul)}</strong>
                           </div>
+                          <div className="channel-scan-detail">
+                            <span>Detected Power</span>
+                            <strong className={scanResult.key}>
+                              {formatScanPower(scanResult.powerDb)}
+                            </strong>
+                          </div>
+                          <div className="channel-scan-detail">
+                            <span>Scan Result</span>
+                            <strong className={scanResult.key}>
+                              {scanResult.detail}
+                            </strong>
+                          </div>
                         </div>
 
                         <footer>
-                          <span>
-                            Updated {formatDateTime(channel.updated_at)}
-                          </span>
-
+                          <span>Updated {formatDateTime(channel.updated_at)}</span>
                           <div className="specific-card-actions">
                             <button
                               type="button"
@@ -1132,10 +1702,7 @@ function SpecificChannelPage({ apiBaseUrl }) {
                             <button
                               type="button"
                               className="danger"
-                              disabled={
-                                busyAction ===
-                                `delete-channel-${channel.id}`
-                              }
+                              disabled={busyAction === `delete-channel-${channel.id}`}
                               onClick={() => handleDeleteChannel(channel)}
                             >
                               DELETE
@@ -1143,13 +1710,14 @@ function SpecificChannelPage({ apiBaseUrl }) {
                           </div>
                         </footer>
                       </article>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </>
             )}
           </section>
-        </div>
+        )}
       </section>
 
       {candidateModalOpen && (
@@ -1170,7 +1738,7 @@ function SpecificChannelPage({ apiBaseUrl }) {
                 <p className="section-kicker">MULTIPLE CANDIDATES</p>
                 <h4>Pilih kandidat Channel</h4>
                 <span>
-                  {channelForm.input_mode} · {currentTechnology.fcnLabel}{" "}
+                  {channelForm.input_mode} · {currentTechnology.fcnLabel} {" "}
                   {channelForm.input_fcn}
                 </span>
               </div>
@@ -1215,6 +1783,7 @@ function SpecificChannelPage({ apiBaseUrl }) {
       )}
     </>
   );
+
 }
 
 export default SpecificChannelPage;
