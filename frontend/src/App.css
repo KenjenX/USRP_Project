@@ -4162,3 +4162,11 @@ body {
   line-height: 1.6;
 }
 
+
+.sidebar-scan-machine {
+  display: block;
+  margin-bottom: 5px;
+  color: #b9d9f2;
+  font-size: 0.62rem;
+  font-weight: 800;
+}

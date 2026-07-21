@@ -27,6 +27,8 @@ from backend.nr_classifier import classify_nr
 from backend.machine_routes import router as machine_router
 from backend.channel_lookup_routes import router as channel_lookup_router
 from backend.channel_routes import router as channel_router
+from backend.database import SessionLocal
+from backend.models import Channel, Machine
 
 # =========================
 # KONFIGURASI USRP
@@ -118,6 +120,7 @@ scan_state = {
     "scan_owner": None,
     "scan_mode": None,
     "selected_machine_id": None,
+    "selected_machine_name": None,
     "config": default_config.copy(),
     "sweep": {
         "current_start_mhz": default_config["start_frequency_mhz"],
@@ -333,7 +336,72 @@ def get_scan_identity(state: dict) -> dict:
         "scan_owner": state.get("scan_owner"),
         "scan_mode": state.get("scan_mode"),
         "selected_machine_id": state.get("selected_machine_id"),
+        "selected_machine_name": state.get("selected_machine_name"),
     }
+
+
+def release_scan_lock_after_error(
+    expected_session_id: str | None,
+    error_message: str,
+) -> dict:
+    """Menghentikan scan gagal agar ownership scanner tidak tertinggal."""
+
+    with state_lock:
+        if (
+            expected_session_id is not None
+            and scan_state.get("session_id") != expected_session_id
+        ):
+            return deepcopy(scan_state)
+
+        now = datetime.now().isoformat(timespec="seconds")
+        scan_state["running"] = False
+        scan_state["completed"] = False
+        scan_state["last_error"] = str(error_message)
+        scan_state["updated_at"] = now
+
+        return deepcopy(scan_state)
+
+
+def resolve_specific_machine(machine_id: int) -> dict:
+    """Memastikan Specific Scan terikat ke satu Machine yang valid."""
+
+    db = SessionLocal()
+
+    try:
+        machine = (
+            db.query(Machine)
+            .filter(Machine.id == machine_id)
+            .first()
+        )
+
+        if machine is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Machine untuk Specific Scan tidak ditemukan.",
+            )
+
+        channel_count = (
+            db.query(Channel)
+            .filter(Channel.machine_id == machine_id)
+            .count()
+        )
+
+        if channel_count <= 0:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Specific Scan membutuhkan minimal satu Channel pada "
+                    f'Machine "{machine.name}".'
+                ),
+            )
+
+        return {
+            "id": int(machine.id),
+            "name": str(machine.name),
+            "channel_count": int(channel_count),
+        }
+    finally:
+        db.close()
 
 
 def calculate_total_windows(start_mhz: float, end_mhz: float) -> int:
@@ -542,11 +610,15 @@ def build_scan_history_title(
     completed_at: str | None,
     session_id: str,
     scan_owner: str | None = None,
+    selected_machine_name: str | None = None,
 ) -> str:
     owner_label = {
         SCAN_OWNER_GENERAL: "General Scan",
         SCAN_OWNER_SPECIFIC: "Specific Scan",
     }.get(scan_owner, "Scan")
+
+    if scan_owner == SCAN_OWNER_SPECIFIC and selected_machine_name:
+        owner_label = f"{owner_label} — {selected_machine_name}"
 
     if completed_at:
         return f"{owner_label} {completed_at.replace('T', ' ')}"
@@ -570,6 +642,7 @@ def build_scan_session_payload(state: dict, completed_at: str) -> dict:
             completed_at,
             session_id,
             state.get("scan_owner"),
+            state.get("selected_machine_name"),
         ),
         "startedAt": state.get("started_at"),
         "started_at": state.get("started_at"),
@@ -999,18 +1072,19 @@ def start_scan(request: ScanRequest):
         if request.selected_machine_id is not None
         else None
     )
+    selected_machine_name = None
 
     if requested_owner == SCAN_OWNER_GENERAL:
         selected_machine_id = None
-
-    if (
-        requested_owner == SCAN_OWNER_SPECIFIC
-        and selected_machine_id is None
-    ):
+    elif selected_machine_id is None:
         raise HTTPException(
             status_code=422,
             detail="Specific Scan membutuhkan Machine yang dipilih.",
         )
+    else:
+        machine_identity = resolve_specific_machine(selected_machine_id)
+        selected_machine_id = machine_identity["id"]
+        selected_machine_name = machine_identity["name"]
 
     scan_width_mhz = validate_scan_range(start_mhz, end_mhz)
     total_windows = calculate_total_windows(start_mhz, end_mhz)
@@ -1046,6 +1120,7 @@ def start_scan(request: ScanRequest):
         scan_state["scan_owner"] = requested_owner
         scan_state["scan_mode"] = SCAN_MODE_RANGE_SWEEP
         scan_state["selected_machine_id"] = selected_machine_id
+        scan_state["selected_machine_name"] = selected_machine_name
         scan_state["config"] = new_config
         scan_state["sweep"] = {
             "current_start_mhz": start_mhz,
@@ -1279,12 +1354,37 @@ def get_spectrum():
             "debug_clusters": build_empty_debug_clusters(),
         }
 
-    scan_result = scan_frequency_window(
-        window_start_mhz=window_start_mhz,
-        window_end_mhz=window_end_mhz,
-        threshold_db=config["threshold_db"],
-        window_index=window_index,
-    )
+    try:
+        scan_result = scan_frequency_window(
+            window_start_mhz=window_start_mhz,
+            window_end_mhz=window_end_mhz,
+            threshold_db=config["threshold_db"],
+            window_index=window_index,
+        )
+    except HTTPException as error:
+        release_scan_lock_after_error(
+            state.get("session_id"),
+            str(error.detail),
+        )
+        raise HTTPException(
+            status_code=error.status_code,
+            detail=(
+                f"{error.detail} "
+                "Scanner lock dilepas otomatis agar scan dapat dimulai ulang."
+            ),
+        ) from error
+    except Exception as error:
+        release_scan_lock_after_error(
+            state.get("session_id"),
+            str(error),
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Scan gagal: {error}. "
+                "Scanner lock dilepas otomatis agar scan dapat dimulai ulang."
+            ),
+        ) from error
 
     next_start_mhz = window_end_mhz
     completed = next_start_mhz >= full_end_mhz

@@ -945,9 +945,21 @@ function normalizePersistentScanSession(session, index = 0) {
     session.scan_owner ??
     null;
 
+  const selectedMachineId =
+    session.selectedMachineId ??
+    session.selected_machine_id ??
+    null;
+
+  const selectedMachineName =
+    session.selectedMachineName ??
+    session.selected_machine_name ??
+    null;
+
   const scanOwnerLabel =
     scanOwner === "specific"
-      ? "Specific Scan"
+      ? selectedMachineName
+        ? `Specific Scan — ${selectedMachineName}`
+        : "Specific Scan"
       : scanOwner === "general"
         ? "General Scan"
         : "Scan";
@@ -964,10 +976,8 @@ function normalizePersistentScanSession(session, index = 0) {
       session.scanMode ??
       session.scan_mode ??
       null,
-    selectedMachineId:
-      session.selectedMachineId ??
-      session.selected_machine_id ??
-      null,
+    selectedMachineId,
+    selectedMachineName,
     title:
       scanOwner
         ? generatedTitle
@@ -1487,7 +1497,10 @@ function App() {
   const [isBusy, setIsBusy] = useState(false);
   const [scanOwner, setScanOwner] = useState(null);
   const [scanMode, setScanMode] = useState(null);
+  const [scanSelectedMachineId, setScanSelectedMachineId] = useState(null);
+  const [scanSelectedMachineName, setScanSelectedMachineName] = useState(null);
   const [selectedSpecificMachineId, setSelectedSpecificMachineId] = useState(null);
+  const [selectedSpecificMachineName, setSelectedSpecificMachineName] = useState(null);
 
   const [spectrum, setSpectrum] = useState({
     frequency_mhz: [],
@@ -1525,6 +1538,124 @@ function App() {
     "Masukkan konfigurasi lalu tekan START SCAN."
   );
   const [errorMessage, setErrorMessage] = useState("");
+
+  const applyBackendScanState = useCallback(
+    (data, { showResumeMessage = false } = {}) => {
+      const running = Boolean(data?.running);
+      const owner = data?.scan_owner ?? null;
+      const mode = data?.scan_mode ?? null;
+      const machineId = data?.selected_machine_id ?? null;
+      const machineName = data?.selected_machine_name ?? null;
+
+      setIsScanning(running);
+      setScanOwner(owner);
+      setScanMode(mode);
+      setScanSelectedMachineId(machineId);
+      setScanSelectedMachineName(machineName);
+
+      if (data?.config && typeof data.config === "object") {
+        setScanConfig(data.config);
+      }
+
+      if (data?.sweep && typeof data.sweep === "object") {
+        setSweepInfo({
+          ...data.sweep,
+          completed: Boolean(data.completed),
+        });
+      }
+
+      if (data?.last_peak !== undefined) {
+        setPeak(data.last_peak);
+      }
+
+      if (Number.isFinite(Number(data?.detection_count))) {
+        setTotalDetectionCount(Number(data.detection_count));
+      }
+
+      if (running) {
+        activeScanMetaRef.current = {
+          id: data?.session_id ?? `scan-${Date.now()}`,
+          startedAt: data?.started_at ?? new Date().toISOString(),
+          request: {
+            scan_owner: owner,
+            selected_machine_id: machineId,
+          },
+          selectedMachineName: machineName,
+        };
+        scanSessionSavedRef.current = Boolean(data?.session_saved);
+
+        if (showResumeMessage) {
+          const ownerLabel = owner === "specific" ? "Specific" : "General";
+          const machineLabel =
+            owner === "specific" && machineName ? ` — ${machineName}` : "";
+
+          setStatusMessage(
+            `${ownerLabel} Scan${machineLabel} masih berjalan. Status dipulihkan dari backend.`
+          );
+        }
+      } else if (showResumeMessage && data?.last_error) {
+        setStatusMessage("Scan berhenti karena terjadi error pada backend.");
+      }
+
+      return {
+        running,
+        owner,
+        mode,
+        machineId,
+        machineName,
+      };
+    },
+    []
+  );
+
+  const syncScanStateFromBackend = useCallback(
+    async ({ showResumeMessage = false, restoreResults = true } = {}) => {
+      const statusResponse = await fetch(`${API_BASE_URL}/api/status`);
+      const statusData = await statusResponse.json();
+
+      if (!statusResponse.ok) {
+        throw new Error(
+          statusData.detail || "Gagal menyinkronkan status scan."
+        );
+      }
+
+      const synchronizedState = applyBackendScanState(statusData, {
+        showResumeMessage,
+      });
+
+      if (synchronizedState.running && restoreResults) {
+        const resultsResponse = await fetch(
+          `${API_BASE_URL}/api/scan/results`
+        );
+        const resultsData = await resultsResponse.json();
+
+        if (resultsResponse.ok) {
+          const restoredDetections = Array.isArray(resultsData.detections)
+            ? resultsData.detections.map((detection, index) =>
+                normalizePersistentDetection(detection, index)
+              )
+            : [];
+
+          currentScanHistoryRef.current = restoredDetections;
+          setCurrentScanHistory(restoredDetections);
+          setDetections(
+            Array.isArray(resultsData.last_window_detections)
+              ? resultsData.last_window_detections
+              : []
+          );
+          setPeak(resultsData.last_peak ?? statusData.last_peak ?? null);
+          setTotalDetectionCount(
+            Number.isFinite(Number(resultsData.detection_count))
+              ? Number(resultsData.detection_count)
+              : restoredDetections.length
+          );
+        }
+      }
+
+      return statusData;
+    },
+    [applyBackendScanState]
+  );
 
   const loadPersistentScanSessions = useCallback(
     async ({ selectLatest = false } = {}) => {
@@ -1684,6 +1815,59 @@ function App() {
     let retryTimerId;
     let attemptIndex = 0;
 
+    async function synchronizeWithRetry({ showResumeMessage = false } = {}) {
+      try {
+        await syncScanStateFromBackend({
+          showResumeMessage,
+          restoreResults: true,
+        });
+      } catch {
+        if (cancelled) {
+          return;
+        }
+
+        attemptIndex += 1;
+
+        if (attemptIndex < INITIAL_HISTORY_RETRY_DELAYS_MS.length) {
+          retryTimerId = window.setTimeout(
+            () => synchronizeWithRetry({ showResumeMessage }),
+            INITIAL_HISTORY_RETRY_DELAYS_MS[attemptIndex]
+          );
+        }
+      }
+    }
+
+    function handleWindowFocus() {
+      attemptIndex = 0;
+      synchronizeWithRetry({ showResumeMessage: true });
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        handleWindowFocus();
+      }
+    }
+
+    synchronizeWithRetry({ showResumeMessage: true });
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(retryTimerId);
+      window.removeEventListener("focus", handleWindowFocus);
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+    };
+  }, [syncScanStateFromBackend]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let retryTimerId;
+    let attemptIndex = 0;
+
     async function loadHistoryWithRetry() {
       try {
         await loadPersistentScanSessions();
@@ -1793,6 +1977,8 @@ function App() {
         setSpectrum(spectrumData);
         setScanOwner(data.scan_owner ?? null);
         setScanMode(data.scan_mode ?? null);
+        setScanSelectedMachineId(data.selected_machine_id ?? null);
+        setScanSelectedMachineName(data.selected_machine_name ?? null);
         setPeak(data.peak);
         setDetections(windowDetections);
         setDebugClusters(
@@ -1899,9 +2085,16 @@ function App() {
                 activeScanMetaRef.current?.request?.scan_owner ??
                 null;
 
+              const fallbackMachineName =
+                data.selected_machine_name ??
+                activeScanMetaRef.current?.selectedMachineName ??
+                null;
+
               const fallbackOwnerLabel =
                 fallbackOwner === "specific"
-                  ? "Specific Scan"
+                  ? fallbackMachineName
+                    ? `Specific Scan — ${fallbackMachineName}`
+                    : "Specific Scan"
                   : fallbackOwner === "general"
                     ? "General Scan"
                     : "Scan";
@@ -1918,6 +2111,7 @@ function App() {
                   data.selected_machine_id ??
                   activeScanMetaRef.current?.request?.selected_machine_id ??
                   null,
+                selectedMachineName: fallbackMachineName,
                 startedAt:
                   activeScanMetaRef.current?.startedAt ?? completedAt,
                 completedAt,
@@ -1969,12 +2163,38 @@ function App() {
           );
         }
       } catch (error) {
-        if (!cancelled) {
-          setErrorMessage(`Spectrum error: ${error.message}`);
-          setIsScanning(false);
+        if (cancelled) {
+          return;
         }
 
-        return;
+        try {
+          const synchronizedStatus = await syncScanStateFromBackend({
+            showResumeMessage: false,
+            restoreResults: true,
+          });
+
+          if (cancelled) {
+            return;
+          }
+
+          if (synchronizedStatus.running) {
+            setErrorMessage(
+              `Spectrum sementara gagal dimuat: ${error.message}. Mencoba kembali...`
+            );
+            timeoutId = window.setTimeout(pollSpectrum, 1000);
+            return;
+          }
+
+          setErrorMessage(`Spectrum error: ${error.message}`);
+          setIsScanning(false);
+          return;
+        } catch (statusError) {
+          setErrorMessage(
+            `Spectrum error: ${error.message}. Status backend tidak dapat diperiksa: ${statusError.message}`
+          );
+          setIsScanning(false);
+          return;
+        }
       }
 
       if (!cancelled) {
@@ -1988,7 +2208,11 @@ function App() {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [isScanning, loadPersistentScanSessions]);
+  }, [
+    isScanning,
+    loadPersistentScanSessions,
+    syncScanStateFromBackend,
+  ]);
 
   // Buat label sumbu X berdasarkan konfigurasi scan asli.
   // Sepuluh interval memberi label setiap 0.2 MHz saat lebar scan 2 MHz.
@@ -2337,12 +2561,29 @@ function App() {
         const data = await response.json();
 
         if (!response.ok) {
+          if (response.status === 409) {
+            await syncScanStateFromBackend({
+              showResumeMessage: true,
+              restoreResults: true,
+            });
+            setErrorMessage(
+              data.detail || "Status pemilik scanner telah disinkronkan."
+            );
+            return;
+          }
+
           throw new Error(data.detail || "Gagal menghentikan scan.");
         }
 
         setIsScanning(false);
         setScanOwner(data.scan_owner ?? scanOwner);
         setScanMode(data.scan_mode ?? scanMode);
+        setScanSelectedMachineId(
+          data.selected_machine_id ?? scanSelectedMachineId
+        );
+        setScanSelectedMachineName(
+          data.selected_machine_name ?? scanSelectedMachineName
+        );
         setStatusMessage(
           `${requestedOwner === "general" ? "General" : "Specific"} Scan dihentikan.`
         );
@@ -2379,11 +2620,24 @@ function App() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 409) {
+          await syncScanStateFromBackend({
+            showResumeMessage: true,
+            restoreResults: true,
+          });
+          setErrorMessage(
+            data.detail || "Scanner sedang digunakan oleh scan aktif."
+          );
+          return;
+        }
+
         throw new Error(data.detail || "Gagal memulai scan.");
       }
 
       setScanOwner(data.scan_owner ?? requestedOwner);
       setScanMode(data.scan_mode ?? "range_sweep");
+      setScanSelectedMachineId(data.selected_machine_id ?? null);
+      setScanSelectedMachineName(data.selected_machine_name ?? null);
       setScanConfig(data.config);
       setSpectrum({
         frequency_mhz: [],
@@ -2396,6 +2650,10 @@ function App() {
         id: `scan-${Date.now()}`,
         startedAt: new Date().toISOString(),
         request: requestBody,
+        selectedMachineName:
+          requestedOwner === "specific"
+            ? data.selected_machine_name ?? selectedSpecificMachineName
+            : null,
       };
       scanSessionSavedRef.current = false;
       setSweepInfo(data.sweep ?? null);
@@ -2409,7 +2667,11 @@ function App() {
       });
       setIsScanning(true);
       setStatusMessage(
-        `${requestedOwner === "general" ? "General" : "Specific"} Scan dimulai. Menunggu data spectrum...`
+        requestedOwner === "specific"
+          ? `Specific Scan untuk ${
+              data.selected_machine_name ?? selectedSpecificMachineName ?? "Machine terpilih"
+            } dimulai. Menunggu data spectrum...`
+          : "General Scan dimulai. Menunggu data spectrum..."
       );
     } catch (error) {
       setErrorMessage(error.message);
@@ -2602,6 +2864,15 @@ function App() {
             Owner: {scanOwnerLabel ?? "-"}
             {scanMode ? ` · ${scanMode.replaceAll("_", " ")}` : ""}
           </span>
+
+          {scanOwner === "specific" && (
+            <span className="sidebar-scan-machine">
+              Machine: {
+                scanSelectedMachineName ??
+                (scanSelectedMachineId ? `#${scanSelectedMachineId}` : "-")
+              }
+            </span>
+          )}
 
           <span>
             Range: {scanConfig.start_frequency_mhz}–
@@ -3090,6 +3361,8 @@ function App() {
             isScanning={isScanning}
             scanOwner={scanOwner}
             scanMode={scanMode}
+            scanSelectedMachineId={scanSelectedMachineId}
+            scanSelectedMachineName={scanSelectedMachineName}
             scannerLocked={scanOwner === "general"}
             spectrumChart={
               scanOwner === "specific"
@@ -3106,7 +3379,10 @@ function App() {
               scanOwner === "specific" ? currentScanHistorySorted : []
             }
             sweepInfo={scanOwner === "specific" ? sweepInfo : null}
-            onSelectedMachineChange={setSelectedSpecificMachineId}
+            onSelectedMachineChange={(machine) => {
+              setSelectedSpecificMachineId(machine?.id ?? null);
+              setSelectedSpecificMachineName(machine?.name ?? null);
+            }}
           />
         )}
       </section>

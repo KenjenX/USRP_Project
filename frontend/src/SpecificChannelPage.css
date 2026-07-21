@@ -1315,3 +1315,52 @@
   }
 }
 
+
+/* One Specific Scan belongs to one selected Machine */
+.specific-machine-scan-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 10px 12px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(94, 151, 224, 0.52);
+  border-left: 4px solid #5e97e0;
+  color: #d9e9ff;
+  background: rgba(32, 70, 126, 0.25);
+}
+
+.specific-machine-scan-notice strong,
+.specific-machine-scan-notice span {
+  display: block;
+}
+
+.specific-machine-scan-notice strong {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.07em;
+}
+
+.specific-machine-scan-notice span {
+  color: #b9cce7;
+  font-size: 0.62rem;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.machine-row-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+  filter: grayscale(0.35);
+}
+
+@media (max-width: 620px) {
+  .specific-machine-scan-notice {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .specific-machine-scan-notice span {
+    text-align: left;
+  }
+}

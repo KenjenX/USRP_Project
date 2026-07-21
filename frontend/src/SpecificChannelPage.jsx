@@ -34,8 +34,15 @@ const TECHNOLOGY_OPTIONS = [
 const CHANNEL_MATCH_TOLERANCE_MHZ = 0.05;
 
 function toFiniteNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
   const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? numberValue : null;
+
+  return Number.isFinite(numberValue)
+    ? numberValue
+    : null;
 }
 
 function getChannelTargetFrequencies(channel) {
@@ -199,6 +206,18 @@ function buildChannelScanResult({
   };
 }
 
+function buildUnavailableChannelScanResult(detail) {
+  return {
+    key: "not-scanned",
+    label: "NOT SCANNED",
+    detail,
+    matchedFrequencyMhz: null,
+    powerDb: null,
+    side: null,
+  };
+}
+
+
 function formatScanPower(value) {
   const numberValue = toFiniteNumber(value);
   return numberValue === null ? "-" : `${numberValue.toFixed(2)} dB`;
@@ -355,15 +374,27 @@ function SpecificSpectrumPanel({
   isScanning,
   scanOwner,
   scannerLocked,
+  selectedMachineName,
+  scanSelectedMachineName,
+  scanMatchesSelectedMachine,
   spectrumChart,
   spectrumHistoryCharts,
   frequencyTicks,
   chartDbTicks,
   thresholdTop,
 }) {
-  const ownScanRunning = isScanning && scanOwner === "specific";
+  const ownScanRunning =
+    isScanning &&
+    scanOwner === "specific" &&
+    scanMatchesSelectedMachine;
+  const specificScanForOtherMachine = Boolean(
+    scanOwner === "specific" &&
+    scanSelectedMachineName &&
+    !scanMatchesSelectedMachine
+  );
   const hasSpectrum = Boolean(
     !scannerLocked &&
+    scanMatchesSelectedMachine &&
     (spectrumChart?.linePoints || spectrumHistoryCharts?.length)
   );
 
@@ -385,8 +416,12 @@ function SpecificSpectrumPanel({
               ? "GENERAL SCAN ACTIVE"
               : "GENERAL RESULT ISOLATED"
             : ownScanRunning
-              ? "SPECIFIC SCANNING"
-              : "STANDBY"}
+              ? `SCANNING ${selectedMachineName ?? "MACHINE"}`
+              : specificScanForOtherMachine
+                ? isScanning
+                  ? "OTHER MACHINE SCAN ACTIVE"
+                  : "MACHINE NOT SCANNED"
+                : "STANDBY"}
         </div>
       </div>
 
@@ -473,9 +508,13 @@ function SpecificSpectrumPanel({
                 ? isScanning
                   ? "Scanner sedang digunakan oleh General Scan."
                   : "Hasil General Scan tidak digunakan untuk status Channel."
-                : ownScanRunning
-                  ? "Menerima spectrum Specific Scan..."
-                  : "Tekan START SPECIFIC SCAN untuk menampilkan spectrum."}
+                : specificScanForOtherMachine
+                  ? `Hasil Specific Scan terikat ke ${scanSelectedMachineName}, bukan ${
+                      selectedMachineName ?? "Machine ini"
+                    }.`
+                  : ownScanRunning
+                    ? `Menerima spectrum untuk ${selectedMachineName ?? "Machine terpilih"}...`
+                    : "Masuk ke satu Machine lalu tekan START SPECIFIC SCAN."}
             </div>
           )}
         </div>
@@ -509,6 +548,8 @@ function SpecificChannelPage({
   isScanning,
   scanOwner,
   scanMode,
+  scanSelectedMachineId,
+  scanSelectedMachineName,
   scannerLocked,
   spectrumChart,
   spectrumHistoryCharts,
@@ -560,6 +601,30 @@ function SpecificChannelPage({
       ) ?? null,
     [machines, selectedMachineId]
   );
+
+  const machineWorkspaceActive = Boolean(
+    workspaceView === "channels" && selectedMachineId !== null
+  );
+
+  const scanMatchesSelectedMachine = Boolean(
+    machineWorkspaceActive &&
+    scanOwner === "specific" &&
+    scanSelectedMachineId !== null &&
+    Number(selectedMachineId) === Number(scanSelectedMachineId)
+  );
+
+  const specificScanForOtherMachine = Boolean(
+    machineWorkspaceActive &&
+    scanOwner === "specific" &&
+    scanSelectedMachineId !== null &&
+    !scanMatchesSelectedMachine
+  );
+
+  const unavailableScanDetail = specificScanForOtherMachine
+    ? `Specific Scan terakhir milik ${
+        scanSelectedMachineName ?? `Machine #${scanSelectedMachineId}`
+      }`
+    : "Machine ini belum menjalankan Specific Scan";
 
   const editingChannel = useMemo(
     () =>
@@ -627,17 +692,26 @@ function SpecificChannelPage({
     channels.forEach((channel) => {
       results.set(
         channel.id,
-        buildChannelScanResult({
-          channel,
-          scanConfig,
-          scanDetections,
-          sweepInfo,
-        })
+        scanMatchesSelectedMachine
+          ? buildChannelScanResult({
+              channel,
+              scanConfig,
+              scanDetections,
+              sweepInfo,
+            })
+          : buildUnavailableChannelScanResult(unavailableScanDetail)
       );
     });
 
     return results;
-  }, [channels, scanConfig, scanDetections, sweepInfo]);
+  }, [
+    channels,
+    scanConfig,
+    scanDetections,
+    scanMatchesSelectedMachine,
+    sweepInfo,
+    unavailableScanDetail,
+  ]);
 
   const channelStatusCounts = useMemo(() => {
     const counts = { on: 0, off: 0, "not-scanned": 0 };
@@ -768,8 +842,16 @@ function SpecificChannelPage({
   }, [loadChannels, selectedMachineId]);
 
   useEffect(() => {
-    onSelectedMachineChange?.(selectedMachineId ?? null);
-  }, [onSelectedMachineChange, selectedMachineId]);
+    onSelectedMachineChange?.(
+      workspaceView === "channels" && selectedMachine
+        ? { id: selectedMachine.id, name: selectedMachine.name }
+        : null
+    );
+  }, [
+    onSelectedMachineChange,
+    selectedMachine,
+    workspaceView,
+  ]);
 
   useEffect(() => {
     function handleEscape(event) {
@@ -1212,6 +1294,21 @@ function SpecificChannelPage({
 
   function selectMachine(machine) {
     clearMessages();
+
+    if (
+      isScanning &&
+      scanOwner === "specific" &&
+      scanSelectedMachineId !== null &&
+      Number(machine.id) !== Number(scanSelectedMachineId)
+    ) {
+      setErrorMessage(
+        `Hentikan Specific Scan untuk ${
+          scanSelectedMachineName ?? `Machine #${scanSelectedMachineId}`
+        } sebelum memilih Machine lain.`
+      );
+      return;
+    }
+
     setSelectedMachineId(machine.id);
     resetChannelForm();
     setWorkspaceView("channels");
@@ -1225,12 +1322,29 @@ function SpecificChannelPage({
           isScanning={isScanning}
           scanOwner={scanOwner}
           scannerLocked={scannerLocked}
+          selectedMachineName={
+            machineWorkspaceActive ? selectedMachine?.name ?? null : null
+          }
+          scanSelectedMachineName={scanSelectedMachineName}
+          scanMatchesSelectedMachine={scanMatchesSelectedMachine}
           spectrumChart={spectrumChart}
           spectrumHistoryCharts={spectrumHistoryCharts}
           frequencyTicks={frequencyTicks}
           chartDbTicks={chartDbTicks}
           thresholdTop={thresholdTop}
         />
+
+        {specificScanForOtherMachine && (
+          <div className="specific-machine-scan-notice">
+            <strong>SPECIFIC SCAN TERIKAT KE SATU MACHINE</strong>
+            <span>
+              Hasil aktif berasal dari {
+                scanSelectedMachineName ?? `Machine #${scanSelectedMachineId}`
+              }. Channel pada {selectedMachine?.name ?? "Machine ini"} tetap
+              berstatus NOT SCANNED.
+            </span>
+          </div>
+        )}
 
         {scannerLocked && (
           <div className="specific-scan-isolation-notice">
@@ -1416,6 +1530,12 @@ function SpecificChannelPage({
                         <button
                           type="button"
                           className="select"
+                          disabled={
+                            isScanning &&
+                            scanOwner === "specific" &&
+                            scanSelectedMachineId !== null &&
+                            Number(machine.id) !== Number(scanSelectedMachineId)
+                          }
                           onClick={() => selectMachine(machine)}
                         >
                           SELECT
@@ -1659,7 +1779,11 @@ function SpecificChannelPage({
                 <div className="specific-channel-monitor-summary">
                   <div>
                     <span className="monitor-summary-label">CHANNEL STATUS</span>
-                    <small>Hasil current/last scan pada range yang dipilih</small>
+                    <small>
+                      {scanMatchesSelectedMachine
+                        ? `Hasil Specific Scan untuk ${selectedMachine?.name ?? "Machine ini"}`
+                        : unavailableScanDetail}
+                    </small>
                   </div>
 
                   <div className="monitor-summary-counts">
@@ -1689,12 +1813,9 @@ function SpecificChannelPage({
                     {filteredChannels.map((channel) => {
                       const scanResult =
                         channelScanResults.get(channel.id) ??
-                        buildChannelScanResult({
-                          channel,
-                          scanConfig,
-                          scanDetections,
-                          sweepInfo,
-                        });
+                        buildUnavailableChannelScanResult(
+                          unavailableScanDetail
+                        );
 
                       return (
                       <article
