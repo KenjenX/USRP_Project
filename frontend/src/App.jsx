@@ -758,7 +758,7 @@ function DetectionHistoryCard({ detection, index, sourceLabel, onOpen }) {
         </div>
 
         <div>
-          <span>Power dB</span>
+          <span>Power (dB)</span>
           <strong>{formatDb(detection.power_db)}</strong>
         </div>
 
@@ -2239,9 +2239,7 @@ function App() {
 
           setStatusMessage(
             data.completed
-              ? `Sweep selesai. Hasil scan disimpan ke JSON Scan History. Total titik di atas threshold: ${
-                  currentScanHistoryRef.current.length
-                }.`
+              ? "Scan selesai dan disimpan ke Scan History."
               : "Scan dihentikan."
           );
           return;
@@ -2800,6 +2798,28 @@ function App() {
   }, [scanSessions, selectedSessionId]);
 
   const detectedCount = currentScanHistorySorted.length;
+
+  const isSweepCompleted =
+    !isScanning &&
+    Boolean(sweepInfo) &&
+    Number(sweepInfo?.progress_percent ?? 0) >= 100;
+
+  const sidebarScanStatus = errorMessage
+    ? "FAILED"
+    : isScanning
+      ? "SCANNING"
+      : isSweepCompleted
+        ? "COMPLETED"
+        : "READY";
+
+  const sidebarScanStatusClass = errorMessage
+    ? "status-failed"
+    : isScanning
+      ? "status-running"
+      : isSweepCompleted
+        ? "status-completed"
+        : "status-idle";
+
   const currentPageScanOwner =
     activeTab === "general"
       ? "general"
@@ -2824,8 +2844,7 @@ function App() {
       : deviceStatus.connected === false
         ? "DISCONNECTED"
         : "UNKNOWN";
-
-const deviceBadgeLabel = "SDR 1";
+  const deviceBadgeLabel = "SDR 1";
   const deviceBadgeSymbol =
     deviceStatus.connected === true
       ? "●"
@@ -2991,84 +3010,32 @@ const deviceBadgeLabel = "SDR 1";
         <section className="sidebar-status">
           <p>SCAN STATUS</p>
 
-          <strong className={isScanning ? "status-running" : "status-idle"}>
-            {isScanning ? "RUNNING" : "STANDBY"}
+          <strong className={sidebarScanStatusClass}>
+            {sidebarScanStatus}
           </strong>
-
-          <span className="sidebar-scan-owner">
-            Owner: {scanOwnerLabel ?? "-"}
-            {scanMode ? ` · ${scanMode.replaceAll("_", " ")}` : ""}
-          </span>
-
-          {scanOwner === "specific" && (
-            <span className="sidebar-scan-machine">
-              Machine: {
-                scanSelectedMachineName ??
-                (scanSelectedMachineId ? `#${scanSelectedMachineId}` : "-")
-              }
-            </span>
-          )}
 
           <span>
             Range: {scanConfig.start_frequency_mhz}–
             {scanConfig.end_frequency_mhz} MHz
           </span>
 
-          {sweepInfo && (
+          {isScanning && sweepInfo && (
             <span className="sidebar-sweep-detail">
-              Sweep: {sweepInfo.scanned_windows}/{sweepInfo.total_windows} ·{" "}
-              {sweepInfo.progress_percent}%
+              Progress: {sweepInfo.scanned_windows}/
+              {sweepInfo.total_windows} · {sweepInfo.progress_percent}%
+            </span>
+          )}
+
+          {isSweepCompleted && !errorMessage && (
+            <span className="sidebar-scan-saved">
+              Saved to Scan History
             </span>
           )}
         </section>
-        <section className="sidebar-live-peak">
-        <div className="sidebar-peak-heading">
-          <span>LIVE PEAK SIGNAL</span>
 
-          {peak && (
-            <span
-              className={
-                peak.above_threshold
-                  ? "sidebar-peak-state warning"
-                  : "sidebar-peak-state normal"
-              }
-            >
-              {peak.above_threshold ? "WARNING" : "NORMAL"}
-            </span>
-          )}
-        </div>
-
-        {peak ? (
-          <>
-            <h3>USRP B210 · RX2</h3>
-
-            <div className="sidebar-peak-detail">
-              <span>PEAK FREQUENCY</span>
-              <strong>{formatMHz(peak.frequency_mhz)}</strong>
-            </div>
-
-            <div className="sidebar-peak-detail">
-              <span>PEAK POWER</span>
-              <strong>{formatDb(peak.power_db)}</strong>
-            </div>
-
-            <div className="sidebar-peak-detail">
-              <span>THRESHOLD</span>
-              <strong>{scanConfig.threshold_db} dB</strong>
-            </div>
-          </>
-        ) : (
-          <p className="sidebar-empty-peak">
-            Belum ada peak signal.
-          </p>
+        {errorMessage && (
+          <p className="sidebar-error-message">{errorMessage}</p>
         )}
-      </section>
-
-      <p className="sidebar-live-message">{statusMessage}</p>
-
-      {errorMessage && (
-        <p className="sidebar-error-message">{errorMessage}</p>
-      )}
       </aside>
 
       <section className="dashboard">
