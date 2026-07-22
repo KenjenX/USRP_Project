@@ -728,7 +728,7 @@ function SpecificChannelPage({
     ? `Specific Scan terakhir milik ${
         scanSelectedMachineName ?? `Machine #${scanSelectedMachineId}`
       }`
-    : "Machine ini belum menjalankan Specific Scan";
+    : "-";
 
   const editingChannel = useMemo(
     () =>
@@ -1978,7 +1978,7 @@ function SpecificChannelPage({
                             <strong>{formatFcn(channel.fcn_ul)}</strong>
                           </div>
                           <div className="channel-scan-detail">
-                            <span>Measured Power</span>
+                            <span>Power (dB)</span>
                             <strong className={scanResult.key}>
                               {formatScanPower(scanResult.powerDb)}
                             </strong>

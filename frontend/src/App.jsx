@@ -1478,7 +1478,17 @@ function ScanModeIsolationPanel({ owner, isRunning }) {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState("general");
+  const [activeTab, setActiveTab] = useState(() => {
+    const savedTab = window.sessionStorage.getItem("usrp-active-tab");
+
+    return ["general", "history", "specific"].includes(savedTab)
+      ? savedTab
+      : "general";
+  });
+
+  useEffect(() => {
+    window.sessionStorage.setItem("usrp-active-tab", activeTab);
+  }, [activeTab]);
 
   // Nilai input yang diketik pada web.
   const [threshold, setThreshold] = useState("0");
