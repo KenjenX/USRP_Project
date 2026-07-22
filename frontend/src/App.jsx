@@ -5,14 +5,15 @@ import SpecificChannelPage from "./SpecificChannelPage.jsx";
 const API_BASE_URL = "http://127.0.0.1:8000";
 
 const SPECTRUM_REFRESH_MS = 250;
+const DEVICE_STATUS_REFRESH_MS = 5000;
 
 // Saat Vite dan FastAPI dinyalakan hampir bersamaan, frontend dapat terbuka
 // beberapa detik lebih dulu daripada backend. Scan history akan dicoba ulang
 // otomatis agar user tidak perlu me-refresh halaman secara manual.
 const INITIAL_HISTORY_RETRY_DELAYS_MS = [0, 1000, 2000, 4000, 8000];
 
-// Tidak ada polling otomatis /api/device.
-// USRP hanya diakses ketika user menjalankan scan agar CRUD tetap independen.
+// Status SDR dibaca dari cache detector USB/PnP pasif. Endpoint ini tidak
+// menjalankan UHD dan tetap aman ketika USRP tidak terhubung atau sedang scan.
 
 // Jumlah window history yang disimpan di frontend.
 // Scan 50–6000 MHz dengan window 56 MHz butuh sekitar 107 window,
@@ -1539,6 +1540,59 @@ function App() {
     "Masukkan konfigurasi lalu tekan START SCAN."
   );
   const [errorMessage, setErrorMessage] = useState("");
+  const [deviceStatus, setDeviceStatus] = useState({
+    connected: null,
+    status: "unknown",
+    device: "USRP B210",
+    serial: null,
+    detector: null,
+    friendly_name: null,
+    detail: "Menunggu detector USB...",
+    checked_at: null,
+    scanner_busy: false,
+  });
+
+  const loadDeviceStatus = useCallback(async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/device/status`,
+        { cache: "no-store" }
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Gagal membaca status SDR.");
+      }
+
+      setDeviceStatus({
+        connected:
+          data.connected === true
+            ? true
+            : data.connected === false
+              ? false
+              : null,
+        status: data.status ?? "unknown",
+        device: data.device ?? "USRP B210",
+        serial: data.serial ?? null,
+        detector: data.detector ?? null,
+        friendly_name: data.friendly_name ?? null,
+        detail: data.detail ?? null,
+        checked_at: data.checked_at ?? null,
+        scanner_busy: Boolean(data.scanner_busy),
+        scan_owner: data.scan_owner ?? null,
+      });
+    } catch {
+      // Detector tidak boleh mengubah error global aplikasi. CRUD dan halaman
+      // lain tetap berjalan ketika backend detector belum tersedia.
+      setDeviceStatus((previousStatus) => ({
+        ...previousStatus,
+        connected: null,
+        status: "unknown",
+        detail: "Status USB belum dapat dibaca dari backend.",
+        checked_at: null,
+      }));
+    }
+  }, []);
 
   const applyBackendScanState = useCallback(
     (data, { showResumeMessage = false } = {}) => {
@@ -1819,6 +1873,26 @@ function App() {
 
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedDetectionDetail]);
+
+  useEffect(() => {
+    loadDeviceStatus();
+
+    const intervalId = window.setInterval(
+      loadDeviceStatus,
+      DEVICE_STATUS_REFRESH_MS
+    );
+
+    function handleDeviceStatusFocus() {
+      loadDeviceStatus();
+    }
+
+    window.addEventListener("focus", handleDeviceStatusFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleDeviceStatusFocus);
+    };
+  }, [loadDeviceStatus]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2734,6 +2808,33 @@ function App() {
       : scanOwner === "general"
         ? "General"
         : null;
+  const deviceConnectionLabel =
+    deviceStatus.connected === true
+      ? "CONNECTED"
+      : deviceStatus.connected === false
+        ? "DISCONNECTED"
+        : "UNKNOWN";
+
+const deviceBadgeLabel = "SDR 1";
+  const deviceBadgeSymbol =
+    deviceStatus.connected === true
+      ? "●"
+      : deviceStatus.connected === false
+        ? "○"
+        : "◌";
+  const deviceBadgeTitle = [
+    deviceBadgeLabel,
+    deviceConnectionLabel,
+    deviceStatus.device,
+    deviceStatus.friendly_name,
+    deviceStatus.serial ? `Serial ${deviceStatus.serial}` : null,
+    deviceStatus.detail,
+    deviceStatus.checked_at
+      ? `Checked ${deviceStatus.checked_at}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <main className={`app-shell active-${activeTab}`}>
@@ -2773,7 +2874,15 @@ function App() {
           </button>
         </nav>
 
-        <div className="sdr-badge">SDR 1</div>
+        <div
+          className={`sdr-badge sdr-${deviceStatus.status}`}
+          title={deviceBadgeTitle}
+          aria-label={`${deviceBadgeLabel}: ${deviceConnectionLabel}`}
+          aria-live="polite"
+        >
+          <span aria-hidden="true">{deviceBadgeSymbol}</span>
+          {deviceBadgeLabel}
+        </div>
       </header>
 
       <aside className="sidebar">

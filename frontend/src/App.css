@@ -2467,16 +2467,43 @@ body {
 }
 
 .sdr-badge {
-  align-self: center;
-  justify-self: center;
-  min-width: 82px;
-  padding: 6px 12px;
-  color: #f5f5f5;
-  background: #111b2b;
-  font-size: 0.92rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  height: 38px;
+  min-width: 116px;
+  padding: 0 14px;
+
+  box-sizing: border-box;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  border: 1px solid rgba(88, 123, 178, 0.22);
+  border-radius: 2px;
+
+  background: #12151d;
+  color: #f4f7ff;
+
+  font-size: 0.72rem;
   font-weight: 900;
-  text-align: center;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+.sdr-badge span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  line-height: 1;
 }
 
 .sidebar {
@@ -4169,4 +4196,90 @@ body {
   color: #b9d9f2;
   font-size: 0.62rem;
   font-weight: 800;
+}
+
+/* =========================================================
+   SDR INDICATOR — FIGMA STYLE
+   ========================================================= */
+
+.app-header {
+  grid-template-columns: 335px minmax(0, 1fr) 118px;
+}
+
+.sdr-badge {
+  position: relative;
+
+  width: 100px;
+  min-width: 100px;
+  height: 34px;
+  padding: 0;
+
+  align-self: center;
+  justify-self: center;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+
+  color: #f7f7f7;
+  background: #12151d;
+
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 4px 10px rgba(0, 0, 0, 0.18);
+}
+
+/* Titik status diletakkan di kanan atas agar teks SDR 1 tetap di tengah */
+.sdr-badge span {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+
+  width: 5px;
+  height: 5px;
+  padding: 0;
+
+  border-radius: 50%;
+  font-size: 0;
+  line-height: 0;
+}
+
+.sdr-connected span {
+  background: #61e694;
+  box-shadow: 0 0 6px rgba(97, 230, 148, 0.72);
+}
+
+.sdr-disconnected span {
+  background: #ff6868;
+  box-shadow: 0 0 6px rgba(255, 104, 104, 0.7);
+}
+
+.sdr-unknown span,
+.sdr-checking span {
+  background: #ffc966;
+  box-shadow: 0 0 6px rgba(255, 201, 102, 0.68);
+}
+
+@media (max-width: 1080px) {
+  .app-header {
+    grid-template-columns: 270px minmax(0, 1fr) 112px;
+  }
+
+  .sdr-badge {
+    width: 94px;
+    min-width: 94px;
+    height: 32px;
+    font-size: 0.88rem;
+  }
 }

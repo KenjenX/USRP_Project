@@ -1,6 +1,6 @@
 
 from datetime import datetime
-from threading import Lock
+from threading import Event, Lock, Thread
 from copy import deepcopy
 from math import ceil
 import json
@@ -158,6 +158,34 @@ state_lock = Lock()
 device_lock = Lock()
 usrp_device = None
 
+# Detector USB pasif. Detector ini hanya membaca daftar perangkat Plug and
+# Play Windows (konsep yang setara dengan lsusb di Linux). Detector tidak
+# menjalankan UHD, tidak membuat MultiUSRP, dan tidak memakai device_lock.
+USB_DETECT_INTERVAL_SECONDS = 5
+USB_DEVICE_MATCH_TERMS = (
+    "usrp",
+    "b200",
+    "b210",
+    "ettus",
+    USRP_SERIAL.lower(),
+)
+
+usb_status_lock = Lock()
+usb_detector_stop_event = Event()
+usb_detector_thread = None
+usb_device_state = {
+    "connected": None,
+    "status": "unknown",
+    "device": "USRP B210",
+    "serial": USRP_SERIAL,
+    "detector": "windows_pnp" if os.name == "nt" else "lsusb",
+    "friendly_name": None,
+    "instance_id": None,
+    "detail": "Detector USB belum melakukan pemeriksaan.",
+    "checked_at": None,
+    "changed_at": None,
+}
+
 
 def validate_scan_range(start_mhz: float, end_mhz: float) -> float:
     """
@@ -217,53 +245,76 @@ def get_usrp():
     return usrp_device
 
 
-def check_usrp_connection():
-    """Mengecek USRP lewat proses UHD terpisah agar API lain tidak macet.
-
-    Sebelumnya endpoint /api/device memanggil ``uhd.usrp.MultiUSRP`` langsung
-    di proses FastAPI. Pada beberapa kondisi Windows, pencarian UHD dapat
-    menunggu sangat lama ketika perangkat tidak terhubung dan membuat Machine,
-    Channel, Swagger, serta Scan History ikut tidak responsif.
-
-    Pemeriksaan ini menjalankan ``uhd_find_devices`` sebagai child process.
-    Jika UHD macet, child process dihentikan setelah timeout; proses FastAPI
-    tetap hidup sehingga CRUD tidak bergantung pada keberadaan USRP.
-    """
-
-    discovered_tool = (
-        shutil.which("uhd_find_devices.exe")
-        or shutil.which("uhd_find_devices")
+def _normalize_usb_probe_result(connected, **extra):
+    now = datetime.now().isoformat(timespec="seconds")
+    status = "connected" if connected is True else (
+        "disconnected" if connected is False else "unknown"
     )
 
-    candidate_paths = [
-        Path(r"C:\Program Files\UHD\bin\uhd_find_devices.exe"),
-        Path(r"C:\Program Files (x86)\UHD\bin\uhd_find_devices.exe"),
-    ]
+    return {
+        "connected": connected,
+        "status": status,
+        "device": "USRP B210",
+        "serial": USRP_SERIAL,
+        "detector": extra.get(
+            "detector",
+            "windows_pnp" if os.name == "nt" else "lsusb",
+        ),
+        "friendly_name": extra.get("friendly_name"),
+        "instance_id": extra.get("instance_id"),
+        "detail": extra.get("detail"),
+        "checked_at": now,
+        "changed_at": None,
+    }
 
-    tool_path = Path(discovered_tool) if discovered_tool else None
 
-    if tool_path is None:
-        tool_path = next(
-            (candidate for candidate in candidate_paths if candidate.exists()),
+def _probe_windows_pnp_device():
+    """Membaca perangkat PnP yang sedang hadir tanpa menyentuh UHD."""
+
+    powershell = shutil.which("powershell.exe") or shutil.which("powershell")
+
+    if not powershell:
+        return _normalize_usb_probe_result(
             None,
+            detector="windows_pnp",
+            detail="PowerShell tidak ditemukan untuk membaca perangkat PnP.",
         )
 
-    if tool_path is None:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "USRP offline: uhd_find_devices.exe tidak ditemukan. "
-                "Pastikan UHD terpasang atau folder UHD/bin ada di PATH."
-            ),
-        )
+    match_pattern = "|".join(
+        term.replace("'", "''") for term in USB_DEVICE_MATCH_TERMS
+    )
+    script = rf"""
+$ErrorActionPreference = 'Stop'
+$OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
+$pattern = '{match_pattern}'
+$device = Get-PnpDevice -PresentOnly -ErrorAction Stop |
+    Where-Object {{
+        ($_.FriendlyName -and $_.FriendlyName -match $pattern) -or
+        ($_.InstanceId -and $_.InstanceId -match $pattern)
+    }} |
+    Select-Object -First 1 Status, Class, FriendlyName, InstanceId
+
+if ($null -ne $device) {{
+    $device | ConvertTo-Json -Compress
+}}
+""".strip()
 
     creation_flags = 0
-    if os.name == "nt" and hasattr(subprocess, "CREATE_NO_WINDOW"):
+    if hasattr(subprocess, "CREATE_NO_WINDOW"):
         creation_flags = subprocess.CREATE_NO_WINDOW
 
     try:
         result = subprocess.run(
-            [str(tool_path), "--args", f"serial={USRP_SERIAL}"],
+            [
+                str(powershell),
+                "-NoLogo",
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                script,
+            ],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -272,52 +323,183 @@ def check_usrp_connection():
             check=False,
             creationflags=creation_flags,
         )
-    except subprocess.TimeoutExpired as error:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "USRP offline: pemeriksaan perangkat melewati batas waktu "
-                "4 detik. API CRUD tetap dapat digunakan."
-            ),
-        ) from error
+    except subprocess.TimeoutExpired:
+        return _normalize_usb_probe_result(
+            None,
+            detector="windows_pnp",
+            detail="Pemeriksaan perangkat PnP melewati batas waktu.",
+        )
     except Exception as error:
-        raise HTTPException(
-            status_code=503,
-            detail=f"USRP offline: pemeriksaan perangkat gagal: {error}",
-        ) from error
+        return _normalize_usb_probe_result(
+            None,
+            detector="windows_pnp",
+            detail=f"Pemeriksaan perangkat PnP gagal: {error}",
+        )
 
-    output = "\n".join(
-        part.strip()
-        for part in (result.stdout, result.stderr)
-        if part and part.strip()
+    output = result.stdout.strip()
+
+    if result.returncode != 0:
+        compact_error = " ".join(result.stderr.split())[:220]
+        return _normalize_usb_probe_result(
+            None,
+            detector="windows_pnp",
+            detail=(
+                "Windows tidak dapat membaca daftar perangkat PnP."
+                + (f" {compact_error}" if compact_error else "")
+            ),
+        )
+
+    if not output:
+        return _normalize_usb_probe_result(
+            False,
+            detector="windows_pnp",
+            detail="USRP tidak ditemukan pada daftar perangkat PnP Windows.",
+        )
+
+    try:
+        device = json.loads(output)
+    except json.JSONDecodeError:
+        return _normalize_usb_probe_result(
+            None,
+            detector="windows_pnp",
+            detail="Output detector PnP tidak dapat dibaca.",
+        )
+
+    if isinstance(device, list):
+        device = device[0] if device else {}
+
+    return _normalize_usb_probe_result(
+        True,
+        detector="windows_pnp",
+        friendly_name=device.get("FriendlyName"),
+        instance_id=device.get("InstanceId"),
+        detail="USRP ditemukan melalui daftar perangkat PnP Windows.",
     )
-    normalized_output = output.lower()
 
-    no_device_markers = (
-        "no uhd devices found",
-        "no devices found",
-        "lookup error",
-        "keyerror",
+
+def _probe_linux_usb_device():
+    """Fallback Linux menggunakan lsusb, tetap tanpa membuka UHD."""
+
+    lsusb_path = shutil.which("lsusb")
+
+    if not lsusb_path:
+        return _normalize_usb_probe_result(
+            None,
+            detector="lsusb",
+            detail="Perintah lsusb tidak ditemukan.",
+        )
+
+    try:
+        result = subprocess.run(
+            [lsusb_path],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=4,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return _normalize_usb_probe_result(
+            None,
+            detector="lsusb",
+            detail="Pemeriksaan lsusb melewati batas waktu.",
+        )
+    except Exception as error:
+        return _normalize_usb_probe_result(
+            None,
+            detector="lsusb",
+            detail=f"Pemeriksaan lsusb gagal: {error}",
+        )
+
+    if result.returncode != 0:
+        return _normalize_usb_probe_result(
+            None,
+            detector="lsusb",
+            detail="lsusb tidak dapat membaca daftar perangkat USB.",
+        )
+
+    normalized_output = result.stdout.lower()
+    connected = any(term in normalized_output for term in USB_DEVICE_MATCH_TERMS)
+
+    return _normalize_usb_probe_result(
+        connected,
+        detector="lsusb",
+        detail=(
+            "USRP ditemukan melalui lsusb."
+            if connected
+            else "USRP tidak ditemukan melalui lsusb."
+        ),
     )
-    target_found = USRP_SERIAL.lower() in normalized_output
-    explicitly_missing = any(
-        marker in normalized_output for marker in no_device_markers
+
+
+def probe_usb_device():
+    if os.name == "nt":
+        return _probe_windows_pnp_device()
+
+    return _probe_linux_usb_device()
+
+
+def update_usb_device_state(next_state):
+    """Menyimpan hasil detector dan hanya mencetak log saat status berubah."""
+
+    with usb_status_lock:
+        previous_status = usb_device_state.get("status")
+        next_status = next_state.get("status", "unknown")
+        changed_at = usb_device_state.get("changed_at")
+
+        if next_status != previous_status:
+            changed_at = next_state.get("checked_at")
+
+        usb_device_state.clear()
+        usb_device_state.update(next_state)
+        usb_device_state["changed_at"] = changed_at
+
+    if next_status != previous_status:
+        print(f"[DEVICE] SDR USB status: {next_status.upper()}")
+
+
+def get_usb_device_state():
+    with usb_status_lock:
+        return deepcopy(usb_device_state)
+
+
+def usb_detector_loop():
+    while not usb_detector_stop_event.is_set():
+        update_usb_device_state(probe_usb_device())
+        usb_detector_stop_event.wait(USB_DETECT_INTERVAL_SECONDS)
+
+
+def start_usb_detector():
+    global usb_detector_thread
+
+    if usb_detector_thread and usb_detector_thread.is_alive():
+        return
+
+    usb_detector_stop_event.clear()
+    usb_detector_thread = Thread(
+        target=usb_detector_loop,
+        name="usb-device-detector",
+        daemon=True,
     )
+    usb_detector_thread.start()
 
-    if result.returncode != 0 or explicitly_missing or not target_found:
-        detail = "USRP offline: perangkat dengan serial target tidak ditemukan."
 
-        # Batasi pesan UHD agar indikator frontend tidak menjadi terlalu panjang.
-        if output:
-            compact_output = " ".join(output.split())
-            detail = f"{detail} {compact_output[:220]}"
+def stop_usb_detector():
+    usb_detector_stop_event.set()
 
-        raise HTTPException(status_code=503, detail=detail)
+    if usb_detector_thread and usb_detector_thread.is_alive():
+        usb_detector_thread.join(timeout=1.0)
 
-    return {
-        "connected": True,
-        "tool": str(tool_path),
-    }
+
+@app.on_event("startup")
+def app_startup():
+    start_usb_detector()
+
+
+@app.on_event("shutdown")
+def app_shutdown():
+    stop_usb_detector()
 
 
 def get_current_state():
@@ -1174,14 +1356,12 @@ def root():
     }
 
 
-@app.get("/api/device")
-def device_status():
-    check_usrp_connection()
+def build_device_status_response():
+    device_state = get_usb_device_state()
+    scan = get_current_state()
 
     return {
-        "status": "ready",
-        "device": "USRP B210",
-        "serial": USRP_SERIAL,
+        **device_state,
         "channel": CHANNEL,
         "antenna": RX_ANTENNA,
         "gain_db": GAIN_DB,
@@ -1191,8 +1371,25 @@ def device_status():
         },
         "sweep_window_mhz": SWEEP_WINDOW_MHZ,
         "detection_mode": DETECTION_MODE,
-        "checked_at": datetime.now().isoformat(timespec="seconds"),
+        "scanner_busy": bool(scan["running"]),
+        "scan_owner": scan.get("scan_owner"),
+        "selected_machine_id": scan.get("selected_machine_id"),
+        "selected_machine_name": scan.get("selected_machine_name"),
     }
+
+
+@app.get("/api/device/status")
+def passive_device_status():
+    # Selalu HTTP 200. Tidak adanya USRP adalah kondisi normal dan tidak boleh
+    # menghentikan CRUD, Scan History, atau endpoint lain.
+    return build_device_status_response()
+
+
+@app.get("/api/device")
+def legacy_device_status_alias():
+    # Alias untuk kompatibilitas dengan frontend lama. Endpoint ini sekarang
+    # memakai cache detector USB pasif dan tidak lagi menjalankan UHD.
+    return build_device_status_response()
 
 
 @app.get("/api/status")
