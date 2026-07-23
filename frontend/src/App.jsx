@@ -2844,7 +2844,7 @@ function App() {
       : deviceStatus.connected === false
         ? "DISCONNECTED"
         : "UNKNOWN";
-  const deviceBadgeLabel = "SDR 1";
+  const deviceBadgeLabel = "SDR";
   const deviceBadgeSymbol =
     deviceStatus.connected === true
       ? "●"
