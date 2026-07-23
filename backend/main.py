@@ -10,7 +10,6 @@ import subprocess
 from pathlib import Path
 
 import numpy as np
-import uhd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -29,6 +28,10 @@ from backend.channel_lookup_routes import router as channel_lookup_router
 from backend.channel_routes import router as channel_router
 from backend.database import SessionLocal
 from backend.models import Channel, Machine
+from backend.scanner_worker import (
+    UhdScannerError,
+    UhdScannerManager,
+)
 
 # =========================
 # KONFIGURASI USRP
@@ -155,12 +158,16 @@ scan_state = {
 }
 
 state_lock = Lock()
-device_lock = Lock()
-usrp_device = None
+scanner_manager = UhdScannerManager(
+    serial=USRP_SERIAL,
+    channel=CHANNEL,
+    rx_antenna=RX_ANTENNA,
+    gain_db=GAIN_DB,
+)
 
 # Detector USB pasif. Detector ini hanya membaca daftar perangkat Plug and
 # Play Windows (konsep yang setara dengan lsusb di Linux). Detector tidak
-# menjalankan UHD, tidak membuat MultiUSRP, dan tidak memakai device_lock.
+# menjalankan UHD dan tidak membuat MultiUSRP.
 USB_DETECT_INTERVAL_SECONDS = 5
 USB_DEVICE_MATCH_TERMS = (
     "usrp",
@@ -223,47 +230,6 @@ def validate_scan_range(start_mhz: float, end_mhz: float) -> float:
 
     return end_mhz - start_mhz
 
-
-def get_usrp():
-    global usrp_device
-
-    with device_lock:
-        if usrp_device is None:
-            try:
-                usrp_device = uhd.usrp.MultiUSRP(
-                    f"serial={USRP_SERIAL}"
-                )
-                usrp_device.set_rx_antenna(RX_ANTENNA, CHANNEL)
-
-            except Exception as error:
-                usrp_device = None
-                raise HTTPException(
-                    status_code=503,
-                    detail=f"USRP tidak dapat diakses: {error}",
-                ) from error
-
-    return usrp_device
-
-
-def release_usrp_device(reason: str = "") -> bool:
-    """Melepas cache MultiUSRP agar sesi berikutnya membuka USB baru."""
-
-    global usrp_device
-
-    with device_lock:
-        if usrp_device is None:
-            return False
-
-        stale_device = usrp_device
-        usrp_device = None
-
-    # Referensi dilepas di luar device_lock. Pada kondisi scan sudah selesai,
-    # destructor UHD dapat menutup resource USB tanpa menahan lock aplikasi.
-    del stale_device
-
-    reason_suffix = f" ({reason})" if reason else ""
-    print(f"[UHD] Cached USRP connection released{reason_suffix}.")
-    return True
 
 
 def _normalize_usb_probe_result(connected, **extra):
@@ -479,10 +445,23 @@ def update_usb_device_state(next_state):
     if next_status != previous_status:
         print(f"[DEVICE] SDR USB status: {next_status.upper()}")
 
-        # Setelah perangkat hilang dari Windows, handle UHD lama tidak boleh
-        # dipakai kembali ketika USB disambungkan lagi.
+        # Worker UHD berada di proses terpisah. Ketika USB hilang, proses
+        # scanner dihentikan paksa agar crash native tidak menjatuhkan FastAPI.
         if next_status == "disconnected":
-            release_usrp_device("USB disconnected")
+            scanner_manager.release(
+                "USB disconnected",
+                force=True,
+            )
+
+            with state_lock:
+                if scan_state.get("running"):
+                    now = datetime.now().isoformat(timespec="seconds")
+                    scan_state["running"] = False
+                    scan_state["completed"] = False
+                    scan_state["last_error"] = (
+                        "USRP terputus saat scan sedang berjalan."
+                    )
+                    scan_state["updated_at"] = now
 
 
 def get_usb_device_state():
@@ -526,7 +505,7 @@ def app_startup():
 @app.on_event("shutdown")
 def app_shutdown():
     stop_usb_detector()
-    release_usrp_device("application shutdown")
+    scanner_manager.release("application shutdown", force=True)
 
 
 def get_current_state():
@@ -575,7 +554,7 @@ def release_scan_lock_after_error(
         scan_state["updated_at"] = now
         failed_state = deepcopy(scan_state)
 
-    release_usrp_device("scan error")
+    scanner_manager.release("scan error", force=True)
     return failed_state
 
 
@@ -1269,21 +1248,13 @@ def scan_frequency_window(
     sample_rate_hz = sample_rate_mhz * 1e6
 
     try:
-        usrp = get_usrp()
+        iq_samples = scanner_manager.acquire_samples(
+            num_samps=NUM_SAMPS,
+            center_frequency_hz=center_frequency_hz,
+            sample_rate_hz=sample_rate_hz,
+        )
 
-        with device_lock:
-            samples = usrp.recv_num_samps(
-                NUM_SAMPS,
-                center_frequency_hz,
-                sample_rate_hz,
-                [CHANNEL],
-                GAIN_DB,
-            )
-
-    except HTTPException:
-        raise
-
-    except Exception as error:
+    except UhdScannerError as error:
         raise HTTPException(
             status_code=503,
             detail=(
@@ -1292,7 +1263,16 @@ def scan_frequency_window(
             ),
         ) from error
 
-    iq_samples = np.asarray(samples[0])
+    except Exception as error:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Scanner worker tidak dapat digunakan pada window "
+                f"{window_start_mhz:.6f}–{window_end_mhz:.6f} MHz: {error}"
+            ),
+        ) from error
+
+    iq_samples = np.asarray(iq_samples)
 
     if len(iq_samples) == 0:
         raise HTTPException(
@@ -1587,7 +1567,7 @@ def stop_scan(request: StopScanRequest):
         )
         state = deepcopy(scan_state)
 
-    release_usrp_device("scan stopped")
+    scanner_manager.release("scan stopped", force=True)
 
     return {
         "message": f"{requested_owner.title()} Scan dihentikan.",
@@ -1742,7 +1722,7 @@ def get_spectrum():
             save_completed_session_if_needed_locked()
             finished_state = deepcopy(scan_state)
 
-        release_usrp_device("scan completed")
+        scanner_manager.release("scan completed")
 
         return {
             "running": False,
@@ -1861,7 +1841,7 @@ def get_spectrum():
         updated_state = deepcopy(scan_state)
 
     if completed:
-        release_usrp_device("scan completed")
+        scanner_manager.release("scan completed")
 
     return {
         "running": updated_state["running"],
