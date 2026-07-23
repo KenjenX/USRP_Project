@@ -177,7 +177,7 @@ function buildChannelScanResult({
       return {
         key: "on",
         label: "ON",
-        detail: `${strongestMeasurement.side ?? "Channel"} melewati ${
+        detail: `${strongestMeasurement.side ?? "Channel"} di atas ${
           thresholdDb ?? 0
         } dB`,
         side: strongestMeasurement.side,
@@ -202,7 +202,7 @@ function buildChannelScanResult({
     return {
       key: "off",
       label: "OFF",
-      detail: `${strongestMeasurement.side ?? "Channel"} berada di bawah ${
+      detail: `${strongestMeasurement.side ?? "Channel"} di bawah ${
         thresholdDb ?? 0
       } dB`,
       side: strongestMeasurement.side,
@@ -253,7 +253,7 @@ function buildChannelScanResult({
     return {
       key: "on",
       label: "ON",
-      detail: `${strongestMatch.side} melewati ${
+      detail: `${strongestMatch.side} di atas ${
         thresholdDb ?? 0
       } dB`,
       ...strongestMatch,
