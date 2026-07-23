@@ -245,6 +245,27 @@ def get_usrp():
     return usrp_device
 
 
+def release_usrp_device(reason: str = "") -> bool:
+    """Melepas cache MultiUSRP agar sesi berikutnya membuka USB baru."""
+
+    global usrp_device
+
+    with device_lock:
+        if usrp_device is None:
+            return False
+
+        stale_device = usrp_device
+        usrp_device = None
+
+    # Referensi dilepas di luar device_lock. Pada kondisi scan sudah selesai,
+    # destructor UHD dapat menutup resource USB tanpa menahan lock aplikasi.
+    del stale_device
+
+    reason_suffix = f" ({reason})" if reason else ""
+    print(f"[UHD] Cached USRP connection released{reason_suffix}.")
+    return True
+
+
 def _normalize_usb_probe_result(connected, **extra):
     now = datetime.now().isoformat(timespec="seconds")
     status = "connected" if connected is True else (
@@ -458,6 +479,11 @@ def update_usb_device_state(next_state):
     if next_status != previous_status:
         print(f"[DEVICE] SDR USB status: {next_status.upper()}")
 
+        # Setelah perangkat hilang dari Windows, handle UHD lama tidak boleh
+        # dipakai kembali ketika USB disambungkan lagi.
+        if next_status == "disconnected":
+            release_usrp_device("USB disconnected")
+
 
 def get_usb_device_state():
     with usb_status_lock:
@@ -500,6 +526,7 @@ def app_startup():
 @app.on_event("shutdown")
 def app_shutdown():
     stop_usb_detector()
+    release_usrp_device("application shutdown")
 
 
 def get_current_state():
@@ -546,8 +573,10 @@ def release_scan_lock_after_error(
         scan_state["completed"] = False
         scan_state["last_error"] = str(error_message)
         scan_state["updated_at"] = now
+        failed_state = deepcopy(scan_state)
 
-        return deepcopy(scan_state)
+    release_usrp_device("scan error")
+    return failed_state
 
 
 def resolve_specific_machine(machine_id: int) -> dict:
@@ -1426,6 +1455,17 @@ def start_scan(request: ScanRequest):
     threshold_db = float(request.threshold_db)
     requested_owner = normalize_scan_owner(request.scan_owner)
 
+    device_state = get_usb_device_state()
+
+    if device_state.get("connected") is not True:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "USRP B210 belum terhubung atau status USB masih diperiksa. "
+                "Tunggu indikator SDR 1 berwarna hijau sebelum memulai scan."
+            ),
+        )
+
     selected_machine_id = (
         int(request.selected_machine_id)
         if request.selected_machine_id is not None
@@ -1546,6 +1586,8 @@ def stop_scan(request: StopScanRequest):
             timespec="seconds"
         )
         state = deepcopy(scan_state)
+
+    release_usrp_device("scan stopped")
 
     return {
         "message": f"{requested_owner.title()} Scan dihentikan.",
@@ -1700,6 +1742,8 @@ def get_spectrum():
             save_completed_session_if_needed_locked()
             finished_state = deepcopy(scan_state)
 
+        release_usrp_device("scan completed")
+
         return {
             "running": False,
             "completed": True,
@@ -1815,6 +1859,9 @@ def get_spectrum():
             save_completed_session_if_needed_locked()
 
         updated_state = deepcopy(scan_state)
+
+    if completed:
+        release_usrp_device("scan completed")
 
     return {
         "running": updated_state["running"],
