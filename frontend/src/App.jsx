@@ -227,8 +227,8 @@ function buildNrDetail(candidate) {
           ? "UL ARFCN : -"
           : `UL ARFCN : [ ${candidate.nr_arfcn_ul} ]`,
         candidate.nr_arfcn_dl === null || candidate.nr_arfcn_dl === undefined
-          ? "DL Pasangan : -"
-          : `DL Pasangan : [ ${candidate.nr_arfcn_dl} ]`,
+          ? "Paired DL: -"
+          : `Paired DL: [ ${candidate.nr_arfcn_dl} ]`,
       ];
     }
 
@@ -238,8 +238,8 @@ function buildNrDetail(candidate) {
         ? "DL ARFCN : -"
         : `DL ARFCN : [ ${candidate.nr_arfcn_dl} ]`,
       candidate.nr_arfcn_ul === null || candidate.nr_arfcn_ul === undefined
-        ? "UL Pasangan : -"
-        : `UL Pasangan : [ ${candidate.nr_arfcn_ul} ]`,
+        ? "Paired UL: -"
+        : `Paired UL: [ ${candidate.nr_arfcn_ul} ]`,
     ];
   }
 
@@ -376,11 +376,11 @@ function buildFrequencyRows(
     }
 
     if (side === rowSide) {
-      return " (TERDETEKSI)";
+      return " (DETECTED)";
     }
 
     if ((side === "DL" || side === "UL") && side !== rowSide) {
-      return " (PASANGAN)";
+      return " (PAIRED)";
     }
 
     return "";
@@ -396,7 +396,7 @@ function buildFrequencyRows(
 
   if (rows.length === 0 && fallbackMhz !== null && fallbackMhz !== undefined) {
     rows.push({
-      label: side === "TDD" ? "FREQ (TDD)" : "FREQ (TERDETEKSI)",
+      label: side === "TDD" ? "FREQ (TDD)" : "DETECTED FREQUENCY",
       value: formatMHz(fallbackMhz),
     });
   }
@@ -420,14 +420,14 @@ function buildLteChannelRows(candidate) {
 
   if (candidate.earfcn_dl !== null && candidate.earfcn_dl !== undefined) {
     rows.push({
-      label: detectedSide === "DL" ? "DL EARFCN (TERDETEKSI)" : "DL EARFCN (PASANGAN)",
+      label: detectedSide === "DL" ? "DL EARFCN (DETECTED)" : "DL EARFCN (PAIRED)",
       value: formatDetailValue(candidate.earfcn_dl),
     });
   }
 
   if (candidate.earfcn_ul !== null && candidate.earfcn_ul !== undefined) {
     rows.push({
-      label: detectedSide === "UL" ? "UL EARFCN (TERDETEKSI)" : "UL EARFCN (PASANGAN)",
+      label: detectedSide === "UL" ? "UL EARFCN (DETECTED)" : "UL EARFCN (PAIRED)",
       value: formatDetailValue(candidate.earfcn_ul),
     });
   }
@@ -457,7 +457,7 @@ function buildNrChannelRows(candidate) {
   if (duplex === "SDL") {
     return [
       {
-        label: "DL NR-ARFCN (TERDETEKSI)",
+        label: "DL NR-ARFCN (DETECTED)",
         value: formatDetailValue(candidate.nr_arfcn_dl),
       },
     ];
@@ -466,7 +466,7 @@ function buildNrChannelRows(candidate) {
   if (duplex === "SUL") {
     return [
       {
-        label: "UL NR-ARFCN (TERDETEKSI)",
+        label: "UL NR-ARFCN (DETECTED)",
         value: formatDetailValue(candidate.nr_arfcn_ul),
       },
     ];
@@ -476,14 +476,14 @@ function buildNrChannelRows(candidate) {
 
   if (candidate.nr_arfcn_dl !== null && candidate.nr_arfcn_dl !== undefined) {
     rows.push({
-      label: detectedSide === "DL" ? "DL NR-ARFCN (TERDETEKSI)" : "DL NR-ARFCN (PASANGAN)",
+      label: detectedSide === "DL" ? "DL NR-ARFCN (DETECTED)" : "DL NR-ARFCN (PAIRED)",
       value: formatDetailValue(candidate.nr_arfcn_dl),
     });
   }
 
   if (candidate.nr_arfcn_ul !== null && candidate.nr_arfcn_ul !== undefined) {
     rows.push({
-      label: detectedSide === "UL" ? "UL NR-ARFCN (TERDETEKSI)" : "UL NR-ARFCN (PASANGAN)",
+      label: detectedSide === "UL" ? "UL NR-ARFCN (DETECTED)" : "UL NR-ARFCN (PAIRED)",
       value: formatDetailValue(candidate.nr_arfcn_ul),
     });
   }
@@ -597,8 +597,8 @@ function buildTechnologyCandidates(detection) {
           ? "UARFCN : -"
           : `UARFCN : [ ${candidate.uarfcn_dl} ]`,
       channelRows: [
-        { label: "UARFCN DL (TERDETEKSI)", value: formatDetailValue(candidate.uarfcn_dl) },
-        { label: "UARFCN UL (PASANGAN)", value: formatDetailValue(candidate.uarfcn_ul) },
+        { label: "DL UARFCN (DETECTED)", value: formatDetailValue(candidate.uarfcn_dl) },
+        { label: "UL UARFCN (PAIRED)", value: formatDetailValue(candidate.uarfcn_ul) },
       ],
       detectedSide: "DL",
       detectedSideLabel: formatDetectedSide("DL"),
@@ -1115,8 +1115,8 @@ function HistoricalSpectrumPanel({ session }) {
 
       {!preview || !chartPath.linePoints ? (
         <div className="history-spectrum-unavailable">
-          Spectrum preview tidak tersedia untuk session lama. Jalankan scan baru
-          setelah update backend untuk menyimpan visual grafik.
+          Spectrum preview is unavailable for older sessions. Run a new scan
+          after updating the backend to save chart visuals.
         </div>
       ) : (
         <div className="spectrum-chart history-spectrum-chart">
@@ -1464,14 +1464,14 @@ function ScanModeIsolationPanel({ owner, isRunning }) {
       <p className="section-kicker">SEPARATE SCAN MODE</p>
       <h3>
         {isRunning
-          ? `${ownerLabel} Scan sedang berjalan`
-          : `Hasil terakhir berasal dari ${ownerLabel} Scan`}
+          ? `${ownerLabel} Scan is running`
+          : `The latest result is from the ${ownerLabel} Scan`}
       </h3>
       <p>
-        Data ${ownerLabel} tidak ditampilkan pada halaman {targetLabel}.
+        ${ownerLabel} Scan data is not shown on the {targetLabel} page.
         {isRunning
-          ? ` Kembali ke halaman ${ownerLabel} untuk menghentikan scan.`
-          : ` Jalankan ${targetLabel} Scan untuk membuat hasil khusus halaman ini.`}
+          ? ` Return to the ${ownerLabel} page to stop the scan.`
+          : ` Run a ${targetLabel} Scan to create results for this page.`}
       </p>
     </section>
   );
@@ -1547,7 +1547,7 @@ function App() {
     merged_clusters: [],
   });
   const [statusMessage, setStatusMessage] = useState(
-    "Masukkan konfigurasi lalu tekan START SCAN."
+    "Enter a configuration, then select START SCAN."
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [deviceStatus, setDeviceStatus] = useState({
@@ -1557,7 +1557,7 @@ function App() {
     serial: null,
     detector: null,
     friendly_name: null,
-    detail: "Menunggu detector USB...",
+    detail: "Waiting for USB detection...",
     checked_at: null,
     scanner_busy: false,
   });
@@ -1571,7 +1571,7 @@ function App() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || "Gagal membaca status SDR.");
+        throw new Error(data.detail || "Failed to read SDR status.");
       }
 
       setDeviceStatus({
@@ -1598,7 +1598,7 @@ function App() {
         ...previousStatus,
         connected: null,
         status: "unknown",
-        detail: "Status USB belum dapat dibaca dari backend.",
+        detail: "USB status is unavailable from the backend.",
         checked_at: null,
       }));
     }
@@ -1659,11 +1659,11 @@ function App() {
             owner === "specific" && machineName ? ` — ${machineName}` : "";
 
           setStatusMessage(
-            `${ownerLabel} Scan${machineLabel} masih berjalan. Status dipulihkan dari backend.`
+            `${ownerLabel} Scan${machineLabel} is still running. Status restored from the backend.`
           );
         }
       } else if (showResumeMessage && data?.last_error) {
-        setStatusMessage("Scan berhenti karena terjadi error pada backend.");
+        setStatusMessage("The scan stopped because of a backend error.");
       }
 
       return {
@@ -1684,7 +1684,7 @@ function App() {
 
       if (!statusResponse.ok) {
         throw new Error(
-          statusData.detail || "Gagal menyinkronkan status scan."
+          statusData.detail || "Failed to synchronize scan status."
         );
       }
 
@@ -1737,7 +1737,7 @@ function App() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || "Gagal memuat scan history.");
+        throw new Error(data.detail || "Failed to load Scan History.");
       }
 
       const sessions = Array.isArray(data.sessions)
@@ -1811,7 +1811,7 @@ function App() {
 
         if (!response.ok) {
           throw new Error(
-            data.detail || "Gagal menghapus semua scan history."
+            data.detail || "Failed to delete all Scan History."
           );
         }
 
@@ -1819,7 +1819,7 @@ function App() {
         setScanSessions([]);
         setSelectedSessionId(null);
         setStatusMessage(
-          `Semua scan history berhasil dihapus. Total file: ${
+          `All Scan History entries were deleted. Total files: ${
             data.deleted_count ?? 0
           }.`
         );
@@ -1833,13 +1833,13 @@ function App() {
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.detail || "Gagal menghapus scan history.");
+          throw new Error(data.detail || "Failed to delete Scan History.");
         }
 
         setSelectedDetectionDetail(null);
         await loadPersistentScanSessions();
         setStatusMessage(
-          `Scan history berhasil dihapus: ${dialog.sessionTitle}.`
+          `Scan History deleted: ${dialog.sessionTitle}.`
         );
       }
 
@@ -2045,7 +2045,7 @@ function App() {
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.detail || "Gagal mengambil spectrum.");
+          throw new Error(data.detail || "Failed to retrieve spectrum data.");
         }
 
         if (cancelled) {
@@ -2239,8 +2239,8 @@ function App() {
 
           setStatusMessage(
             data.completed
-              ? "Scan selesai dan disimpan ke Scan History."
-              : "Scan dihentikan."
+              ? "Scan completed and was saved to Scan History."
+              : "Scan stopped."
           );
           return;
         }
@@ -2256,7 +2256,7 @@ function App() {
           );
         } else {
           setStatusMessage(
-            `Spectrum diperbarui: ${data.timestamp || "realtime"}`
+            `Spectrum updated: ${data.timestamp || "real time"}`
           );
         }
       } catch (error) {
@@ -2276,7 +2276,7 @@ function App() {
 
           if (synchronizedStatus.running) {
             setErrorMessage(
-              `Spectrum sementara gagal dimuat: ${error.message}. Mencoba kembali...`
+              `Spectrum data could not be loaded: ${error.message}. Retrying...`
             );
             timeoutId = window.setTimeout(pollSpectrum, 1000);
             return;
@@ -2287,7 +2287,7 @@ function App() {
           return;
         } catch (statusError) {
           setErrorMessage(
-            `Spectrum error: ${error.message}. Status backend tidak dapat diperiksa: ${statusError.message}`
+            `Spectrum error: ${error.message}. Backend status could not be checked: ${statusError.message}`
           );
           setIsScanning(false);
           return;
@@ -2611,7 +2611,7 @@ function App() {
 
     if (!requestedOwner) {
       setErrorMessage(
-        "Scan hanya dapat dimulai dari halaman General atau Specific."
+        "A scan can only be started from the General or Specific page."
       );
       return;
     }
@@ -2622,9 +2622,9 @@ function App() {
       scanOwner !== requestedOwner
     ) {
       setErrorMessage(
-        `Scanner sedang digunakan oleh ${
+        `The scanner is in use by the ${
           scanOwner === "general" ? "General" : "Specific"
-        } Scan. Kembali ke halaman tersebut untuk menghentikannya.`
+        } Scan. Return to that page to stop it.`
       );
       return;
     }
@@ -2635,7 +2635,7 @@ function App() {
       !isScanning
     ) {
       setErrorMessage(
-        "Pilih Machine pada halaman Specific sebelum memulai Specific Scan."
+        "Select a Machine on the Specific page before starting a Specific Scan."
       );
       return;
     }
@@ -2664,12 +2664,12 @@ function App() {
               restoreResults: true,
             });
             setErrorMessage(
-              data.detail || "Status pemilik scanner telah disinkronkan."
+              data.detail || "Scanner ownership status has been synchronized."
             );
             return;
           }
 
-          throw new Error(data.detail || "Gagal menghentikan scan.");
+          throw new Error(data.detail || "Failed to stop the scan.");
         }
 
         setIsScanning(false);
@@ -2682,7 +2682,7 @@ function App() {
           data.selected_machine_name ?? scanSelectedMachineName
         );
         setStatusMessage(
-          `${requestedOwner === "general" ? "General" : "Specific"} Scan dihentikan.`
+          `${requestedOwner === "general" ? "General" : "Specific"} Scan stopped.`
         );
         return;
       }
@@ -2703,7 +2703,7 @@ function App() {
         !Number.isFinite(requestBody.start_frequency_mhz) ||
         !Number.isFinite(requestBody.end_frequency_mhz)
       ) {
-        throw new Error("Semua konfigurasi harus berupa angka.");
+        throw new Error("All configuration values must be numbers.");
       }
 
       const response = await fetch(`${API_BASE_URL}/api/scan/start`, {
@@ -2723,12 +2723,12 @@ function App() {
             restoreResults: true,
           });
           setErrorMessage(
-            data.detail || "Scanner sedang digunakan oleh scan aktif."
+            data.detail || "The scanner is in use by an active scan."
           );
           return;
         }
 
-        throw new Error(data.detail || "Gagal memulai scan.");
+        throw new Error(data.detail || "Failed to start the scan.");
       }
 
       setScanOwner(data.scan_owner ?? requestedOwner);
@@ -2766,14 +2766,14 @@ function App() {
       setIsScanning(true);
       setStatusMessage(
         requestedOwner === "specific"
-          ? `Specific Scan untuk ${
-              data.selected_machine_name ?? selectedSpecificMachineName ?? "Machine terpilih"
-            } dimulai. Menunggu data spectrum...`
-          : "General Scan dimulai. Menunggu data spectrum..."
+          ? `Specific Scan for ${
+              data.selected_machine_name ?? selectedSpecificMachineName ?? "the selected Machine"
+            } started. Waiting for spectrum data...`
+          : "General Scan started. Waiting for spectrum data..."
       );
     } catch (error) {
       setErrorMessage(error.message);
-      setStatusMessage("Scan belum dimulai.");
+      setStatusMessage("Scan has not started.");
     } finally {
       setIsBusy(false);
     }
@@ -3252,8 +3252,8 @@ function App() {
                   ) : (
                     <div className="chart-placeholder">
                       {isScanning
-                        ? "Menerima IQ sample dari USRP..."
-                        : "Tekan START SCAN untuk melihat spectrum."}
+                        ? "Receiving IQ samples from the USRP..."
+                        : "Select START SCAN to view the spectrum."}
                     </div>
                   )}
                 </div>
@@ -3313,8 +3313,8 @@ function App() {
               {currentScanHistorySorted.length === 0 ? (
                 <div className="empty-state">
                   {isScanning
-                    ? "Belum ada titik yang melewati threshold pada scan ini."
-                    : "Belum ada history scan. Tekan START SCAN untuk memulai single sweep."}
+                    ? "No points have exceeded the threshold in this scan."
+                    : "No scan data yet. Select START SCAN to begin a single sweep."}
                 </div>
               ) : (
                 <DetectionCardGrid
@@ -3348,7 +3348,7 @@ function App() {
 
             {scanSessions.length > 0 && (
               <div className="scan-history-action-bar">
-                <span>History tersimpan di backend/scan_history sebagai file JSON.</span>
+                <span>Scan History is stored as JSON files in backend/scan_history.</span>
                 <button
                   type="button"
                   className="history-delete-all-button"
@@ -3361,8 +3361,8 @@ function App() {
 
             {scanSessions.length === 0 ? (
               <div className="empty-state">
-                Belum ada folder scan tersimpan. Jalankan satu sweep sampai selesai,
-                lalu hasilnya otomatis disimpan ke JSON dan muncul di halaman ini.
+                No saved scan sessions yet. Complete a sweep to automatically save
+                the results as JSON and display them here.
               </div>
             ) : (
               <div className="session-history-layout">
@@ -3519,14 +3519,14 @@ function App() {
 
               <h3 id="history-confirm-title">
                 {historyDeleteDialog.type === "all"
-                  ? "Hapus semua Scan History?"
-                  : "Hapus Scan History?"}
+                  ? "Delete all Scan History?"
+                  : "Delete Scan History?"}
               </h3>
 
               <p id="history-confirm-description">
                 {historyDeleteDialog.type === "all"
-                  ? `Semua ${historyDeleteDialog.sessionCount} session beserta file JSON di backend akan dihapus permanen.`
-                  : `Scan "${historyDeleteDialog.sessionTitle}" beserta file JSON di backend akan dihapus permanen.`}
+                  ? `All ${historyDeleteDialog.sessionCount} sessions and their backend JSON files will be permanently deleted.`
+                  : `Scan "${historyDeleteDialog.sessionTitle}" and its backend JSON file will be permanently deleted.`}
               </p>
             </div>
 

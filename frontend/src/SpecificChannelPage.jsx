@@ -85,7 +85,7 @@ function buildChannelScanResult({
     return {
       key: "not-scanned",
       label: "NOT SCANNED",
-      detail: "Target frequency belum tersedia",
+      detail: "Target frequency is unavailable",
       matchedFrequencyMhz: null,
       powerDb: null,
       side: null,
@@ -102,7 +102,7 @@ function buildChannelScanResult({
     return {
       key: "not-scanned",
       label: "NOT SCANNED",
-      detail: "Frekuensi Channel di luar range scan",
+      detail: "Channel frequency is outside the scan range",
       matchedFrequencyMhz: null,
       powerDb: null,
       side: null,
@@ -177,7 +177,7 @@ function buildChannelScanResult({
       return {
         key: "on",
         label: "ON",
-        detail: `${strongestMeasurement.side ?? "Channel"} di atas ${
+        detail: `${strongestMeasurement.side ?? "Channel"} is above ${
           thresholdDb ?? 0
         } dB`,
         side: strongestMeasurement.side,
@@ -191,7 +191,7 @@ function buildChannelScanResult({
       return {
         key: "not-scanned",
         label: "NOT SCANNED",
-        detail: "Menunggu sweep mengukur target Channel lainnya",
+        detail: "Waiting for the sweep to measure the remaining Channel targets",
         side: strongestMeasurement.side,
         targetFrequencyMhz: strongestMeasurement.targetFrequencyMhz,
         matchedFrequencyMhz: strongestMeasurement.matchedFrequencyMhz,
@@ -202,7 +202,7 @@ function buildChannelScanResult({
     return {
       key: "off",
       label: "OFF",
-      detail: `${strongestMeasurement.side ?? "Channel"} di bawah ${
+      detail: `${strongestMeasurement.side ?? "Channel"} is below ${
         thresholdDb ?? 0
       } dB`,
       side: strongestMeasurement.side,
@@ -253,7 +253,7 @@ function buildChannelScanResult({
     return {
       key: "on",
       label: "ON",
-      detail: `${strongestMatch.side} di atas ${
+      detail: `${strongestMatch.side} is above ${
         thresholdDb ?? 0
       } dB`,
       ...strongestMatch,
@@ -272,7 +272,7 @@ function buildChannelScanResult({
     return {
       key: "not-scanned",
       label: "NOT SCANNED",
-      detail: "Belum ada hasil scan",
+      detail: "No scan results yet",
       matchedFrequencyMhz: null,
       powerDb: null,
       side: null,
@@ -292,7 +292,7 @@ function buildChannelScanResult({
     return {
       key: "off",
       label: "OFF",
-      detail: "Tidak ada power yang melewati threshold",
+      detail: "No power exceeded the threshold",
       matchedFrequencyMhz: null,
       powerDb: null,
       side: null,
@@ -302,7 +302,7 @@ function buildChannelScanResult({
   return {
     key: "not-scanned",
     label: "NOT SCANNED",
-    detail: "Menunggu sweep mencapai frekuensi Channel",
+    detail: "Waiting for the sweep to reach the Channel frequency",
     matchedFrequencyMhz: null,
     powerDb: null,
     side: null,
@@ -381,7 +381,7 @@ function getApiError(data, fallbackMessage) {
 
   if (detail && typeof detail === "object" && !Array.isArray(detail)) {
     const validKeys = Array.isArray(detail.valid_candidate_keys)
-      ? ` Kandidat valid: ${detail.valid_candidate_keys.join(", ")}`
+      ? ` Valid candidates: ${detail.valid_candidate_keys.join(", ")}`
       : "";
 
     return `${detail.message ?? fallbackMessage}${validKeys}`;
@@ -609,15 +609,15 @@ function SpecificSpectrumPanel({
             <div className="chart-placeholder">
               {scannerLocked
                 ? isScanning
-                  ? "Scanner sedang digunakan oleh General Scan."
-                  : "Hasil General Scan tidak digunakan untuk status Channel."
+                  ? "The scanner is in use by the General Scan."
+                  : "General Scan results are not used for Channel status."
                 : specificScanForOtherMachine
-                  ? `Hasil Specific Scan terikat ke ${scanSelectedMachineName}, bukan ${
-                      selectedMachineName ?? "Machine ini"
+                  ? `Specific Scan results belong to ${scanSelectedMachineName}, not ${
+                      selectedMachineName ?? "this Machine"
                     }.`
                   : ownScanRunning
-                    ? `Menerima spectrum untuk ${selectedMachineName ?? "Machine terpilih"}...`
-                    : "Masuk ke satu Machine lalu tekan START SPECIFIC SCAN."}
+                    ? `Receiving spectrum data for ${selectedMachineName ?? "the selected Machine"}...`
+                    : "Open a Machine, then select START SPECIFIC SCAN."}
             </div>
           )}
         </div>
@@ -725,7 +725,7 @@ function SpecificChannelPage({
   );
 
   const unavailableScanDetail = specificScanForOtherMachine
-    ? `Specific Scan terakhir milik ${
+    ? `The latest Specific Scan belongs to ${
         scanSelectedMachineName ?? `Machine #${scanSelectedMachineId}`
       }`
     : "-";
@@ -846,7 +846,7 @@ function SpecificChannelPage({
 
         if (!response.ok) {
           throw new Error(
-            getApiError(data, "Gagal memuat daftar Machine.")
+            getApiError(data, "Failed to load the Machine list.")
           );
         }
 
@@ -918,7 +918,7 @@ function SpecificChannelPage({
 
         if (!response.ok) {
           throw new Error(
-            getApiError(data, "Gagal memuat Channel Machine.")
+            getApiError(data, "Failed to load Machine Channels.")
           );
         }
 
@@ -1016,7 +1016,7 @@ function SpecificChannelPage({
     const machineName = machineForm.name.trim();
 
     if (!machineName) {
-      setErrorMessage("Nama Machine tidak boleh kosong.");
+      setErrorMessage("Machine name is required.");
       return;
     }
 
@@ -1047,8 +1047,8 @@ function SpecificChannelPage({
           getApiError(
             data,
             isEditing
-              ? "Gagal memperbarui Machine."
-              : "Gagal membuat Machine."
+              ? "Failed to update the Machine."
+              : "Failed to create the Machine."
           )
         );
       }
@@ -1057,8 +1057,8 @@ function SpecificChannelPage({
       await loadMachines({ preferredMachineId: data.id });
       setNoticeMessage(
         isEditing
-          ? `Machine "${data.name}" berhasil diperbarui.`
-          : `Machine "${data.name}" berhasil dibuat.`
+          ? `Machine "${data.name}" updated.`
+          : `Machine "${data.name}" created.`
       );
     } catch (error) {
       setErrorMessage(error.message);
@@ -1100,7 +1100,7 @@ function SpecificChannelPage({
 
       if (!response.ok) {
         throw new Error(
-          getApiError(data, "Gagal menghapus Machine.")
+          getApiError(data, "Failed to delete the Machine.")
         );
       }
 
@@ -1114,7 +1114,7 @@ function SpecificChannelPage({
       }
 
       await loadMachines();
-      setNoticeMessage(`Machine "${machine.name}" berhasil dihapus.`);
+      setNoticeMessage(`Machine "${machine.name}" deleted.`);
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
@@ -1133,7 +1133,7 @@ function SpecificChannelPage({
 
     if (!Number.isInteger(numericFcn) || numericFcn < 0) {
       setErrorMessage(
-        `${currentTechnology.fcnLabel} harus berupa bilangan bulat minimal 0.`
+        `${currentTechnology.fcnLabel} must be a non-negative integer.`
       );
       return [];
     }
@@ -1153,7 +1153,7 @@ function SpecificChannelPage({
 
       if (!response.ok) {
         throw new Error(
-          getApiError(data, "Gagal mencari kandidat Channel.")
+          getApiError(data, "Failed to find Channel candidates.")
         );
       }
 
@@ -1167,7 +1167,7 @@ function SpecificChannelPage({
         setSelectedCandidateKey("");
         setCandidateModalOpen(false);
         setErrorMessage(
-          `Tidak ada kandidat untuk ${mode} dengan ${currentTechnology.fcnLabel} ${numericFcn}.`
+          `No candidates found for ${mode} with ${currentTechnology.fcnLabel} ${numericFcn}.`
         );
         return [];
       }
@@ -1182,19 +1182,19 @@ function SpecificChannelPage({
         setSelectedCandidateKey(matchingCandidate.candidate_key);
         setCandidateModalOpen(false);
         setNoticeMessage(
-          `Kandidat ${matchingCandidate.band} berhasil ditemukan untuk Channel yang diedit.`
+          `Candidate ${matchingCandidate.band} found for the Channel being edited.`
         );
       } else if (candidates.length === 1) {
         setSelectedCandidateKey(candidates[0].candidate_key);
         setCandidateModalOpen(false);
         setNoticeMessage(
-          `Satu kandidat ditemukan: ${candidates[0].band} · ${candidates[0].mode}.`
+          `One candidate found: ${candidates[0].band} · ${candidates[0].mode}.`
         );
       } else {
         setSelectedCandidateKey("");
         setCandidateModalOpen(true);
         setNoticeMessage(
-          `${candidates.length} kandidat ditemukan. Pilih satu kandidat.`
+          `${candidates.length} candidates found. Select one candidate.`
         );
       }
 
@@ -1215,7 +1215,7 @@ function SpecificChannelPage({
     clearMessages();
 
     if (!selectedMachineId) {
-      setErrorMessage("Pilih atau buat Machine terlebih dahulu.");
+      setErrorMessage("Select or create a Machine first.");
       return;
     }
 
@@ -1223,14 +1223,14 @@ function SpecificChannelPage({
 
     if (!Number.isInteger(numericFcn) || numericFcn < 0) {
       setErrorMessage(
-        `${currentTechnology.fcnLabel} harus berupa bilangan bulat minimal 0.`
+        `${currentTechnology.fcnLabel} must be a non-negative integer.`
       );
       return;
     }
 
     if (!selectedCandidateKey) {
       setErrorMessage(
-        "Cari dan pilih kandidat Channel sebelum menyimpan."
+        "Find and select a Channel candidate before saving."
       );
       return;
     }
@@ -1263,8 +1263,8 @@ function SpecificChannelPage({
           getApiError(
             data,
             isEditing
-              ? "Gagal memperbarui Channel."
-              : "Gagal menyimpan Channel."
+              ? "Failed to update the Channel."
+              : "Failed to save the Channel."
           )
         );
       }
@@ -1273,8 +1273,8 @@ function SpecificChannelPage({
       resetChannelForm();
       setNoticeMessage(
         isEditing
-          ? `${data.channel_number} berhasil diperbarui.`
-          : `${data.channel_number} berhasil disimpan ke ${selectedMachine?.name ?? "Machine"}.`
+          ? `${data.channel_number} updated.`
+          : `${data.channel_number} saved to ${selectedMachine?.name ?? "Machine"}.`
       );
     } catch (error) {
       setErrorMessage(error.message);
@@ -1333,7 +1333,7 @@ function SpecificChannelPage({
 
       if (!response.ok) {
         throw new Error(
-          getApiError(data, "Gagal menghapus Channel.")
+          getApiError(data, "Failed to delete the Channel.")
         );
       }
 
@@ -1343,7 +1343,7 @@ function SpecificChannelPage({
 
       await loadChannels(selectedMachineId);
       setNoticeMessage(
-        `${channel.channel_number} berhasil dihapus.`
+        `${channel.channel_number} deleted.`
       );
     } catch (error) {
       setErrorMessage(error.message);
@@ -1372,7 +1372,7 @@ function SpecificChannelPage({
     setSelectedCandidateKey(candidate.candidate_key);
     setCandidateModalOpen(false);
     setNoticeMessage(
-      `${candidate.band} · ${candidate.mode} dipilih.`
+      `${candidate.band} · ${candidate.mode} selected.`
     );
     setErrorMessage("");
   }
@@ -1408,9 +1408,9 @@ function SpecificChannelPage({
       Number(machine.id) !== Number(scanSelectedMachineId)
     ) {
       setErrorMessage(
-        `Hentikan Specific Scan untuk ${
+        `Stop the Specific Scan for ${
           scanSelectedMachineName ?? `Machine #${scanSelectedMachineId}`
-        } sebelum memilih Machine lain.`
+        } before selecting another Machine.`
       );
       return;
     }
@@ -1442,12 +1442,12 @@ function SpecificChannelPage({
 
         {specificScanForOtherMachine && (
           <div className="specific-machine-scan-notice">
-            <strong>SPECIFIC SCAN TERIKAT KE SATU MACHINE</strong>
+            <strong>SPECIFIC SCAN IS TIED TO ONE MACHINE</strong>
             <span>
-              Hasil aktif berasal dari {
+              The active results are from {
                 scanSelectedMachineName ?? `Machine #${scanSelectedMachineId}`
-              }. Channel pada {selectedMachine?.name ?? "Machine ini"} tetap
-              berstatus NOT SCANNED.
+              }. Channels on {selectedMachine?.name ?? "this Machine"} remain
+              NOT SCANNED.
             </span>
           </div>
         )}
@@ -1456,12 +1456,12 @@ function SpecificChannelPage({
           <div className="specific-scan-isolation-notice">
             <strong>
               {isScanning
-                ? "GENERAL SCAN SEDANG BERJALAN"
-                : "HASIL GENERAL SCAN DIISOLASI"}
+                ? "GENERAL SCAN IS RUNNING"
+                : "GENERAL SCAN RESULTS ARE ISOLATED"}
             </strong>
             <span>
-              Status ON/OFF Channel hanya diperbarui oleh Specific Scan.
-              {scanMode ? ` Mode aktif: ${scanMode.replaceAll("_", " ")}.` : ""}
+              Channel ON/OFF status is updated only by Specific Scan.
+              {scanMode ? ` Active mode: ${scanMode.replaceAll("_", " ")}.` : ""}
             </span>
           </div>
         )}
@@ -1542,7 +1542,7 @@ function SpecificChannelPage({
                           name: event.target.value,
                         }))
                       }
-                      placeholder="Contoh: Machine-X"
+                      placeholder="Example: Machine-X"
                     />
                   </div>
 
@@ -1558,7 +1558,7 @@ function SpecificChannelPage({
                           description: event.target.value,
                         }))
                       }
-                      placeholder="Keterangan Machine"
+                      placeholder="Machine description"
                     />
                   </div>
                 </div>
@@ -1602,12 +1602,12 @@ function SpecificChannelPage({
 
               <div className="specific-machine-table-body">
                 {loadingMachines ? (
-                  <div className="specific-table-empty">Memuat Machine...</div>
+                  <div className="specific-table-empty">Loading Machines...</div>
                 ) : filteredMachines.length === 0 ? (
                   <div className="specific-table-empty">
                     {machines.length === 0
-                      ? "Belum ada Machine. Tekan ADD MACHINE untuk membuat Machine pertama."
-                      : "Machine tidak ditemukan."}
+                      ? "No Machines yet. Select ADD MACHINE to create the first Machine."
+                      : "No Machines found."}
                   </div>
                 ) : (
                   filteredMachines.map((machine, index) => (
@@ -1707,7 +1707,7 @@ function SpecificChannelPage({
 
             {!selectedMachine ? (
               <div className="specific-channel-empty">
-                Machine tidak ditemukan. Kembali ke daftar Machine dan pilih kembali.
+                Machine not found. Return to the Machine list and select one again.
               </div>
             ) : (
               <>
@@ -1745,12 +1745,12 @@ function SpecificChannelPage({
                           <span>EDIT MODE ACTIVE</span>
                           <strong>EDITING {editingChannel.channel_number}</strong>
                           <p>
-                            Ubah Technology/Profile atau FCN, klik FIND CHANNEL,
-                            pilih kandidat, lalu tekan UPDATE CHANNEL.
+                            Change the Technology/Profile or FCN, select FIND CHANNEL,
+                            choose a candidate, then select UPDATE CHANNEL.
                           </p>
                         </div>
                         <small>
-                          Data saat ini: {editingChannel.input_mode} · FCN {" "}
+                          Current values: {editingChannel.input_mode} · FCN {" "}
                           {editingChannel.input_fcn}
                         </small>
                       </div>
@@ -1776,7 +1776,7 @@ function SpecificChannelPage({
                             setErrorMessage("");
                             setNoticeMessage(
                               editingChannelId !== null
-                                ? `Mode edit ${editingChannel?.channel_number ?? "Channel"} tetap aktif. Klik FIND CHANNEL untuk mencari kandidat baru.`
+                                ? `Edit mode for ${editingChannel?.channel_number ?? "Channel"} remains active. Select FIND CHANNEL to find a new candidate.`
                                 : ""
                             );
                           }}
@@ -1810,11 +1810,11 @@ function SpecificChannelPage({
                             setErrorMessage("");
                             setNoticeMessage(
                               editingChannelId !== null
-                                ? `Mode edit ${editingChannel?.channel_number ?? "Channel"} tetap aktif. Klik FIND CHANNEL untuk memvalidasi FCN baru.`
+                                ? `Edit mode for ${editingChannel?.channel_number ?? "Channel"} remains active. Select FIND CHANNEL to validate the new FCN.`
                                 : ""
                             );
                           }}
-                          placeholder={`Masukkan ${currentTechnology.fcnLabel}`}
+                          placeholder={`Enter ${currentTechnology.fcnLabel}`}
                         />
                       </div>
                     </div>
@@ -1887,7 +1887,7 @@ function SpecificChannelPage({
                     <span className="monitor-summary-label">CHANNEL STATUS</span>
                     <small>
                       {scanMatchesSelectedMachine
-                        ? `Hasil Specific Scan untuk ${selectedMachine?.name ?? "Machine ini"}`
+                        ? `Specific Scan results for ${selectedMachine?.name ?? "this Machine"}`
                         : unavailableScanDetail}
                     </small>
                   </div>
@@ -1907,12 +1907,12 @@ function SpecificChannelPage({
                 </div>
 
                 {loadingChannels ? (
-                  <div className="specific-channel-empty">Memuat Channel...</div>
+                  <div className="specific-channel-empty">Loading Channels...</div>
                 ) : filteredChannels.length === 0 ? (
                   <div className="specific-channel-empty">
                     {channels.length === 0
-                      ? "Machine ini belum mempunyai Channel. Tekan ADD CHANNEL untuk menambahkan Channel pertama."
-                      : "Channel tidak ditemukan berdasarkan pencarian atau filter."}
+                      ? "This Machine has no Channels yet. Select ADD CHANNEL to add the first Channel."
+                      : "No Channels match the search or filter."}
                   </div>
                 ) : (
                   <div className="specific-saved-channel-grid figma-channel-grid">
@@ -2037,8 +2037,8 @@ function SpecificChannelPage({
             aria-modal="true"
             aria-label={
               deleteDialog.type === "machine"
-                ? "Konfirmasi hapus Machine"
-                : "Konfirmasi hapus Channel"
+                ? "Confirm Machine deletion"
+                : "Confirm Channel deletion"
             }
             onClick={(event) => event.stopPropagation()}
           >
@@ -2051,14 +2051,14 @@ function SpecificChannelPage({
 
               <h3>
                 {deleteDialog.type === "machine"
-                  ? `Hapus Machine "${deleteDialog.item.name}"?`
-                  : `Hapus ${deleteDialog.item.channel_number}?`}
+                  ? `Delete Machine "${deleteDialog.item.name}"?`
+                  : `Delete ${deleteDialog.item.channel_number}?`}
               </h3>
 
               <p>
                 {deleteDialog.type === "machine"
-                  ? "Seluruh Channel yang tersimpan di dalam Machine ini juga akan dihapus permanen."
-                  : `${deleteDialog.item.band} · ${deleteDialog.item.mode} akan dihapus permanen dari Machine ini.`}
+                  ? "All Channels stored in this Machine will also be permanently deleted."
+                  : `${deleteDialog.item.band} · ${deleteDialog.item.mode} will be permanently deleted from this Machine.`}
               </p>
             </div>
 
@@ -2097,13 +2097,13 @@ function SpecificChannelPage({
             className="specific-candidate-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Pilih kandidat Channel"
+            aria-label="Select Channel candidate"
             onClick={(event) => event.stopPropagation()}
           >
             <header>
               <div>
                 <p className="section-kicker">MULTIPLE CANDIDATES</p>
-                <h4>Pilih kandidat Channel</h4>
+                <h4>Select a Channel candidate</h4>
                 <span>
                   {channelForm.input_mode} · {currentTechnology.fcnLabel} {" "}
                   {channelForm.input_fcn}
