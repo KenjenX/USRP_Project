@@ -1453,6 +1453,25 @@ function ScanModeIsolationPanel({ owner, isRunning }) {
   );
 }
 
+function ToastViewport({ toasts, onDismiss }) {
+  return (
+    <div className="toast-viewport" aria-live="polite" aria-atomic="true">
+      {toasts.map((toast) => (
+        <div className={`toast toast-${toast.type}`} key={toast.id} role="status">
+          <span>{toast.message}</span>
+          <button
+            type="button"
+            onClick={() => onDismiss(toast.id)}
+            aria-label="Dismiss notification"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState(() => {
     const savedTab = window.sessionStorage.getItem("usrp-active-tab");
@@ -1537,6 +1556,75 @@ function App() {
     checked_at: null,
     scanner_busy: false,
   });
+  const [toasts, setToasts] = useState([]);
+  const toastIdRef = useRef(0);
+  const toastTimersRef = useRef(new Map());
+  const recentToastKeysRef = useRef(new Map());
+  const deviceConnectionRef = useRef(null);
+  const deviceStatusResolvedRef = useRef(false);
+  const deviceDisconnectDuringScanRef = useRef(false);
+  const isScanningRef = useRef(isScanning);
+  const scanCompletionToastRef = useRef(false);
+  const manualStopRequestedRef = useRef(false);
+
+  const dismissToast = useCallback((toastId) => {
+    const timerId = toastTimersRef.current.get(toastId);
+    if (timerId) {
+      window.clearTimeout(timerId);
+      toastTimersRef.current.delete(toastId);
+    }
+
+    setToasts((previousToasts) =>
+      previousToasts.filter((toast) => toast.id !== toastId)
+    );
+  }, []);
+
+  const notify = useCallback(
+    (message, type = "info", key = message) => {
+      const duration = type === "error" || type === "warning" ? 6000 : 4000;
+      const now = Date.now();
+      const duplicateKey = `${type}:${key}`;
+      const lastShownAt = recentToastKeysRef.current.get(duplicateKey);
+
+      if (lastShownAt && now - lastShownAt < duration) {
+        return;
+      }
+
+      recentToastKeysRef.current.set(duplicateKey, now);
+      const toastId = ++toastIdRef.current;
+
+      setToasts((previousToasts) => {
+        const nextToasts = [
+          ...previousToasts,
+          { id: toastId, message, type },
+        ];
+        const removedToasts = nextToasts.slice(0, -3);
+
+        removedToasts.forEach((toast) => {
+          const timerId = toastTimersRef.current.get(toast.id);
+          if (timerId) {
+            window.clearTimeout(timerId);
+            toastTimersRef.current.delete(toast.id);
+          }
+        });
+
+        return nextToasts.slice(-3);
+      });
+
+      const timerId = window.setTimeout(() => dismissToast(toastId), duration);
+      toastTimersRef.current.set(toastId, timerId);
+    },
+    [dismissToast]
+  );
+
+  useEffect(() => {
+    isScanningRef.current = isScanning;
+  }, [isScanning]);
+
+  useEffect(() => () => {
+    toastTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    toastTimersRef.current.clear();
+  }, []);
 
   const loadDeviceStatus = useCallback(async () => {
     try {
@@ -1550,13 +1638,45 @@ function App() {
         throw new Error(data.detail || "Failed to read SDR status.");
       }
 
-      setDeviceStatus({
-        connected:
+      const connected =
           data.connected === true
             ? true
             : data.connected === false
               ? false
-              : null,
+              : null;
+
+      if (connected !== null) {
+        const previousConnection = deviceConnectionRef.current;
+
+        if (!deviceStatusResolvedRef.current) {
+          notify(
+            connected ? "Device connected." : "Device is not connected.",
+            connected ? "success" : "warning",
+            "device-initial-state"
+          );
+          deviceStatusResolvedRef.current = true;
+        } else if (previousConnection !== connected) {
+          if (connected) {
+            deviceDisconnectDuringScanRef.current = false;
+            notify("Device connected.", "success", "device-connected");
+          } else {
+            const disconnectedDuringScan = isScanningRef.current;
+            deviceDisconnectDuringScanRef.current = disconnectedDuringScan;
+            notify(
+              disconnectedDuringScan
+                ? "Device disconnected during scan. Reconnect the device."
+                : "Device disconnected.",
+              "warning",
+              "device-disconnected"
+            );
+          }
+        }
+
+        deviceConnectionRef.current = connected;
+      }
+
+      setDeviceStatus({
+        connected,
         status: data.status ?? "unknown",
         device: data.device ?? "USRP B210",
         serial: data.serial ?? null,
@@ -1578,7 +1698,29 @@ function App() {
         checked_at: null,
       }));
     }
-  }, []);
+  }, [notify]);
+
+  const notifyScanFailure = useCallback(
+    (error) => {
+      const detail = error instanceof Error ? error.message : String(error ?? "");
+      const deviceUnavailable = /device|usrp|sdr|disconnect|not connected|unavailable/i.test(
+        detail
+      );
+
+      if (deviceUnavailable && deviceDisconnectDuringScanRef.current) {
+        return;
+      }
+
+      notify(
+        deviceUnavailable
+          ? "Scan failed. Reconnect the device."
+          : "Scan failed.",
+        "error",
+        "scan-failed"
+      );
+    },
+    [notify]
+  );
 
   const applyBackendScanState = useCallback(
     (data, { showResumeMessage = false } = {}) => {
@@ -1965,6 +2107,7 @@ function App() {
         }
 
         setErrorMessage(`Scan history error: ${error.message}`);
+        notify("Failed to load Scan History.", "error", "load-scan-history");
       }
     }
 
@@ -1998,6 +2141,7 @@ function App() {
       .catch((error) => {
         if (!cancelled) {
           setErrorMessage(`Scan history error: ${error.message}`);
+          notify("Failed to load Scan History.", "error", "load-scan-history");
         }
       });
 
@@ -2208,6 +2352,7 @@ function App() {
               setErrorMessage(
                 `Scan history error: ${historyError.message}`
               );
+              notify("Failed to load Scan History.", "error", "load-scan-history");
             }
 
             scanSessionSavedRef.current = true;
@@ -2218,6 +2363,13 @@ function App() {
               ? "Scan completed and was saved to Scan History."
               : "Scan stopped."
           );
+
+          if (data.completed && !scanCompletionToastRef.current) {
+            scanCompletionToastRef.current = true;
+            notify("Scan completed.", "success", "scan-completed");
+          } else if (!data.completed && data.last_error && !manualStopRequestedRef.current) {
+            notifyScanFailure(new Error(data.last_error));
+          }
           return;
         }
 
@@ -2260,12 +2412,18 @@ function App() {
 
           setErrorMessage(`Spectrum error: ${error.message}`);
           setIsScanning(false);
+          if (!manualStopRequestedRef.current) {
+            notifyScanFailure(error);
+          }
           return;
         } catch (statusError) {
           setErrorMessage(
             `Spectrum error: ${error.message}. Backend status could not be checked: ${statusError.message}`
           );
           setIsScanning(false);
+          if (!manualStopRequestedRef.current) {
+            notifyScanFailure(error);
+          }
           return;
         }
       }
@@ -2284,6 +2442,8 @@ function App() {
   }, [
     isScanning,
     loadPersistentScanSessions,
+    notify,
+    notifyScanFailure,
     syncScanStateFromBackend,
   ]);
 
@@ -2621,6 +2781,7 @@ function App() {
 
     try {
       if (isScanning) {
+        manualStopRequestedRef.current = true;
         const response = await fetch(`${API_BASE_URL}/api/scan/stop`, {
           method: "POST",
           headers: {
@@ -2660,6 +2821,7 @@ function App() {
         setStatusMessage(
           `${requestedOwner === "general" ? "General" : "Specific"} Scan stopped.`
         );
+        notify("Scan stopped.", "info", "scan-stopped");
         return;
       }
 
@@ -2729,6 +2891,9 @@ function App() {
             : null,
       };
       scanSessionSavedRef.current = false;
+      scanCompletionToastRef.current = false;
+      manualStopRequestedRef.current = false;
+      deviceDisconnectDuringScanRef.current = false;
       setSweepInfo(data.sweep ?? null);
       setTotalDetectionCount(0);
       setPeak(null);
@@ -2747,9 +2912,14 @@ function App() {
             } started. Waiting for spectrum data...`
           : "General Scan started. Waiting for spectrum data..."
       );
+      notify("Scan started.", "success", "scan-started");
     } catch (error) {
       setErrorMessage(error.message);
       setStatusMessage("Scan has not started.");
+      manualStopRequestedRef.current = false;
+      if (error.message !== "All configuration values must be numbers.") {
+        notifyScanFailure(error);
+      }
     } finally {
       setIsBusy(false);
     }
@@ -3452,6 +3622,7 @@ function App() {
               setSelectedSpecificMachineId(machine?.id ?? null);
               setSelectedSpecificMachineName(machine?.name ?? null);
             }}
+            onNotify={notify}
           />
         )}
       </section>
@@ -3521,6 +3692,8 @@ function App() {
         detail={selectedDetectionDetail}
         onClose={() => setSelectedDetectionDetail(null)}
       />
+
+      <ToastViewport toasts={toasts} onDismiss={dismissToast} />
     </main>
   );
 }

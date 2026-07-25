@@ -302,7 +302,7 @@ function buildChannelScanResult({
   return {
     key: "not-scanned",
     label: "NOT SCANNED",
-    detail: "Waiting for the sweep to reach the Channel frequency",
+    detail: "Waiting",
     matchedFrequencyMhz: null,
     powerDb: null,
     side: null,
@@ -663,6 +663,7 @@ function SpecificChannelPage({
   channelMeasurements,
   sweepInfo,
   onSelectedMachineChange,
+  onNotify,
 }) {
   const [machines, setMachines] = useState([]);
   const [selectedMachineId, setSelectedMachineId] = useState(null);
@@ -894,11 +895,14 @@ function SpecificChannelPage({
 
           return nextMachines[0]?.id ?? null;
         });
+      } catch (error) {
+        onNotify?.("Failed to load Machines.", "error", "load-machines");
+        throw error;
       } finally {
         setLoadingMachines(false);
       }
     },
-    [apiBaseUrl]
+    [apiBaseUrl, onNotify]
   );
 
   const loadChannels = useCallback(
@@ -928,11 +932,14 @@ function SpecificChannelPage({
           ...previousCounts,
           [machineId]: nextChannels.length,
         }));
+      } catch (error) {
+        onNotify?.("Failed to load Channels.", "error", "load-channels");
+        throw error;
       } finally {
         setLoadingChannels(false);
       }
     },
-    [apiBaseUrl]
+    [apiBaseUrl, onNotify]
   );
 
   useEffect(() => {
@@ -1055,13 +1062,18 @@ function SpecificChannelPage({
 
       resetMachineForm();
       await loadMachines({ preferredMachineId: data.id });
-      setNoticeMessage(
-        isEditing
-          ? `Machine "${data.name}" updated.`
-          : `Machine "${data.name}" created.`
+      onNotify?.(
+        isEditing ? "Machine updated." : "Machine created.",
+        "success",
+        isEditing ? "machine-updated" : "machine-created"
       );
     } catch (error) {
       setErrorMessage(error.message);
+      onNotify?.(
+        isEditing ? "Failed to update Machine." : "Failed to create Machine.",
+        "error",
+        isEditing ? "machine-update-failed" : "machine-create-failed"
+      );
     } finally {
       setBusyAction("");
     }
@@ -1114,9 +1126,10 @@ function SpecificChannelPage({
       }
 
       await loadMachines();
-      setNoticeMessage(`Machine "${machine.name}" deleted.`);
+      onNotify?.("Machine deleted.", "success", "machine-deleted");
     } catch (error) {
       setErrorMessage(error.message);
+      onNotify?.("Failed to delete Machine.", "error", "machine-delete-failed");
     } finally {
       setBusyAction("");
     }
@@ -1271,13 +1284,18 @@ function SpecificChannelPage({
 
       await loadChannels(selectedMachineId);
       resetChannelForm();
-      setNoticeMessage(
-        isEditing
-          ? `${data.channel_number} updated.`
-          : `${data.channel_number} saved to ${selectedMachine?.name ?? "Machine"}.`
+      onNotify?.(
+        isEditing ? "Channel updated." : "Channel created.",
+        "success",
+        isEditing ? "channel-updated" : "channel-created"
       );
     } catch (error) {
       setErrorMessage(error.message);
+      onNotify?.(
+        isEditing ? "Failed to update Channel." : "Failed to create Channel.",
+        "error",
+        isEditing ? "channel-update-failed" : "channel-create-failed"
+      );
     } finally {
       setBusyAction("");
     }
@@ -1342,11 +1360,10 @@ function SpecificChannelPage({
       }
 
       await loadChannels(selectedMachineId);
-      setNoticeMessage(
-        `${channel.channel_number} deleted.`
-      );
+      onNotify?.("Channel deleted.", "success", "channel-deleted");
     } catch (error) {
       setErrorMessage(error.message);
+      onNotify?.("Failed to delete Channel.", "error", "channel-delete-failed");
     } finally {
       setBusyAction("");
     }
