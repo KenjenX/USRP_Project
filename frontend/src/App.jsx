@@ -1102,13 +1102,13 @@ function HistoricalSpectrumPanel({ session }) {
       <div className="history-spectrum-heading">
         <div>
           <p className="section-kicker">SAVED SPECTRUM</p>
-          <h4>Historical Spectrum Preview</h4>
+          <h4>Saved Spectrum</h4>
         </div>
 
         {preview && (
           <div className="history-spectrum-meta">
             <span>{preview.point_count ?? preview.frequency_mhz.length} preview points</span>
-            <span>{preview.source_point_count ?? "-"} source FFT points</span>
+            <span>{preview.source_point_count ?? "-"} source points</span>
           </div>
         )}
       </div>
@@ -1332,7 +1332,7 @@ function SignalDetailModal({ detail, onClose }) {
 
         </div>
 
-        <p className="signal-detail-section-title">Technology Candidate Summary</p>
+        <p className="signal-detail-section-title">Technology Matches</p>
 
         <div className="signal-detail-candidate-summary-grid">
           {candidateSummary.map((group) => (
@@ -1347,11 +1347,11 @@ function SignalDetailModal({ detail, onClose }) {
           ))}
         </div>
 
-        <p className="signal-detail-section-title">Technology Candidate Details</p>
+        <p className="signal-detail-section-title">Match Details</p>
 
         {technologyGroups.length === 0 ? (
           <div className="signal-detail-empty">
-            No 2G/3G/4G/5G candidate match for this signal.
+            No matching technology found.
           </div>
         ) : (
           <div className="signal-detail-accordion-list">
@@ -2933,7 +2933,7 @@ function App() {
         </div>
 
         <section className="settings-section">
-          <h2>Setting Threshold</h2>
+          <h2>Scan Settings</h2>
 
           <label htmlFor="threshold">Threshold</label>
           <div className="input-unit">
@@ -3000,7 +3000,7 @@ function App() {
         </section>
 
         <section className="sidebar-detected-counter">
-          <h2>Frequency Detected</h2>
+          <h2>Detected Frequencies</h2>
           <strong>{detectedCount}</strong>
           <span>
             {detectedCount === 1 ? "threshold point" : "threshold points"}
@@ -3252,7 +3252,7 @@ function App() {
                   ) : (
                     <div className="chart-placeholder">
                       {isScanning
-                        ? "Receiving IQ samples from the USRP..."
+                        ? "Receiving signal data..."
                         : "Select START SCAN to view the spectrum."}
                     </div>
                   )}
@@ -3284,7 +3284,7 @@ function App() {
               <div className="panel-heading">
                 <div>
                   <p className="section-kicker">DETECTED SIGNALS</p>
-                  <h3>Frequency Detection</h3>
+                  <h3>Detected Frequencies</h3>
                 </div>
 
                 <div className="detected-count">
@@ -3300,8 +3300,8 @@ function App() {
               <div className="scan-history-toolbar">
                 <span>Sorted by frequency: 50 MHz → 6000 MHz</span>
                 <span>
-                  Backend total: {totalDetectionCount} threshold point
-                  {totalDetectionCount === 1 ? "" : "s"}
+                  Total: {totalDetectionCount} point
+                  {totalDetectionCount === 1 ? "" : "s"} above threshold
                 </span>
                 {sweepInfo && (
                   <span>
@@ -3313,8 +3313,8 @@ function App() {
               {currentScanHistorySorted.length === 0 ? (
                 <div className="empty-state">
                   {isScanning
-                    ? "No points have exceeded the threshold in this scan."
-                    : "No scan data yet. Select START SCAN to begin a single sweep."}
+                    ? "No signals above threshold yet."
+                    : "Start a scan to see results."}
                 </div>
               ) : (
                 <DetectionCardGrid
@@ -3336,8 +3336,8 @@ function App() {
           <section className="detected-section scan-session-section">
             <div className="panel-heading">
               <div>
-                <p className="section-kicker">JSON SESSION STORAGE</p>
-                <h3>Scan History Folder</h3>
+                <p className="section-kicker">SCAN HISTORY</p>
+                <h3>Saved Scans</h3>
               </div>
 
               <div className="detected-count">
@@ -3348,7 +3348,7 @@ function App() {
 
             {scanSessions.length > 0 && (
               <div className="scan-history-action-bar">
-                <span>Scan History is stored as JSON files in backend/scan_history.</span>
+                <span>Completed scans appear here.</span>
                 <button
                   type="button"
                   className="history-delete-all-button"
@@ -3361,8 +3361,7 @@ function App() {
 
             {scanSessions.length === 0 ? (
               <div className="empty-state">
-                No saved scan sessions yet. Complete a sweep to automatically save
-                the results as JSON and display them here.
+                No saved scans yet. Completed scans will appear here.
               </div>
             ) : (
               <div className="session-history-layout">
@@ -3439,7 +3438,7 @@ function App() {
                         <div className="session-detection-heading">
                           <div>
                             <p className="section-kicker">DETECTED SIGNALS</p>
-                            <h4>Saved Frequency Detection</h4>
+                            <h4>Detected Frequencies</h4>
                           </div>
                           <span>{selectedScanSession.detectionCount} points</span>
                         </div>

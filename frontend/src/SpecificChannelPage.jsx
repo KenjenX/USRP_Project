@@ -1606,7 +1606,7 @@ function SpecificChannelPage({
                 ) : filteredMachines.length === 0 ? (
                   <div className="specific-table-empty">
                     {machines.length === 0
-                      ? "No Machines yet. Select ADD MACHINE to create the first Machine."
+                      ? "No machines yet. Select ADD MACHINE to add one."
                       : "No Machines found."}
                   </div>
                 ) : (
@@ -1625,7 +1625,7 @@ function SpecificChannelPage({
                       </span>
 
                       <span className="machine-row-description">
-                        {machine.description || "Tanpa deskripsi"}
+                        {machine.description || "No description"}
                       </span>
 
                       <strong className="machine-row-count">
@@ -1759,7 +1759,7 @@ function SpecificChannelPage({
                     <div className="specific-editor-fields channel-fields">
                       <div className="specific-field">
                         <label htmlFor="specific-input-mode">
-                          Technology/Profile
+                          Technology
                         </label>
                         <select
                           id="specific-input-mode"
@@ -1862,7 +1862,7 @@ function SpecificChannelPage({
                   <div className="specific-selected-candidate">
                     <div className="specific-selected-heading">
                       <div>
-                        <p className="section-kicker">SELECTED CANDIDATE</p>
+                        <p className="section-kicker">SELECTED MATCH</p>
                         <h5>
                           {selectedCandidate.band} · {selectedCandidate.mode}
                         </h5>
@@ -1911,8 +1911,8 @@ function SpecificChannelPage({
                 ) : filteredChannels.length === 0 ? (
                   <div className="specific-channel-empty">
                     {channels.length === 0
-                      ? "This Machine has no Channels yet. Select ADD CHANNEL to add the first Channel."
-                      : "No Channels match the search or filter."}
+                      ? "No channels yet. Select ADD CHANNEL to add one."
+                      : "No matching channels."}
                   </div>
                 ) : (
                   <div className="specific-saved-channel-grid figma-channel-grid">
@@ -1954,7 +1954,7 @@ function SpecificChannelPage({
 
                         <div className="specific-saved-channel-details">
                           <div>
-                            <span>Technology/Profile</span>
+                            <span>Technology</span>
                             <strong>{channel.input_mode}</strong>
                           </div>
                           <div>
@@ -2102,8 +2102,8 @@ function SpecificChannelPage({
           >
             <header>
               <div>
-                <p className="section-kicker">MULTIPLE CANDIDATES</p>
-                <h4>Select a Channel candidate</h4>
+                <p className="section-kicker">MULTIPLE MATCHES</p>
+                <h4>Choose a channel match</h4>
                 <span>
                   {channelForm.input_mode} · {currentTechnology.fcnLabel} {" "}
                   {channelForm.input_fcn}
@@ -2139,7 +2139,7 @@ function SpecificChannelPage({
                     onClick={() => chooseCandidate(candidate)}
                   >
                     {candidate.monitorable
-                      ? "SELECT CANDIDATE"
+                      ? "SELECT MATCH"
                       : "OUT OF RANGE"}
                   </button>
                 </div>
