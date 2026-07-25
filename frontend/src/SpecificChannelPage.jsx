@@ -1442,12 +1442,11 @@ function SpecificChannelPage({
 
         {specificScanForOtherMachine && (
           <div className="specific-machine-scan-notice">
-            <strong>SPECIFIC SCAN IS TIED TO ONE MACHINE</strong>
+            <strong>RESULTS FOR ANOTHER MACHINE</strong>
             <span>
-              The active results are from {
+              Results are from {
                 scanSelectedMachineName ?? `Machine #${scanSelectedMachineId}`
-              }. Channels on {selectedMachine?.name ?? "this Machine"} remain
-              NOT SCANNED.
+              }; {selectedMachine?.name ?? "this Machine"} is not scanned.
             </span>
           </div>
         )}
@@ -1460,8 +1459,9 @@ function SpecificChannelPage({
                 : "GENERAL SCAN RESULTS ARE ISOLATED"}
             </strong>
             <span>
-              Channel ON/OFF status is updated only by Specific Scan.
-              {scanMode ? ` Active mode: ${scanMode.replaceAll("_", " ")}.` : ""}
+              {isScanning
+                ? "Channel results are unavailable during General Scan."
+                : "General Scan results are unavailable here."}
             </span>
           </div>
         )}
@@ -1742,17 +1742,9 @@ function SpecificChannelPage({
                     {editingChannel && (
                       <div className="specific-editing-banner">
                         <div>
-                          <span>EDIT MODE ACTIVE</span>
-                          <strong>EDITING {editingChannel.channel_number}</strong>
-                          <p>
-                            Change the Technology/Profile or FCN, select FIND CHANNEL,
-                            choose a candidate, then select UPDATE CHANNEL.
-                          </p>
+                          <span>EDITING CHANNEL</span>
+                          <strong>{editingChannel.channel_number}</strong>
                         </div>
-                        <small>
-                          Current values: {editingChannel.input_mode} · FCN {" "}
-                          {editingChannel.input_fcn}
-                        </small>
                       </div>
                     )}
 

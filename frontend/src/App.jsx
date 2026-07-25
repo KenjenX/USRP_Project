@@ -1101,14 +1101,12 @@ function HistoricalSpectrumPanel({ session }) {
     <section className="history-spectrum-preview">
       <div className="history-spectrum-heading">
         <div>
-          <p className="section-kicker">SAVED SPECTRUM</p>
           <h4>Saved Spectrum</h4>
         </div>
 
         {preview && (
           <div className="history-spectrum-meta">
             <span>{preview.point_count ?? preview.frequency_mhz.length} preview points</span>
-            <span>{preview.source_point_count ?? "-"} source points</span>
           </div>
         )}
       </div>
@@ -1268,13 +1266,6 @@ function SignalDetailModal({ detail, onClose }) {
     }));
   }
 
-  const candidateSummary = TECHNOLOGY_DETAIL_GROUPS.map((group) => ({
-    ...group,
-    count: technologyCandidates.filter(
-      (candidate) => candidate.type === group.key
-    ).length,
-  }));
-
   if (!hasDetection) {
     return null;
   }
@@ -1330,21 +1321,6 @@ function SignalDetailModal({ detail, onClose }) {
             <strong>{formatDb(detection.threshold_db)}</strong>
           </div>
 
-        </div>
-
-        <p className="signal-detail-section-title">Technology Matches</p>
-
-        <div className="signal-detail-candidate-summary-grid">
-          {candidateSummary.map((group) => (
-            <div
-              className={`signal-detail-candidate-summary-card ${group.className}`}
-              key={group.key}
-            >
-              <span>{group.label}</span>
-              <strong>{group.count}</strong>
-              <small>{group.count === 1 ? "candidate" : "candidates"}</small>
-            </div>
-          ))}
         </div>
 
         <p className="signal-detail-section-title">Match Details</p>
@@ -3062,7 +3038,7 @@ function App() {
 
                   <span>
                     <i className="legend-line threshold-line" />
-                    Threshold {scanConfig.threshold_db} dB
+                    Threshold
                   </span>
 
                   <span>
@@ -3299,15 +3275,6 @@ function App() {
 
               <div className="scan-history-toolbar">
                 <span>Sorted by frequency: 50 MHz → 6000 MHz</span>
-                <span>
-                  Total: {totalDetectionCount} point
-                  {totalDetectionCount === 1 ? "" : "s"} above threshold
-                </span>
-                {sweepInfo && (
-                  <span>
-                    Window {sweepInfo.scanned_windows}/{sweepInfo.total_windows}
-                  </span>
-                )}
               </div>
 
               {currentScanHistorySorted.length === 0 ? (
@@ -3336,7 +3303,6 @@ function App() {
           <section className="detected-section scan-session-section">
             <div className="panel-heading">
               <div>
-                <p className="section-kicker">SCAN HISTORY</p>
                 <h3>Saved Scans</h3>
               </div>
 
@@ -3348,7 +3314,6 @@ function App() {
 
             {scanSessions.length > 0 && (
               <div className="scan-history-action-bar">
-                <span>Completed scans appear here.</span>
                 <button
                   type="button"
                   className="history-delete-all-button"
@@ -3387,7 +3352,7 @@ function App() {
                         <span>
                           <strong>{session.title}</strong>
                           <small>
-                            {session.config.start_frequency_mhz}–
+                            {formatDateTime(session.completedAt)} · {session.config.start_frequency_mhz}–
                             {session.config.end_frequency_mhz} MHz · {session.detectionCount} points
                           </small>
                         </span>
