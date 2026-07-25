@@ -2984,32 +2984,18 @@ function App() {
       : scanOwner === "general"
         ? "General"
         : null;
-  const deviceConnectionLabel =
-    deviceStatus.connected === true
-      ? "CONNECTED"
-      : deviceStatus.connected === false
-        ? "DISCONNECTED"
-        : "UNKNOWN";
-  const deviceBadgeLabel = "SDR";
-  const deviceBadgeSymbol =
-    deviceStatus.connected === true
-      ? "●"
-      : deviceStatus.connected === false
-        ? "○"
-        : "◌";
-  const deviceBadgeTitle = [
-    deviceBadgeLabel,
-    deviceConnectionLabel,
-    deviceStatus.device,
-    deviceStatus.friendly_name,
-    deviceStatus.serial ? `Serial ${deviceStatus.serial}` : null,
-    deviceStatus.detail,
-    deviceStatus.checked_at
-      ? `Checked ${deviceStatus.checked_at}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const deviceBadgeLabel = "SDR 1";
+  const deviceBadgeStatus =
+    deviceStatus.scanner_busy
+      ? "SCANNING"
+      : deviceStatus.connected === true
+        ? "CONNECTED"
+        : deviceStatus.connected === false
+          ? "DISCONNECTED"
+          : "RECONNECTING";
+  const deviceBadgeState = deviceBadgeStatus.toLowerCase();
+  const deviceBadgeStatusLabel =
+    `${deviceBadgeStatus.slice(0, 1)}${deviceBadgeStatus.slice(1).toLowerCase()}`;
 
   return (
     <main className={`app-shell active-${activeTab}`}>
@@ -3050,13 +3036,12 @@ function App() {
         </nav>
 
         <div
-          className={`sdr-badge sdr-${deviceStatus.status}`}
-          title={deviceBadgeTitle}
-          aria-label={`${deviceBadgeLabel}: ${deviceConnectionLabel}`}
+          className={`sdr-badge sdr-${deviceBadgeState}`}
+          title={deviceBadgeStatusLabel}
+          aria-label={`${deviceBadgeLabel} — ${deviceBadgeStatusLabel}`}
           aria-live="polite"
         >
-          <span aria-hidden="true">{deviceBadgeSymbol}</span>
-          {deviceBadgeLabel}
+          <strong className="sdr-badge-label">{deviceBadgeLabel}</strong>
         </div>
       </header>
 
