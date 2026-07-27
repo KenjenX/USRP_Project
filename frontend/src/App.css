@@ -2392,52 +2392,98 @@ body {
 .app-header {
   position: relative;
   z-index: 20;
-  flex: 0 0 72px;
+  flex: 0 0 79px;
   display: grid;
-  grid-template-columns: 335px minmax(0, 1fr) 118px;
+  grid-template-columns: 366px minmax(0, 1fr) 118px;
   align-items: stretch;
   min-width: 0;
-  border-top: 2px solid rgba(75, 118, 190, 0.8);
-  border-bottom: 4px solid #254979;
-  background: linear-gradient(180deg, #1c3765 0%, #172c50 100%);
-  box-shadow: 0 5px 14px rgba(2, 10, 23, 0.34);
+
+  /* Clean top bar: no visible outer frame lines. */
+  border: 0;
+  /* Solid Figma surface; no dark fade along the lower edge. */
+  background: #17345a;
+  box-shadow: none;
 }
 
+/* Remove the old full-width decorative line below the header. */
 .app-header::after {
-  content: "";
-  position: absolute;
-  right: 18px;
-  bottom: -4px;
-  left: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #234c86, #375f9a 76%, transparent);
-  pointer-events: none;
+  content: none;
 }
 
 .app-header-brand {
+  --brand-diagonal-run: 70px;
+  --brand-black-extension: 15px;
+
   position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
-  gap: 13px;
-  padding: 0 22px;
-  clip-path: polygon(0 0, 100% 0, 73% 100%, 0 100%);
+  align-self: start;
+
+  width: 320px;
+  height: 61px;
+  margin: 8px 0 0;
+  min-width: 0;
+  padding: 0 32px;
+
   color: #ffffff;
-  background:
-    linear-gradient(135deg, rgba(74, 110, 170, 0.45), rgba(21, 42, 77, 0.84));
+  background: transparent;
   letter-spacing: 0.14em;
+
+  clip-path: none;
+  overflow: visible;
 }
 
+/* Layer biru bagian dalam */
+.app-header-brand::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: 2px;
+  right: 7px;
+  bottom: 3px;
+  left: 1px;
+
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    calc(100% - 64px) 100%,
+    0 100%
+  );
+
+  background: #2e426be5;
+  pointer-events: none;
+}
+
+/* Layer hitam diperpanjang tanpa menggeser tab */
 .app-header-brand::after {
   content: "";
   position: absolute;
-  right: 43px;
+  z-index: 0;
+  top: 0;
   bottom: 0;
-  width: 1px;
-  height: 100%;
-  background: rgba(91, 136, 210, 0.32);
-  transform: skewX(-39deg);
+  left: 0;
+
+  width: calc(100% + var(--brand-black-extension));
+
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    calc(100% - var(--brand-diagonal-run)) 100%,
+    0 100%
+  );
+
+  background: #06060766;
+  pointer-events: none;
 }
 
+.app-header-brand strong {
+  position: relative;
+  z-index: 2;
+  font-size: 1.08rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
 .app-header-brand-mark {
   display: grid;
   width: 31px;
@@ -2447,10 +2493,6 @@ body {
   font-size: 1.25rem;
 }
 
-.app-header-brand strong {
-  font-size: 1.08rem;
-  white-space: nowrap;
-}
 
 .app-tabs {
   height: 100%;
@@ -2963,14 +3005,13 @@ body {
   position: relative;
   flex: 1 0 auto;
   min-width: 0;
-  min-height: calc(100vh - 72px);
+  min-height: calc(100vh - 79px);
   padding: 14px var(--shell-pad) var(--shell-pad);
   border-right: 2px solid #1D3058;
   border-bottom: 2px solid #1D3058;
   border-left: 2px solid #1D3058;
-  background:
-    linear-gradient(135deg, rgba(65, 103, 162, 0.15), transparent 25%),
-    #17345a;
+  /* Match the header exactly; remove the overlay that changed the perceived color. */
+  background: #17345a;
 }
 
 .scanner-shell::before,
@@ -3027,7 +3068,22 @@ body {
 
 @media (max-width: 1080px) {
   .app-header {
-    grid-template-columns: 270px minmax(0, 1fr) 112px;
+    grid-template-columns: 300px minmax(0, 1fr) 112px;
+  }
+
+  .app-header-brand {
+    --brand-diagonal-run: 58px;
+    width: 294px;
+  }
+
+  .app-header-brand::before {
+    right: 6px;
+    clip-path: polygon(
+      0 0,
+      100% 0,
+      calc(100% - 53px) 100%,
+      0 100%
+    );
   }
 
   .app-tabs .tab {
