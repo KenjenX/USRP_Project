@@ -3050,10 +3050,10 @@ function App() {
         <div className="sidebar-nav-card selected">
           <span>
             {activeTab === "specific"
-              ? "◎"
+              ? <img className="sidebar-nav-icon" src={navSpecificIcon} alt="" />
               : activeTab === "history"
                 ? "▰"
-                : "◈"}
+                : <img className="sidebar-nav-icon" src={navGeneralIcon} alt="" />}
           </span>
           <strong>
             {activeTab === "specific"

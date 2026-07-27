@@ -2624,6 +2624,13 @@ body {
   font-size: 1.15rem;
 }
 
+.sidebar-nav-card .sidebar-nav-icon {
+  display: block;
+  width: 19px;
+  height: 19px;
+  object-fit: contain;
+}
+
 .sidebar-nav-card.selected {
   background: linear-gradient(180deg, #102847, #0a1e38);
 }
