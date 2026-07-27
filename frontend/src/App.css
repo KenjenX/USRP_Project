@@ -2495,10 +2495,13 @@ body {
 
 
 .app-tabs {
+  --tab-diagonal-run: 64px;
+  --tab-height: 56px;
+
   height: 100%;
   margin: 0;
-  padding: 0 10px;
-  align-items: center;
+  padding: 0 10px 0 0;
+  align-items: flex-start;
   justify-content: center;
   gap: 0;
   border: 0;
@@ -2508,22 +2511,41 @@ body {
 
 .app-tabs .tab {
   position: relative;
-  min-width: 175px;
-  height: 48px;
-  margin-left: -12px;
-  padding: 0 30px;
+  min-width: 220px;
+  height: var(--tab-height);
+
+  /* Overlap sedikit agar tetap terpisah seperti Figma */
+  margin-left: -40px;
+
+  padding: 0 48px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 11px;
-  clip-path: polygon(16% 0, 100% 0, 84% 100%, 0 100%);
-  border: 1px solid rgba(93, 135, 202, 0.32);
+
+  clip-path: polygon(
+    var(--tab-diagonal-run) 0,
+    100% 0,
+    calc(100% - var(--tab-diagonal-run)) 100%,
+    0 100%
+  );
+
+  border: 0;
   color: rgba(255, 255, 255, 0.68);
   background: #111d2b;
   font-size: 0.94rem;
   font-weight: 800;
   letter-spacing: 0.01em;
   transition: 0.16s ease;
+}
+
+.app-tabs .tab:first-child {
+  margin-left: 0;
+}
+
+
+.app-tabs .tab:nth-child(2) {
+  min-width: 250px;
 }
 
 .app-tabs .tab:hover {
