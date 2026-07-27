@@ -1185,13 +1185,11 @@
   box-sizing: border-box;
   width: min(450px, calc(100vw - 36px));
   padding: 22px;
-  border: 1px solid #1b3762;
+  border: 1px solid #344976;
   border-radius: 6px;
   color: #ffffff;
-  background: #0f2447;
-  box-shadow:
-    0 12px 32px rgba(1, 8, 20, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  background: #1d3058;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
 }
 
 .specific-delete-content h3 {
