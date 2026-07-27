@@ -2381,9 +2381,8 @@ body {
   max-width: none;
   min-height: 100vh;
   margin: 0;
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  grid-template-rows: 72px minmax(calc(100vh - 72px), auto);
+  display: flex;
+  flex-direction: column;
   color: var(--ui-text);
   background:
     linear-gradient(135deg, rgba(59, 100, 166, 0.18), transparent 28%),
@@ -2393,8 +2392,7 @@ body {
 .app-header {
   position: relative;
   z-index: 20;
-  grid-column: 1 / -1;
-  grid-row: 1;
+  flex: 0 0 72px;
   display: grid;
   grid-template-columns: 335px minmax(0, 1fr) 118px;
   align-items: stretch;
@@ -2593,12 +2591,11 @@ body {
 }
 
 .sidebar {
-  grid-column: 1;
-  grid-row: 2;
-  min-height: calc(100vh - 72px);
+  min-height: 0;
+  margin-top: var(--shell-diagonal-rise);
   padding: 16px 13px;
   overflow-y: auto;
-  border-right: 1px solid rgba(35, 73, 126, 0.9);
+  border-right: 0;
   background:
     linear-gradient(150deg, rgba(38, 70, 113, 0.22), transparent 38%),
     #142c4b;
@@ -2765,10 +2762,8 @@ body {
 }
 
 .dashboard {
-  grid-column: 2;
-  grid-row: 2;
   min-width: 0;
-  min-height: calc(100vh - 72px);
+  min-height: 0;
   padding: 10px;
   background:
     linear-gradient(135deg, rgba(65, 103, 162, 0.15), transparent 25%),
@@ -2953,6 +2948,83 @@ body {
   min-height: calc(100vh - 92px);
 }
 
+/* Shared application shell: the content remains rectangular while the rail rises
+   continuously from the sidebar level to the main-content level. */
+.scanner-shell {
+  --shell-sidebar-width: 280px;
+  --shell-column-gap: 16px;
+  --shell-diagonal-rise: 18px;
+  --shell-diagonal-run: 34px;
+  --shell-rail-thickness: 4px;
+  --shell-pad: 10px;
+  --shell-joint-x: calc(
+    var(--shell-pad) + var(--shell-sidebar-width) + var(--shell-column-gap)
+  );
+  position: relative;
+  flex: 1 0 auto;
+  min-width: 0;
+  min-height: calc(100vh - 72px);
+  padding: 14px var(--shell-pad) var(--shell-pad);
+  border-right: 2px solid #1D3058;
+  border-bottom: 2px solid #1D3058;
+  border-left: 2px solid #1D3058;
+  background:
+    linear-gradient(135deg, rgba(65, 103, 162, 0.15), transparent 25%),
+    #17345a;
+}
+
+.scanner-shell::before,
+.scanner-shell::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 0;
+  left: 0;
+  height: calc(var(--shell-diagonal-rise) + var(--shell-rail-thickness));
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* A single polygon prevents seams between the lower, diagonal, and upper rails. */
+.scanner-shell::before {
+  background: #344976;
+  filter: drop-shadow(0 1px 0 #1D3058);
+  clip-path: polygon(
+    0 var(--shell-diagonal-rise),
+    calc(var(--shell-joint-x) - var(--shell-diagonal-run)) var(--shell-diagonal-rise),
+    var(--shell-joint-x) 0,
+    100% 0,
+    100% var(--shell-rail-thickness),
+    calc(var(--shell-joint-x) + var(--shell-rail-thickness)) var(--shell-rail-thickness),
+    calc(var(--shell-joint-x) - var(--shell-diagonal-run) + var(--shell-rail-thickness)) calc(var(--shell-diagonal-rise) + var(--shell-rail-thickness)),
+    0 calc(var(--shell-diagonal-rise) + var(--shell-rail-thickness))
+  );
+}
+
+.scanner-shell::after {
+  top: 2px;
+  background: #4767A4;
+  clip-path: polygon(
+    0 var(--shell-diagonal-rise),
+    calc(var(--shell-joint-x) - var(--shell-diagonal-run)) var(--shell-diagonal-rise),
+    var(--shell-joint-x) 0,
+    100% 0,
+    100% 2px,
+    calc(var(--shell-joint-x) + 2px) 2px,
+    calc(var(--shell-joint-x) - var(--shell-diagonal-run) + 2px) calc(var(--shell-diagonal-rise) + 2px),
+    0 calc(var(--shell-diagonal-rise) + 2px)
+  );
+}
+
+.scanner-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: var(--shell-sidebar-width) minmax(0, 1fr);
+  gap: var(--shell-column-gap);
+  min-width: 0;
+}
+
 @media (max-width: 1080px) {
   .app-header {
     grid-template-columns: 270px minmax(0, 1fr) 112px;
@@ -2963,8 +3035,8 @@ body {
     padding: 0 20px;
   }
 
-  .app-shell {
-    grid-template-columns: 245px minmax(0, 1fr);
+  .scanner-shell {
+    --shell-sidebar-width: 245px;
   }
 }
 
@@ -3007,8 +3079,35 @@ body {
     display: none;
   }
 
+  .scanner-shell {
+    --shell-diagonal-rise: 0px;
+    min-height: 0;
+    padding-top: 18px;
+  }
+
+  .scanner-shell::before,
+  .scanner-shell::after {
+    top: 5px;
+    height: 4px;
+    clip-path: none;
+  }
+
+  .scanner-shell::before {
+    background: #344976;
+  }
+
+  .scanner-shell::after {
+    top: 4px;
+    height: 2px;
+  }
+
+  .scanner-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .sidebar {
     min-height: auto;
+    margin-top: 0;
   }
 
   .dashboard {

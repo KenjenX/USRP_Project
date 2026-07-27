@@ -3046,7 +3046,9 @@ function App() {
         </div>
       </header>
 
-      <aside className="sidebar">
+      <div className="scanner-shell">
+        <div className="scanner-grid">
+          <aside className="sidebar">
         <div className="sidebar-nav-card selected">
           <span>
             {activeTab === "specific"
@@ -3168,9 +3170,9 @@ function App() {
         {errorMessage && (
           <p className="sidebar-error-message">{errorMessage}</p>
         )}
-      </aside>
+          </aside>
 
-      <section className="dashboard">
+          <section className="dashboard">
         {activeTab === "general" ? (
           scanOwner === "specific" ? (
             <ScanModeIsolationPanel
@@ -3611,7 +3613,9 @@ function App() {
             onNotify={notify}
           />
         )}
-      </section>
+          </section>
+        </div>
+      </div>
 
       {historyDeleteDialog && (
         <div
