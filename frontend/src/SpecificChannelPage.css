@@ -1186,7 +1186,6 @@
   width: min(450px, calc(100vw - 36px));
   padding: 22px;
   border: 1px solid #1b3762;
-  border-left: 3px solid #ef0000;
   border-radius: 6px;
   color: #ffffff;
   background: #0f2447;
