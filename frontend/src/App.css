@@ -2463,6 +2463,7 @@ body {
   gap: 0;
   border: 0;
   background: transparent;
+  font-family: var(--font-heading);
 }
 
 .app-tabs .tab {
@@ -2503,7 +2504,14 @@ body {
 }
 
 .top-tab-icon {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  place-items: center;
+  object-fit: contain;
   font-size: 1rem;
+  line-height: 1;
 }
 
 .app-tabs .tab-badge {

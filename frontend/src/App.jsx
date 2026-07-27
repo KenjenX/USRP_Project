@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import SpecificChannelPage from "./SpecificChannelPage.jsx";
+import navGeneralIcon from "./assets/nav-general.png";
+import navSpecificIcon from "./assets/nav-specific.png";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
@@ -3001,7 +3003,6 @@ function App() {
     <main className={`app-shell active-${activeTab}`}>
       <header className="app-header">
         <div className="app-header-brand">
-          <span className="app-header-brand-mark">◈</span>
           <strong>TOOLS SCANNER</strong>
         </div>
 
@@ -3011,7 +3012,7 @@ function App() {
             className={activeTab === "general" ? "tab active-tab" : "tab"}
             onClick={() => setActiveTab("general")}
           >
-            <span className="top-tab-icon">◈</span>
+            <img className="top-tab-icon" src={navGeneralIcon} alt="" />
             General
           </button>
 
@@ -3030,7 +3031,7 @@ function App() {
             className={activeTab === "specific" ? "tab active-tab" : "tab"}
             onClick={() => setActiveTab("specific")}
           >
-            <span className="top-tab-icon">◎</span>
+            <img className="top-tab-icon" src={navSpecificIcon} alt="" />
             Specific
           </button>
         </nav>
