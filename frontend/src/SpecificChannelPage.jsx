@@ -2051,23 +2051,25 @@ function SpecificChannelPage({
             }
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="specific-delete-icon" aria-hidden="true">
-              !
-            </div>
-
             <div className="specific-delete-content">
               <p className="section-kicker">DELETE CONFIRMATION</p>
 
               <h3>
                 {deleteDialog.type === "machine"
-                  ? `Delete Machine "${deleteDialog.item.name}"?`
-                  : `Delete ${deleteDialog.item.channel_number}?`}
+                  ? "Delete Machine?"
+                  : "Delete Channel?"}
               </h3>
+
+              <p className="specific-delete-name">
+                {deleteDialog.type === "machine"
+                  ? deleteDialog.item.name
+                  : `Channel ${deleteDialog.item.channel_number}`}
+              </p>
 
               <p>
                 {deleteDialog.type === "machine"
-                  ? "All Channels stored in this Machine will also be permanently deleted."
-                  : `${deleteDialog.item.band} · ${deleteDialog.item.mode} will be permanently deleted from this Machine.`}
+                  ? "This will permanently delete the machine and its associated data."
+                  : "This will permanently delete the selected channel."}
               </p>
             </div>
 
