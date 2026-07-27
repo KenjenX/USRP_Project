@@ -4094,40 +4094,22 @@ body {
   display: grid;
   place-items: center;
   padding: 18px;
-  background: rgba(3, 10, 22, 0.84);
-  backdrop-filter: blur(5px);
+  background: rgba(5, 12, 24, 0.4);
+  backdrop-filter: blur(1.5px);
 }
 
 .history-confirm-modal {
-  width: min(440px, 96vw);
+  box-sizing: border-box;
+  width: min(450px, calc(100vw - 36px));
   padding: 22px;
-  border: 1px solid rgba(196, 80, 88, 0.72);
-  border-radius: 7px;
-  color: #f7f9ff;
-  background:
-    linear-gradient(
-      135deg,
-      rgba(119, 48, 59, 0.12),
-      transparent 42%
-    ),
-    #0b213f;
+  border: 1px solid #1b3762;
+  border-left: 3px solid #ef0000;
+  border-radius: 6px;
+  color: #ffffff;
+  background: #0f2447;
   box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.58),
-    inset 4px 0 0 #c74c55;
-}
-
-.history-confirm-icon {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  margin-bottom: 15px;
-  place-items: center;
-  border: 1px solid rgba(239, 83, 80, 0.62);
-  border-radius: 50%;
-  color: #ffb8b5;
-  background: rgba(239, 83, 80, 0.14);
-  font-size: 1.25rem;
-  font-weight: 900;
+    0 12px 32px rgba(1, 8, 20, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .history-confirm-content h3 {
@@ -4138,9 +4120,21 @@ body {
 
 .history-confirm-content p:last-child {
   margin: 0;
-  color: #aebbd3;
+  color: #c2c6cc;
   font-size: 0.75rem;
   line-height: 1.55;
+}
+
+.history-confirm-content .section-kicker {
+  color: #808080;
+}
+
+.history-confirm-name {
+  margin: 0 0 6px;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .history-confirm-actions {
@@ -4151,7 +4145,8 @@ body {
 }
 
 .history-confirm-actions button {
-  min-width: 92px;
+  min-height: 36px;
+  min-width: 96px;
   padding: 9px 14px;
   border-radius: 4px;
   font-size: 0.68rem;
@@ -4159,29 +4154,34 @@ body {
   letter-spacing: 0.06em;
 }
 
+.history-confirm-actions button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
 .history-confirm-actions button:disabled {
   cursor: wait;
-  opacity: 0.62;
+  opacity: 0.66;
 }
 
 .history-confirm-cancel {
-  border: 1px solid rgba(94, 137, 201, 0.58);
+  border: 1px solid #30436d;
   color: #ffffff;
-  background: #17365f;
+  background: #30436d;
 }
 
 .history-confirm-delete {
-  border: 1px solid rgba(239, 83, 80, 0.74);
+  border: 1px solid #9f0000;
   color: #ffffff;
-  background: linear-gradient(180deg, #b23b45, #852832);
+  background: #471414;
 }
 
 .history-confirm-cancel:hover:not(:disabled) {
-  background: #214a7e;
+  background: #3b527f;
 }
 
 .history-confirm-delete:hover:not(:disabled) {
-  background: linear-gradient(180deg, #ca4651, #9b303a);
+  background: #5a1a1a;
 }
 
 @media (max-width: 520px) {

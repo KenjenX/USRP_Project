@@ -3630,23 +3630,25 @@ function App() {
             aria-describedby="history-confirm-description"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="history-confirm-icon" aria-hidden="true">
-              !
-            </div>
-
             <div className="history-confirm-content">
               <p className="section-kicker">DELETE CONFIRMATION</p>
 
               <h3 id="history-confirm-title">
                 {historyDeleteDialog.type === "all"
-                  ? "Delete all Scan History?"
+                  ? "Delete All Scan History?"
                   : "Delete Scan History?"}
               </h3>
 
+              {historyDeleteDialog.type === "single" && (
+                <p className="history-confirm-name">
+                  {historyDeleteDialog.sessionTitle}
+                </p>
+              )}
+
               <p id="history-confirm-description">
                 {historyDeleteDialog.type === "all"
-                  ? `All ${historyDeleteDialog.sessionCount} sessions and their backend JSON files will be permanently deleted.`
-                  : `Scan "${historyDeleteDialog.sessionTitle}" and its backend JSON file will be permanently deleted.`}
+                  ? "This will permanently delete all scan history entries."
+                  : "This will permanently delete the selected scan history."}
               </p>
             </div>
 
