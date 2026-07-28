@@ -38,7 +38,7 @@ def get_machine_or_404(machine_id: int, db: Session) -> Machine:
     if machine is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Machine tidak ditemukan.",
+            detail="Machine not found.",
         )
 
     return machine
@@ -54,7 +54,7 @@ def get_channel_or_404(channel_id: int, db: Session) -> Channel:
     if channel is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Channel tidak ditemukan.",
+            detail="Channel not found.",
         )
 
     return channel
@@ -71,7 +71,7 @@ def resolve_selected_candidate(
     if not cleaned_candidate_key:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="candidate_key tidak boleh kosong.",
+            detail="candidate_key must not be empty.",
         )
 
     try:
@@ -89,8 +89,8 @@ def resolve_selected_candidate(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                "Tidak ada kandidat Channel untuk "
-                "Technology/Profile dan FCN tersebut."
+                "No Channel candidates were found for "
+                "that Technology/Profile and FCN."
             ),
         )
 
@@ -108,7 +108,7 @@ def resolve_selected_candidate(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={
                 "message": (
-                    "candidate_key tidak cocok dengan hasil lookup terbaru."
+                    "candidate_key does not match the latest lookup results."
                 ),
                 "valid_candidate_keys": [
                     candidate["candidate_key"]
@@ -121,7 +121,7 @@ def resolve_selected_candidate(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                "Kandidat berada di luar rentang monitoring "
+                "The candidate is outside the monitoring range of "
                 "USRP B210 50–6000 MHz."
             ),
         )
@@ -240,8 +240,8 @@ def create_channel(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                "Nomor Channel bentrok dengan data lain. "
-                "Silakan ulangi proses pembuatan Channel."
+                "The Channel number conflicts with existing data. "
+                "Please try creating the Channel again."
             ),
         ) from error
     except Exception:
@@ -316,6 +316,6 @@ def delete_channel(
         raise
 
     return {
-        "message": "Channel berhasil dihapus.",
+        "message": "Channel was deleted successfully.",
         **deleted_data,
     }

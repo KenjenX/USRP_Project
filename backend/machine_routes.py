@@ -22,7 +22,7 @@ def get_machine_or_404(machine_id: int, db: Session) -> Machine:
     if machine is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Machine tidak ditemukan.",
+            detail="Machine not found.",
         )
 
     return machine
@@ -54,7 +54,7 @@ def create_machine(
     if not machine_name:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Nama Machine tidak boleh kosong.",
+            detail="Machine name must not be empty.",
         )
 
     machine = Machine(
@@ -105,7 +105,7 @@ def update_machine(
         if update_data["name"] is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Nama Machine tidak boleh null.",
+                detail="Machine name must not be null.",
             )
 
         machine_name = update_data["name"].strip()
@@ -113,7 +113,7 @@ def update_machine(
         if not machine_name:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Nama Machine tidak boleh kosong.",
+                detail="Machine name must not be empty.",
             )
 
         machine.name = machine_name
@@ -153,6 +153,6 @@ def delete_machine(
         raise
 
     return {
-        "message": "Machine berhasil dihapus.",
+        "message": "Machine was deleted successfully.",
         "machine_id": machine_id,
     }

@@ -19,7 +19,7 @@ def _canonical_input_mode(input_mode: str) -> str:
     if not cleaned_mode:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Technology/Profile tidak boleh kosong.",
+            detail="Technology/Profile must not be empty.",
         )
 
     for supported_mode in SUPPORTED_INPUT_MODES:
@@ -29,7 +29,7 @@ def _canonical_input_mode(input_mode: str) -> str:
     raise HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         detail=(
-            "Technology/Profile tidak didukung. Gunakan salah satu: "
+            "Technology/Profile is not supported. Use one of: "
             + ", ".join(SUPPORTED_INPUT_MODES)
         ),
     )

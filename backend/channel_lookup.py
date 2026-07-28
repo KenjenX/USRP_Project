@@ -242,7 +242,7 @@ def _normalize_input_mode(input_mode: str) -> str:
     '2g e-gsm 900' -> '2G E-GSM 900'
     """
     if not isinstance(input_mode, str):
-        raise ValueError("input_mode harus berupa teks.")
+        raise ValueError("input_mode must be text.")
 
     cleaned_mode = input_mode.strip()
 
@@ -251,7 +251,7 @@ def _normalize_input_mode(input_mode: str) -> str:
             return supported_mode
 
     raise ValueError(
-        "Mode belum didukung. Gunakan salah satu: "
+        "Mode is not supported. Use one of: "
         + ", ".join(SUPPORTED_INPUT_MODES)
     )
 
@@ -262,10 +262,10 @@ def _validate_fcn(input_fcn: int) -> int:
     Boolean ditolak karena bool merupakan turunan int di Python.
     """
     if isinstance(input_fcn, bool) or not isinstance(input_fcn, int):
-        raise ValueError("FCN harus berupa bilangan bulat.")
+        raise ValueError("FCN must be an integer.")
 
     if input_fcn < 0:
-        raise ValueError("FCN tidak boleh bernilai negatif.")
+        raise ValueError("FCN must not be negative.")
 
     return input_fcn
 
@@ -458,7 +458,7 @@ def _build_umts_fdd_candidate(
     elif input_direction == "UL":
         if ul_range is None:
             raise ValueError(
-                "Band UMTS ini tidak memiliki uplink."
+                "This UMTS band does not have an uplink."
             )
 
         fcn_ul = input_fcn
@@ -488,7 +488,7 @@ def _build_umts_fdd_candidate(
 
     else:
         raise ValueError(
-            f"Direction UMTS tidak dikenal: {input_direction}"
+            f"Unknown UMTS direction: {input_direction}"
         )
 
     band_code = f"B{band['band']}"
@@ -710,7 +710,7 @@ def _build_lte_fdd_candidate(
     elif input_direction == "UL":
         if ul_earfcn_low is None:
             raise ValueError(
-                "Band LTE ini tidak memiliki uplink."
+                "This LTE band does not have an uplink."
             )
 
         fcn_ul = input_fcn
@@ -740,7 +740,7 @@ def _build_lte_fdd_candidate(
 
     else:
         raise ValueError(
-            f"Direction LTE FDD tidak dikenal: {input_direction}"
+            f"Unknown LTE FDD direction: {input_direction}"
         )
 
     band_code = f"B{band['band']}"
@@ -1178,7 +1178,7 @@ def _nr_pair_from_frequency(
         )
     else:
         raise ValueError(
-            f"Direction NR FDD tidak dikenal: {source_direction}"
+            f"Unknown NR FDD direction: {source_direction}"
         )
 
     paired_frequency = _round_frequency(
@@ -1241,7 +1241,7 @@ def _build_nr_fdd_candidate(
         )
     else:
         raise ValueError(
-            f"Direction NR FDD tidak dikenal: {input_direction}"
+            f"Unknown NR FDD direction: {input_direction}"
         )
 
     return {
@@ -1292,7 +1292,7 @@ def _build_nr_single_side_candidate(
         fcn_ul = input_fcn
     else:
         raise ValueError(
-            f"Mode NR satu sisi tidak dikenal: {duplex_mode}"
+            f"Unknown NR single-sided mode: {duplex_mode}"
         )
 
     return {
@@ -1524,5 +1524,5 @@ def lookup_channel_candidates(
         )
 
     raise ValueError(
-        f"Mode belum memiliki lookup: {canonical_input_mode}"
+        f"No lookup is available for mode: {canonical_input_mode}"
     )

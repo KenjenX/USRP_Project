@@ -264,9 +264,9 @@ class UhdScannerManager:
             if not process.is_alive():
                 exit_code = process.exitcode
                 raise UhdScannerError(
-                    "Proses scanner UHD berhenti tiba-tiba"
+                    "The UHD scanner process stopped unexpectedly"
                     + (
-                        f" dengan exit code {exit_code}."
+                        f" with exit code {exit_code}."
                         if exit_code is not None
                         else "."
                     )
@@ -276,7 +276,7 @@ class UhdScannerManager:
                 has_message = connection.poll(0.1)
             except (EOFError, OSError) as error:
                 raise UhdScannerError(
-                    "Koneksi ke proses scanner UHD terputus."
+                    "The connection to the UHD scanner process was lost."
                 ) from error
 
             if not has_message:
@@ -286,7 +286,7 @@ class UhdScannerManager:
                 message = connection.recv()
             except (EOFError, OSError) as error:
                 raise UhdScannerError(
-                    "Proses scanner UHD menutup koneksi tanpa respons."
+                    "The UHD scanner process closed the connection without a response."
                 ) from error
 
             if message.get("type") != expected_type:
@@ -301,8 +301,8 @@ class UhdScannerManager:
             return message
 
         raise UhdScannerTimeoutError(
-            "Proses scanner UHD tidak merespons dalam "
-            f"{timeout_seconds:.0f} detik."
+            "The UHD scanner process did not respond within "
+            f"{timeout_seconds:.0f} seconds."
         )
 
     def _start_worker(self):
@@ -370,7 +370,7 @@ class UhdScannerManager:
 
         if not ready_message.get("ok"):
             error_message = ready_message.get("error") or (
-                "USRP tidak dapat diinisialisasi."
+                "The USRP could not be initialized."
             )
             if self._detach_if_current(process, parent_connection):
                 self._dispose_worker(
@@ -426,7 +426,7 @@ class UhdScannerManager:
                 if not result_message.get("ok"):
                     raise UhdScannerError(
                         result_message.get("error")
-                        or "Worker gagal membaca IQ sample."
+                        or "The worker failed to read IQ samples."
                     )
 
                 return np.asarray(result_message["samples"])

@@ -188,7 +188,7 @@ usb_device_state = {
     "detector": "windows_pnp" if os.name == "nt" else "lsusb",
     "friendly_name": None,
     "instance_id": None,
-    "detail": "Detector USB belum melakukan pemeriksaan.",
+    "detail": "The USB detector has not completed a check yet.",
     "checked_at": None,
     "changed_at": None,
 }
@@ -206,13 +206,13 @@ def validate_scan_range(start_mhz: float, end_mhz: float) -> float:
     if start_mhz <= 0 or end_mhz <= 0:
         raise HTTPException(
             status_code=400,
-            detail="Frekuensi harus lebih besar dari 0 MHz.",
+            detail="Frequency must be greater than 0 MHz.",
         )
 
     if end_mhz <= start_mhz:
         raise HTTPException(
             status_code=400,
-            detail="End Frequency harus lebih besar dari Start Frequency.",
+            detail="End Frequency must be greater than Start Frequency.",
         )
 
     if (
@@ -222,8 +222,8 @@ def validate_scan_range(start_mhz: float, end_mhz: float) -> float:
         raise HTTPException(
             status_code=400,
             detail=(
-                "Frekuensi di luar batas USRP B210. "
-                f"Range yang didukung: {USRP_MIN_FREQUENCY_MHZ}–"
+                "Frequency is outside the USRP B210 limits. "
+                f"Supported range: {USRP_MIN_FREQUENCY_MHZ}–"
                 f"{USRP_MAX_FREQUENCY_MHZ} MHz."
             ),
         )
@@ -264,7 +264,7 @@ def _probe_windows_pnp_device():
         return _normalize_usb_probe_result(
             None,
             detector="windows_pnp",
-            detail="PowerShell tidak ditemukan untuk membaca perangkat PnP.",
+            detail="PowerShell was not found to read the PnP device.",
         )
 
     match_pattern = "|".join(
@@ -314,13 +314,13 @@ if ($null -ne $device) {{
         return _normalize_usb_probe_result(
             None,
             detector="windows_pnp",
-            detail="Pemeriksaan perangkat PnP melewati batas waktu.",
+            detail="The PnP device check timed out.",
         )
     except Exception as error:
         return _normalize_usb_probe_result(
             None,
             detector="windows_pnp",
-            detail=f"Pemeriksaan perangkat PnP gagal: {error}",
+            detail=f"The PnP device check failed: {error}",
         )
 
     output = result.stdout.strip()
@@ -331,7 +331,7 @@ if ($null -ne $device) {{
             None,
             detector="windows_pnp",
             detail=(
-                "Windows tidak dapat membaca daftar perangkat PnP."
+                "Windows could not read the PnP device list."
                 + (f" {compact_error}" if compact_error else "")
             ),
         )
@@ -340,7 +340,7 @@ if ($null -ne $device) {{
         return _normalize_usb_probe_result(
             False,
             detector="windows_pnp",
-            detail="USRP tidak ditemukan pada daftar perangkat PnP Windows.",
+            detail="USRP was not found in the Windows PnP device list.",
         )
 
     try:
@@ -349,7 +349,7 @@ if ($null -ne $device) {{
         return _normalize_usb_probe_result(
             None,
             detector="windows_pnp",
-            detail="Output detector PnP tidak dapat dibaca.",
+            detail="The PnP detector output could not be read.",
         )
 
     if isinstance(device, list):
@@ -360,7 +360,7 @@ if ($null -ne $device) {{
         detector="windows_pnp",
         friendly_name=device.get("FriendlyName"),
         instance_id=device.get("InstanceId"),
-        detail="USRP ditemukan melalui daftar perangkat PnP Windows.",
+        detail="USRP was found through the Windows PnP device list.",
     )
 
 
@@ -373,7 +373,7 @@ def _probe_linux_usb_device():
         return _normalize_usb_probe_result(
             None,
             detector="lsusb",
-            detail="Perintah lsusb tidak ditemukan.",
+            detail="The lsusb command was not found.",
         )
 
     try:
@@ -390,20 +390,20 @@ def _probe_linux_usb_device():
         return _normalize_usb_probe_result(
             None,
             detector="lsusb",
-            detail="Pemeriksaan lsusb melewati batas waktu.",
+            detail="The lsusb check timed out.",
         )
     except Exception as error:
         return _normalize_usb_probe_result(
             None,
             detector="lsusb",
-            detail=f"Pemeriksaan lsusb gagal: {error}",
+            detail=f"The lsusb check failed: {error}",
         )
 
     if result.returncode != 0:
         return _normalize_usb_probe_result(
             None,
             detector="lsusb",
-            detail="lsusb tidak dapat membaca daftar perangkat USB.",
+            detail="lsusb could not read the USB device list.",
         )
 
     normalized_output = result.stdout.lower()
@@ -413,9 +413,9 @@ def _probe_linux_usb_device():
         connected,
         detector="lsusb",
         detail=(
-            "USRP ditemukan melalui lsusb."
+            "USRP was found through lsusb."
             if connected
-            else "USRP tidak ditemukan melalui lsusb."
+            else "USRP was not found through lsusb."
         ),
     )
 
@@ -459,7 +459,7 @@ def update_usb_device_state(next_state):
                     scan_state["running"] = False
                     scan_state["completed"] = False
                     scan_state["last_error"] = (
-                        "USRP terputus saat scan sedang berjalan."
+                        "The USRP connection was lost while the scan was running."
                     )
                     scan_state["updated_at"] = now
 
@@ -519,7 +519,7 @@ def normalize_scan_owner(value: str) -> str:
     if owner not in VALID_SCAN_OWNERS:
         raise HTTPException(
             status_code=422,
-            detail="scan_owner harus bernilai general atau specific.",
+            detail="scan_owner must be either general or specific.",
         )
 
     return owner
@@ -573,7 +573,7 @@ def resolve_specific_machine(machine_id: int) -> dict:
         if machine is None:
             raise HTTPException(
                 status_code=404,
-                detail="Machine untuk Specific Scan tidak ditemukan.",
+                detail="Machine for Specific Scan not found.",
             )
 
         channels = (
@@ -632,8 +632,8 @@ def resolve_specific_machine(machine_id: int) -> dict:
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    "Specific Scan membutuhkan minimal satu frekuensi DL/UL "
-                    f'pada Machine "{machine.name}".'
+                    "Specific Scan requires at least one DL/UL frequency "
+                    f'for Machine "{machine.name}".'
                 ),
             )
 
@@ -859,7 +859,7 @@ def sanitize_session_id(session_id: str) -> str:
     if not safe_id:
         raise HTTPException(
             status_code=400,
-            detail="Session ID tidak valid.",
+            detail="Invalid session ID.",
         )
 
     return safe_id
@@ -978,7 +978,7 @@ def load_scan_session(session_id: str) -> dict:
     if not file_path.exists():
         raise HTTPException(
             status_code=404,
-            detail="Scan session tidak ditemukan.",
+            detail="Scan session not found.",
         )
 
     try:
@@ -988,7 +988,7 @@ def load_scan_session(session_id: str) -> dict:
     except json.JSONDecodeError as error:
         raise HTTPException(
             status_code=500,
-            detail=f"File scan history rusak: {file_path.name}",
+            detail=f"Scan history file is corrupted: {file_path.name}",
         ) from error
 
 
@@ -1002,7 +1002,7 @@ def delete_scan_session_file(session_id: str) -> dict:
     if not file_path.exists():
         raise HTTPException(
             status_code=404,
-            detail="Scan session tidak ditemukan.",
+            detail="Scan session not found.",
         )
 
     safe_id = sanitize_session_id(session_id)
@@ -1258,8 +1258,8 @@ def scan_frequency_window(
         raise HTTPException(
             status_code=503,
             detail=(
-                "Gagal membaca sample dari USRP pada window "
-                f"{window_start_mhz:.6f}–{window_end_mhz:.6f} MHz: {error}"
+                "Failed to read samples from the USRP in the "
+                f"{window_start_mhz:.6f}–{window_end_mhz:.6f} MHz window: {error}"
             ),
         ) from error
 
@@ -1267,8 +1267,8 @@ def scan_frequency_window(
         raise HTTPException(
             status_code=503,
             detail=(
-                "Scanner worker tidak dapat digunakan pada window "
-                f"{window_start_mhz:.6f}–{window_end_mhz:.6f} MHz: {error}"
+                "The scanner worker could not be used in the "
+                f"{window_start_mhz:.6f}–{window_end_mhz:.6f} MHz window: {error}"
             ),
         ) from error
 
@@ -1277,7 +1277,7 @@ def scan_frequency_window(
     if len(iq_samples) == 0:
         raise HTTPException(
             status_code=503,
-            detail="USRP tidak mengirim IQ sample.",
+            detail="The USRP did not send IQ samples.",
         )
 
     window = np.hanning(len(iq_samples))
@@ -1441,8 +1441,8 @@ def start_scan(request: ScanRequest):
         raise HTTPException(
             status_code=503,
             detail=(
-                "USRP B210 belum terhubung atau status USB masih diperiksa. "
-                "Tunggu indikator SDR 1 berwarna hijau sebelum memulai scan."
+                "The USRP B210 device is not connected or its USB status is still being checked. "
+                "Wait for the SDR 1 indicator to turn green before starting a scan."
             ),
         )
 
@@ -1459,7 +1459,7 @@ def start_scan(request: ScanRequest):
     elif selected_machine_id is None:
         raise HTTPException(
             status_code=422,
-            detail="Specific Scan membutuhkan Machine yang dipilih.",
+            detail="Specific Scan requires a selected Machine.",
         )
     else:
         machine_identity = resolve_specific_machine(selected_machine_id)
@@ -1491,7 +1491,7 @@ def start_scan(request: ScanRequest):
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    "Scanner sedang digunakan oleh "
+                    "The scanner is currently in use by "
                     f"{active_owner.title()} Scan."
                 ),
             )
@@ -1533,7 +1533,7 @@ def start_scan(request: ScanRequest):
 
     return {
         "message": (
-            f"{requested_owner.title()} sweep scan dimulai."
+            f"{requested_owner.title()} sweep scan started."
         ),
         "running": True,
         "completed": False,
@@ -1555,8 +1555,8 @@ def stop_scan(request: StopScanRequest):
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    "Scan hanya dapat dihentikan dari halaman pemiliknya. "
-                    f"Scanner sedang digunakan oleh "
+                    "The scan can only be stopped from its owner's page. "
+                    f"The scanner is currently in use by "
                     f"{str(active_owner).title()} Scan."
                 ),
             )
@@ -1570,7 +1570,7 @@ def stop_scan(request: StopScanRequest):
     scanner_manager.release("scan stopped", force=True)
 
     return {
-        "message": f"{requested_owner.title()} Scan dihentikan.",
+        "message": f"{requested_owner.title()} Scan stopped.",
         "running": False,
         "completed": state["completed"],
         **get_scan_identity(state),
@@ -1633,7 +1633,7 @@ def delete_all_scan_history():
     result = delete_all_scan_session_files()
 
     return {
-        "message": "Semua scan history berhasil dihapus.",
+        "message": "All scan history was deleted successfully.",
         **result,
     }
 
@@ -1647,7 +1647,7 @@ def delete_scan_history_detail(session_id: str):
     result = delete_scan_session_file(session_id)
 
     return {
-        "message": "Scan history berhasil dihapus.",
+        "message": "Scan history was deleted successfully.",
         **result,
     }
 
@@ -1769,7 +1769,7 @@ def get_spectrum():
             status_code=error.status_code,
             detail=(
                 f"{error.detail} "
-                "Scanner lock dilepas otomatis agar scan dapat dimulai ulang."
+                "The scanner lock was released automatically so the scan can be restarted."
             ),
         ) from error
     except Exception as error:
@@ -1780,8 +1780,8 @@ def get_spectrum():
         raise HTTPException(
             status_code=500,
             detail=(
-                f"Scan gagal: {error}. "
-                "Scanner lock dilepas otomatis agar scan dapat dimulai ulang."
+                f"Scan failed: {error}. "
+                "The scanner lock was released automatically so the scan can be restarted."
             ),
         ) from error
 
