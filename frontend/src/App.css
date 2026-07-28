@@ -2392,7 +2392,9 @@ body {
 .app-header {
   position: relative;
   z-index: 20;
-  flex: 0 0 79px;
+  flex: 0 0 60px;
+  min-height: 0;
+  overflow: visible;
   display: grid;
   grid-template-columns: 366px minmax(0, 1fr) 118px;
   align-items: stretch;
@@ -3027,7 +3029,8 @@ body {
   position: relative;
   flex: 1 0 auto;
   min-width: 0;
-  min-height: calc(100vh - 79px);
+  min-height: calc(100vh - 60px);
+  margin-top: 0;
   padding: 14px var(--shell-pad) var(--shell-pad);
   border-right: 2px solid #1D3058;
   border-bottom: 2px solid #1D3058;
