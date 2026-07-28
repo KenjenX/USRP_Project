@@ -4441,6 +4441,314 @@ body {
   }
 }
 
+/* General scan detail modal: align the existing dialog with the dark-blue UI. */
+.signal-detail-backdrop {
+  padding: 18px;
+  background: rgba(3, 11, 24, 0.6);
+  backdrop-filter: blur(2px);
+}
+
+.signal-detail-modal {
+  width: min(680px, calc(100vw - 36px));
+  max-height: min(840px, calc(100vh - 36px));
+  border: 1px solid #1b3762;
+  border-left: 1px solid #1b3762;
+  border-radius: 6px;
+  color: #c2c6cc;
+  background: #0f2447;
+  box-shadow: 0 18px 44px rgba(1, 8, 20, 0.34);
+  scrollbar-color: #496b9a #0b1b35;
+}
+
+.signal-detail-modal::-webkit-scrollbar-track {
+  background: #0b1b35;
+}
+
+.signal-detail-modal::-webkit-scrollbar-thumb {
+  border-color: #0b1b35;
+  background: #496b9a;
+}
+
+.signal-detail-header {
+  min-height: 68px;
+  padding: 14px 16px;
+  border-bottom-color: #1b3762;
+  background: #17345e;
+  box-shadow: none;
+}
+
+.signal-detail-header::after {
+  display: none;
+}
+
+.signal-detail-kicker {
+  margin-bottom: 3px;
+  color: #a9bed8;
+  font-family: var(--font-content);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.signal-detail-header h3 {
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+
+.signal-detail-close {
+  width: 32px;
+  height: 32px;
+  border-color: #31527f;
+  border-radius: 4px;
+  color: #c2c6cc;
+  background: rgba(9, 27, 53, 0.32);
+  font-size: 1.45rem;
+}
+
+.signal-detail-close:hover {
+  border-color: #6389bc;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.signal-detail-status-row {
+  padding: 14px 16px 0;
+}
+
+.signal-detail-status,
+.signal-detail-status-row > span {
+  padding: 5px 8px;
+  border-color: rgba(77, 178, 122, 0.48);
+  border-radius: 999px;
+  color: #b8dfc6;
+  background: rgba(35, 112, 75, 0.2);
+  font-family: var(--font-content);
+  font-size: 0.54rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+}
+
+.signal-detail-status.active {
+  border-color: rgba(77, 178, 122, 0.48);
+  color: #b8dfc6;
+  background: rgba(35, 112, 75, 0.2);
+  box-shadow: none;
+}
+
+.signal-detail-summary-grid {
+  gap: 8px;
+  padding: 12px 16px 16px;
+}
+
+.signal-detail-summary-card,
+.signal-detail-summary-card.wide {
+  border: 1px solid #24466f;
+  border-left: 1px solid #24466f;
+  border-radius: 5px;
+  background: #0c203f;
+  box-shadow: none;
+}
+
+.signal-detail-summary-card {
+  padding: 11px 12px;
+}
+
+.signal-detail-summary-card span,
+.candidate-detail-main-grid span,
+.candidate-frequency-grid span {
+  margin-bottom: 5px;
+  color: #a4b4c8;
+  font-family: var(--font-content);
+  font-size: 0.54rem;
+  font-weight: 700;
+}
+
+.signal-detail-summary-card strong,
+.candidate-detail-main-grid strong,
+.candidate-frequency-grid strong {
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-size: 0.8rem;
+}
+
+.signal-detail-section-title,
+.candidate-detail-section-label {
+  margin: 0 16px 9px;
+  padding: 0 0 7px;
+  border: 0;
+  border-bottom: 1px solid #24466f;
+  border-radius: 0;
+  color: #c2c6cc;
+  background: transparent;
+  font-family: var(--font-content);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.signal-detail-accordion-list {
+  gap: 7px;
+  padding: 0 16px 16px;
+}
+
+.signal-detail-technology-group,
+.signal-detail-technology-group.gsm,
+.signal-detail-technology-group.umts,
+.signal-detail-technology-group.lte,
+.signal-detail-technology-group.nr {
+  border-color: #24466f;
+  border-radius: 5px;
+  background: #0c203f;
+}
+
+.signal-detail-technology-toggle,
+.signal-detail-technology-group.gsm .signal-detail-technology-toggle,
+.signal-detail-technology-group.umts .signal-detail-technology-toggle,
+.signal-detail-technology-group.lte .signal-detail-technology-toggle,
+.signal-detail-technology-group.nr .signal-detail-technology-toggle {
+  min-height: 42px;
+  padding: 8px 10px;
+  background: #122c52;
+}
+
+.signal-detail-technology-group.open .signal-detail-technology-toggle {
+  border-bottom-color: #24466f;
+}
+
+.signal-detail-technology-toggle:hover {
+  filter: none;
+  background: #17345e;
+}
+
+.technology-toggle-left i,
+.signal-detail-technology-group.umts .technology-toggle-left i {
+  border-color: #31527f;
+  background: #24466f;
+}
+
+.technology-toggle-left strong {
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-size: 0.78rem;
+}
+
+.technology-toggle-right {
+  color: #c2c6cc;
+  font-family: var(--font-content);
+  font-size: 0.56rem;
+}
+
+.signal-detail-candidate-list.compact {
+  gap: 7px;
+  padding: 8px;
+  background: #0a1b35;
+}
+
+.signal-detail-candidate-card,
+.signal-detail-candidate-card.gsm,
+.signal-detail-candidate-card.umts,
+.signal-detail-candidate-card.lte,
+.signal-detail-candidate-card.nr {
+  border-color: #24466f;
+  border-radius: 4px;
+  background: #0f2447;
+}
+
+.candidate-detail-header {
+  min-height: 40px;
+  padding: 8px 9px;
+  background: #17345e;
+}
+
+.candidate-detail-header span {
+  background: #31527f;
+}
+
+.candidate-detail-header strong {
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-size: 0.78rem;
+}
+
+.candidate-detail-main-grid,
+.candidate-frequency-grid {
+  background: #24466f;
+}
+
+.candidate-detail-main-grid > div,
+.candidate-frequency-grid > div {
+  padding: 9px;
+  background: #0c203f;
+}
+
+.candidate-detail-section-label {
+  margin: 8px 9px 0;
+  padding-bottom: 6px;
+  color: #a4b4c8;
+  background: transparent;
+}
+
+.candidate-detected-side strong {
+  color: #a8d7b9;
+}
+
+.signal-detail-empty {
+  margin: 0 16px 16px;
+  border-color: #31527f;
+  border-radius: 5px;
+  color: #c2c6cc;
+  background: #0c203f;
+}
+
+.signal-detail-footer {
+  padding: 0 16px 16px;
+}
+
+.signal-detail-footer button {
+  min-width: 96px;
+  padding: 8px 13px;
+  border-color: #31527f;
+  border-radius: 4px;
+  color: #c2c6cc;
+  background: #17345e;
+  font-family: var(--font-content);
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.signal-detail-footer button:hover {
+  border-color: #6389bc;
+  color: #ffffff;
+  background: #24466f;
+}
+
+@media (max-width: 720px) {
+  .signal-detail-backdrop {
+    padding: 10px;
+  }
+
+  .signal-detail-modal {
+    width: 100%;
+    max-height: calc(100vh - 20px);
+  }
+
+  .signal-detail-header,
+  .signal-detail-status-row,
+  .signal-detail-summary-grid,
+  .signal-detail-accordion-list,
+  .signal-detail-footer {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .signal-detail-section-title {
+    margin-right: 12px;
+    margin-left: 12px;
+  }
+}
+
 /* =========================================================
    SEPARATE SCAN MODES — stage 1 owner lock and isolation
    ========================================================= */
