@@ -8,23 +8,25 @@
   min-width: 0;
   min-height: calc(100vh - 92px);
   padding: 0;
-  overflow: hidden;
-  border: 1px solid rgba(65, 112, 183, 0.44);
-  border-radius: var(--radius-panel);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
   color: var(--text-primary);
-  background:
-    linear-gradient(135deg, rgba(61, 98, 157, 0.12), transparent 34%),
-    #0a1f3b;
-  box-shadow: 0 8px 22px rgba(1, 8, 20, 0.26);
+  background: transparent;
+  box-shadow: none;
 }
 
 /* Live spectrum */
 .specific-spectrum-panel {
   padding: 8px;
-  border-bottom: 5px solid #1e3e6d;
-  background:
-    linear-gradient(135deg, rgba(58, 94, 154, 0.18), transparent 28%),
-    var(--surface-alternate);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: #0a1f3b;
+  box-shadow: 0 5px 14px rgba(4, 13, 30, 0.25);
 }
 
 .specific-spectrum-titlebar {
@@ -137,10 +139,14 @@
 /* Main CRUD area */
 .specific-figma-content {
   min-height: 430px;
-  padding: 10px 12px 14px;
-  background:
-    linear-gradient(135deg, rgba(40, 73, 122, 0.12), transparent 36%),
-    var(--surface-main);
+  min-width: 0;
+  margin: 0;
+  padding: 16px 20px;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: #0a1f3b;
+  box-shadow: 0 5px 14px rgba(4, 13, 30, 0.25);
 }
 
 .specific-figma-toolbar {
@@ -461,6 +467,7 @@
 
 /* Machine table */
 .specific-machine-table-shell {
+  margin-top: 4px;
   overflow: hidden;
   border: 1px solid rgba(69, 111, 176, 0.36);
   border-radius: var(--radius-control);
