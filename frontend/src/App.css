@@ -2215,6 +2215,13 @@ button {
   line-height: 1;
 }
 
+.figma-band-icon img {
+  display: block;
+  width: 18px;
+  height: 13px;
+  object-fit: contain;
+}
+
 .figma-band-text {
   display: flex;
   min-width: 0;

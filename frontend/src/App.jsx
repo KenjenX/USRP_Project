@@ -3,6 +3,7 @@ import "./App.css";
 import SpecificChannelPage from "./SpecificChannelPage.jsx";
 import navGeneralIcon from "./assets/nav-general.png";
 import navSpecificIcon from "./assets/nav-specific.png";
+import signalIcon from "./assets/signal-icon.png";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
@@ -672,7 +673,7 @@ function TechnologyBandCard({ candidate }) {
       title={`${candidate.modeTitle} · ${candidate.bandTitle ?? candidate.name}`}
     >
       <span className="figma-band-icon" aria-hidden="true">
-        ◉
+        <img src={signalIcon} alt="" aria-hidden="true" />
       </span>
 
       <span className="figma-band-text">

@@ -866,6 +866,13 @@
   font-size: 0.74rem;
 }
 
+.figma-channel-radio img {
+  display: block;
+  width: 18px;
+  height: 13px;
+  object-fit: contain;
+}
+
 .figma-channel-identity > span:last-child {
   min-width: 0;
 }

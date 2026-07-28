@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "./SpecificChannelPage.css";
+import signalIcon from "./assets/signal-icon.png";
 
 const TECHNOLOGY_OPTIONS = [
   {
@@ -1941,7 +1942,9 @@ function SpecificChannelPage({
                       >
                         <header>
                           <div className="figma-channel-identity">
-                            <span className="figma-channel-radio">◉</span>
+                            <span className="figma-channel-radio">
+                              <img src={signalIcon} alt="" aria-hidden="true" />
+                            </span>
                             <span>
                               <strong>{channel.channel_number}</strong>
                               <small>FCN {formatFcn(channel.input_fcn)}</small>
