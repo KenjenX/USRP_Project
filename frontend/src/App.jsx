@@ -8,12 +8,11 @@ const API_BASE_URL = "http://127.0.0.1:8000";
 
 const SPECTRUM_REFRESH_MS = 250;
 const DEVICE_STATUS_REFRESH_MS = 5000;
+const INITIAL_STATUS_RETRY_DELAYS_MS = [0, 1000, 2000, 4000, 8000];
 
 // Saat Vite dan FastAPI dinyalakan hampir bersamaan, frontend dapat terbuka
 // beberapa detik lebih dulu daripada backend. Scan history akan dicoba ulang
 // otomatis agar user tidak perlu me-refresh halaman secara manual.
-const INITIAL_HISTORY_RETRY_DELAYS_MS = [0, 1000, 2000, 4000, 8000];
-
 // Status SDR dibaca dari cache detector USB/PnP pasif. Endpoint ini tidak
 // menjalankan UHD dan tetap aman ketika USRP tidak terhubung atau sedang scan.
 
@@ -1478,7 +1477,7 @@ function App() {
   const [activeTab, setActiveTab] = useState(() => {
     const savedTab = window.sessionStorage.getItem("usrp-active-tab");
 
-    return ["general", "history", "specific"].includes(savedTab)
+    return ["general", "specific"].includes(savedTab)
       ? savedTab
       : "general";
   });
@@ -1525,11 +1524,11 @@ function App() {
   // semua titik di atas threshold pada satu sweep disimpan di sini,
   // lalu setelah sweep selesai dibuat menjadi satu folder/session.
   const [currentScanHistory, setCurrentScanHistory] = useState([]);
-  const [scanSessions, setScanSessions] = useState([]);
+  const [scanSessions] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [selectedDetectionDetail, setSelectedDetectionDetail] = useState(null);
-  const [historyDeleteDialog, setHistoryDeleteDialog] = useState(null);
-  const [isDeletingHistory, setIsDeletingHistory] = useState(false);
+  const [historyDeleteDialog] = useState(null);
+  const [isDeletingHistory] = useState(false);
 
   const currentScanHistoryRef = useRef([]);
   const activeScanMetaRef = useRef(null);
@@ -1851,142 +1850,7 @@ function App() {
     [applyBackendScanState]
   );
 
-  const loadPersistentScanSessions = useCallback(
-    async ({ selectLatest = false } = {}) => {
-      const response = await fetch(`${API_BASE_URL}/api/scan/history`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || "Failed to load Scan History.");
-      }
-
-      const sessions = Array.isArray(data.sessions)
-        ? data.sessions.map((session, index) =>
-            normalizePersistentScanSession(session, index)
-          )
-        : [];
-
-      setScanSessions(sessions);
-
-      setSelectedSessionId((previousSelectedId) => {
-        if (selectLatest) {
-          return sessions[0]?.id ?? null;
-        }
-
-        const previousStillExists = sessions.some(
-          (session) => session.id === previousSelectedId
-        );
-
-        if (previousSelectedId && previousStillExists) {
-          return previousSelectedId;
-        }
-
-        return sessions[0]?.id ?? null;
-      });
-
-      return sessions;
-    },
-    []
-  );
-
-  function handleDeleteScanSession(sessionId, sessionTitle) {
-    if (!sessionId) {
-      return;
-    }
-
-    setHistoryDeleteDialog({
-      type: "single",
-      sessionId,
-      sessionTitle: sessionTitle ?? sessionId,
-    });
-  }
-
-  function handleDeleteAllScanSessions() {
-    if (scanSessions.length === 0) {
-      return;
-    }
-
-    setHistoryDeleteDialog({
-      type: "all",
-      sessionCount: scanSessions.length,
-    });
-  }
-
-  async function confirmHistoryDeletion() {
-    const dialog = historyDeleteDialog;
-
-    if (!dialog || isDeletingHistory) {
-      return;
-    }
-
-    setIsDeletingHistory(true);
-    setErrorMessage("");
-
-    try {
-      if (dialog.type === "all") {
-        const response = await fetch(`${API_BASE_URL}/api/scan/history`, {
-          method: "DELETE",
-        });
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.detail || "Failed to delete all Scan History."
-          );
-        }
-
-        setSelectedDetectionDetail(null);
-        setScanSessions([]);
-        setSelectedSessionId(null);
-        setStatusMessage(
-          `All Scan History entries were deleted. Total files: ${
-            data.deleted_count ?? 0
-          }.`
-        );
-      } else {
-        const response = await fetch(
-          `${API_BASE_URL}/api/scan/history/${encodeURIComponent(
-            dialog.sessionId
-          )}`,
-          { method: "DELETE" }
-        );
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.detail || "Failed to delete Scan History.");
-        }
-
-        setSelectedDetectionDetail(null);
-        await loadPersistentScanSessions();
-        setStatusMessage(
-          `Scan History deleted: ${dialog.sessionTitle}.`
-        );
-      }
-
-      setHistoryDeleteDialog(null);
-    } catch (error) {
-      setErrorMessage(`Delete history error: ${error.message}`);
-    } finally {
-      setIsDeletingHistory(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!historyDeleteDialog) {
-      return undefined;
-    }
-
-    function handleDeleteDialogKeyDown(event) {
-      if (event.key === "Escape" && !isDeletingHistory) {
-        setHistoryDeleteDialog(null);
-      }
-    }
-
-    window.addEventListener("keydown", handleDeleteDialogKeyDown);
-
-    return () =>
-      window.removeEventListener("keydown", handleDeleteDialogKeyDown);
-  }, [historyDeleteDialog, isDeletingHistory]);
+  const loadPersistentScanSessions = useCallback(async () => [], []);
 
   useEffect(() => {
     if (!selectedDetectionDetail) {
@@ -2042,10 +1906,10 @@ function App() {
 
         attemptIndex += 1;
 
-        if (attemptIndex < INITIAL_HISTORY_RETRY_DELAYS_MS.length) {
+        if (attemptIndex < INITIAL_STATUS_RETRY_DELAYS_MS.length) {
           retryTimerId = window.setTimeout(
             () => synchronizeWithRetry({ showResumeMessage }),
-            INITIAL_HISTORY_RETRY_DELAYS_MS[attemptIndex]
+            INITIAL_STATUS_RETRY_DELAYS_MS[attemptIndex]
           );
         }
       }
@@ -2076,81 +1940,6 @@ function App() {
       );
     };
   }, [syncScanStateFromBackend]);
-
-  useEffect(() => {
-    let cancelled = false;
-    let retryTimerId;
-    let attemptIndex = 0;
-
-    async function loadHistoryWithRetry() {
-      try {
-        await loadPersistentScanSessions();
-
-        if (!cancelled) {
-          setErrorMessage((previousMessage) =>
-            previousMessage.startsWith("Scan history error:")
-              ? ""
-              : previousMessage
-          );
-        }
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
-        attemptIndex += 1;
-
-        if (attemptIndex < INITIAL_HISTORY_RETRY_DELAYS_MS.length) {
-          retryTimerId = window.setTimeout(
-            loadHistoryWithRetry,
-            INITIAL_HISTORY_RETRY_DELAYS_MS[attemptIndex]
-          );
-          return;
-        }
-
-        setErrorMessage(`Scan history error: ${error.message}`);
-        notify("Failed to load Scan History.", "error", "load-scan-history");
-      }
-    }
-
-    loadHistoryWithRetry();
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(retryTimerId);
-    };
-  }, [loadPersistentScanSessions]);
-
-  // Muat ulang setiap kali tab Scan History dibuka. Ini memastikan session
-  // yang tersimpan di backend selalu muncul tanpa refresh browser.
-  useEffect(() => {
-    if (activeTab !== "history") {
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    loadPersistentScanSessions()
-      .then(() => {
-        if (!cancelled) {
-          setErrorMessage((previousMessage) =>
-            previousMessage.startsWith("Scan history error:")
-              ? ""
-              : previousMessage
-          );
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setErrorMessage(`Scan history error: ${error.message}`);
-          notify("Failed to load Scan History.", "error", "load-scan-history");
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, loadPersistentScanSessions]);
 
   // Ambil data spectrum baru setiap 250 ms saat scan berjalan.
   useEffect(() => {
@@ -2934,17 +2723,6 @@ function App() {
     [currentScanHistory]
   );
 
-  const selectedScanSession = useMemo(() => {
-    if (scanSessions.length === 0) {
-      return null;
-    }
-
-    return (
-      scanSessions.find((session) => session.id === selectedSessionId) ??
-      scanSessions[0]
-    );
-  }, [scanSessions, selectedSessionId]);
-
   const detectedCount = currentScanHistorySorted.length;
 
   const isSweepCompleted =
@@ -3018,16 +2796,6 @@ function App() {
 
           <button
             type="button"
-            className={activeTab === "history" ? "tab active-tab" : "tab"}
-            onClick={() => setActiveTab("history")}
-          >
-            <span className="top-tab-icon">▰</span>
-            Scan History
-            <span className="tab-badge">{scanSessions.length}</span>
-          </button>
-
-          <button
-            type="button"
             className={activeTab === "specific" ? "tab active-tab" : "tab"}
             onClick={() => setActiveTab("specific")}
           >
@@ -3053,16 +2821,12 @@ function App() {
           <span>
             {activeTab === "specific"
               ? <img className="sidebar-nav-icon" src={navSpecificIcon} alt="" />
-              : activeTab === "history"
-                ? "▰"
-                : <img className="sidebar-nav-icon" src={navGeneralIcon} alt="" />}
+              : <img className="sidebar-nav-icon" src={navGeneralIcon} alt="" />}
           </span>
           <strong>
             {activeTab === "specific"
               ? "Specific"
-              : activeTab === "history"
-                ? "Scan History"
-                : "General"}
+              : "General"}
           </strong>
         </div>
 
@@ -3110,7 +2874,6 @@ function App() {
             onClick={handleScan}
             disabled={
               isBusy ||
-              activeTab === "history" ||
               scannerOwnedByOtherPage
             }
           >
@@ -3123,9 +2886,7 @@ function App() {
             </span>
             {isBusy
               ? "PROCESSING..."
-              : activeTab === "history"
-                ? "SCAN DISABLED"
-                : scannerOwnedByOtherPage
+              : scannerOwnedByOtherPage
                   ? `${scanOwnerLabel?.toUpperCase()} SCAN ACTIVE`
                   : isScanning
                     ? `STOP ${currentPageScanOwner?.toUpperCase()} SCAN`
@@ -3161,9 +2922,7 @@ function App() {
           )}
 
           {isSweepCompleted && !errorMessage && (
-            <span className="sidebar-scan-saved">
-              Saved to Scan History
-            </span>
+            <span className="sidebar-scan-saved">Scan completed.</span>
           )}
         </section>
 
