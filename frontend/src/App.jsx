@@ -506,7 +506,7 @@ function buildModeTitle(type, candidate = {}) {
   }
 
   if (type === "umts") {
-    return "3G UMTS / WCDMA";
+    return "3G UMTS";
   }
 
   if (type === "lte") {
@@ -1216,7 +1216,7 @@ const TECHNOLOGY_DETAIL_GROUPS = [
   {
     key: "umts",
     label: "3G",
-    title: "3G UMTS / WCDMA",
+    title: "3G UMTS",
     className: "umts",
   },
   {
