@@ -6,7 +6,7 @@
 
 .specific-figma-workspace {
   min-width: 0;
-  min-height: calc(100vh - 92px);
+  min-height: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -17,6 +17,10 @@
   color: var(--text-primary);
   background: transparent;
   box-shadow: none;
+}
+
+.specific-workspace.specific-figma-workspace {
+  min-height: 0;
 }
 
 /* Live spectrum */
