@@ -3,6 +3,8 @@ from datetime import datetime
 from threading import Event, Lock, Thread
 from copy import deepcopy
 from math import ceil
+from time import perf_counter_ns
+from uuid import uuid4
 import json
 import os
 import shutil
@@ -10,7 +12,7 @@ import subprocess
 from pathlib import Path
 
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -94,6 +96,238 @@ app.add_middleware(
 app.include_router(machine_router)
 app.include_router(channel_lookup_router)
 app.include_router(channel_router)
+
+
+BENCHMARK_SCHEMA_VERSION = 1
+benchmark_lock = Lock()
+benchmark_sessions: dict[str, dict] = {}
+
+
+def benchmark_enabled() -> bool:
+    return os.environ.get("USRP_BENCHMARK_ENABLED") == "1"
+
+
+def benchmark_classifier_breakdown_enabled() -> bool:
+    return benchmark_enabled() and os.environ.get(
+        "USRP_BENCHMARK_CLASSIFIER_BREAKDOWN"
+    ) == "1"
+
+
+def benchmark_ms_since(start_ns: int) -> float:
+    return (perf_counter_ns() - start_ns) / 1_000_000
+
+
+def safe_benchmark_log(prefix: str, payload: dict) -> None:
+    """Benchmark output is strictly best-effort and never affects scans."""
+    try:
+        print(prefix + " " + json.dumps(payload, separators=(",", ":")))
+    except Exception:
+        pass
+
+
+def percentile_values(values: list[float]) -> dict:
+    if not values:
+        return {"p50": None, "p95": None, "p99": None}
+    return {
+        "p50": float(np.percentile(values, 50)),
+        "p95": float(np.percentile(values, 95)),
+        "p99": float(np.percentile(values, 99)),
+    }
+
+
+def create_benchmark_session(state: dict) -> None:
+    if not benchmark_enabled() or not state.get("session_id"):
+        return
+    with benchmark_lock:
+        benchmark_sessions[state["session_id"]] = {
+            "session_id": state["session_id"],
+            "scan_owner": state.get("scan_owner"),
+            "range_start_mhz": state["config"]["start_frequency_mhz"],
+            "range_end_mhz": state["config"]["end_frequency_mhz"],
+            "expected_window_count": state["sweep"]["total_windows"],
+            "started_ns": perf_counter_ns(), "last_request_start_ns": None,
+            "last_response_finish_ns": None, "windows": [],
+            "acquisition_error_count": 0, "in_flight_count": 0,
+            "completed": False, "summary_emitted": False,
+        }
+
+
+def register_benchmark_poll(context: dict) -> None:
+    """Attach polling gaps after the endpoint has identified the session."""
+    session_id = context.get("session_id")
+    if not session_id:
+        return
+    with benchmark_lock:
+        session = benchmark_sessions.get(session_id)
+        if session is None:
+            return
+        if context.get("benchmark_registered"):
+            return
+        start_ns = context["request_start_ns"]
+        previous_start = session["last_request_start_ns"]
+        previous_finish = session["last_response_finish_ns"]
+        if previous_start is not None:
+            context["timings_ms"]["request_start_gap_ms"] = (
+                start_ns - previous_start
+            ) / 1_000_000
+        if previous_finish is not None:
+            context["timings_ms"]["poll_idle_ms"] = (
+                start_ns - previous_finish
+            ) / 1_000_000
+        session["last_request_start_ns"] = start_ns
+        session["in_flight_count"] += 1
+        context["benchmark_registered"] = True
+
+
+def discard_benchmark_session(session_id: str | None, reason: str) -> None:
+    """Remove an aborted benchmark session without affecting scan lifecycle."""
+    if not benchmark_enabled() or not session_id:
+        return
+    try:
+        with benchmark_lock:
+            session = benchmark_sessions.pop(session_id, None)
+        if session is not None:
+            safe_benchmark_log("[BENCH]", {
+                "event": "sweep_aborted", "schema_version": BENCHMARK_SCHEMA_VERSION,
+                "session_id": session_id, "scan_owner": session.get("scan_owner"),
+                "reason": reason,
+            })
+    except Exception:
+        pass
+
+
+def finish_benchmark_window(context: dict) -> None:
+    """Emit the window event only after the final ASGI body chunk is sent."""
+    try:
+        session_id = context.get("session_id")
+        if not session_id or not context.get("window"):
+            return
+        with benchmark_lock:
+            session = benchmark_sessions.get(session_id)
+            if session is None:
+                return
+            session["last_response_finish_ns"] = perf_counter_ns()
+            if context.get("benchmark_registered"):
+                session["in_flight_count"] = max(
+                    0, session["in_flight_count"] - 1
+                )
+                context["benchmark_registered"] = False
+            if context.get("sweep_completed"):
+                session["completed"] = True
+            event = None
+            if context.get("success"):
+                timings = context["timings_ms"]
+                session["windows"].append(context)
+                event = {
+                    "event": "spectrum_window", "schema_version": BENCHMARK_SCHEMA_VERSION,
+                    "architecture_mode": "request_driven", "session_id": session_id,
+                    "request_id": context["request_id"], "scan_owner": context["scan_owner"],
+                    "window_index": context["window_index"], "total_windows": context["total_windows"],
+                    "window_start_mhz": context["window_start_mhz"],
+                    "window_end_mhz": context["window_end_mhz"],
+                    "sample_count": context.get("sample_count", 0),
+                    "threshold_bin_count": context.get("threshold_bin_count", 0),
+                    "detection_count": context.get("detection_count", 0),
+                    "cumulative_detection_count": context.get("cumulative_detection_count", 0),
+                    "channel_measurement_count": context.get("channel_measurement_count", 0),
+                    "threshold_detection_invariant_ok": context.get("threshold_detection_invariant_ok", False),
+                    "worker_reused": timings.get("worker_reused", False),
+                    "worker_started_this_call": timings.get("worker_started_this_call", False),
+                    "response_bytes": context.get("response_bytes", 0), "timings_ms": timings,
+                }
+            summary_needed = (
+                session["completed"]
+                and session["in_flight_count"] == 0
+                and not session["summary_emitted"]
+            )
+            if summary_needed:
+                session["summary_emitted"] = True
+        if event is not None:
+            safe_benchmark_log("[BENCH]", event)
+        if summary_needed:
+            emit_benchmark_summary(session_id)
+    except Exception:
+        pass
+
+
+def emit_benchmark_summary(session_id: str) -> None:
+    try:
+        with benchmark_lock:
+            session = benchmark_sessions.get(session_id)
+            if session is None or not session.get("summary_emitted"):
+                return
+            benchmark_sessions.pop(session_id, None)
+        if session is None:
+            return
+        windows = session["windows"]
+        metrics = ("http_total_ms", "poll_idle_ms", "manager_acquire_total_ms",
+                   "uhd_recv_num_samps_ms", "fft_ms", "threshold_index_ms",
+                   "classification_total_ms", "channel_measurement_ms", "preview_append_ms",
+                   "state_deepcopy_ms", "preview_finalize_ms", "response_prepare_ms",
+                   "response_bytes")
+        def percentiles(source):
+            return {name: percentile_values([w["timings_ms"].get(name, w.get(name))
+                    for w in source if w["timings_ms"].get(name, w.get(name)) is not None]) for name in metrics}
+        poll_idle_total = sum(w["timings_ms"].get("poll_idle_ms", 0.0) for w in windows)
+        wall_ms = (perf_counter_ns() - session["started_ns"]) / 1_000_000
+        summary = {
+            "event": "sweep_summary", "schema_version": BENCHMARK_SCHEMA_VERSION,
+            "architecture_mode": "request_driven", "session_id": session_id,
+            "scan_owner": session["scan_owner"], "range_start_mhz": session["range_start_mhz"],
+            "range_end_mhz": session["range_end_mhz"], "window_count": len(windows),
+            "expected_window_count": session["expected_window_count"], "sweep_wall_ms": wall_ms,
+            "active_pipeline_total_ms": sum(w["timings_ms"].get("endpoint_logic_ms", 0.0) for w in windows),
+            "poll_idle_total_ms": poll_idle_total,
+            "poll_idle_percent": (poll_idle_total / wall_ms * 100) if wall_ms else 0.0,
+            "hop_per_second": (len(windows) / (wall_ms / 1000)) if wall_ms else 0.0,
+            "sample_count_total": sum(w.get("sample_count", 0) for w in windows),
+            "detection_count_total": sum(w.get("detection_count", 0) for w in windows),
+            "response_bytes_total": sum(w.get("response_bytes", 0) for w in windows),
+            "acquisition_error_count": session["acquisition_error_count"],
+            "window_sequence_gap_count": sum(1 for i, w in enumerate(windows, 1) if w["window_index"] != i),
+            "deadline_metrics_supported": False,
+            "timing_percentiles_ms": {"all_windows": percentiles(windows),
+                "warm_windows_excluding_first": percentiles(windows[1:])},
+        }
+        safe_benchmark_log("[BENCH]", summary)
+    except Exception:
+        pass
+
+
+class BenchmarkHttpMiddleware:
+    """ASGI send observer; it does not alter or buffer the response."""
+    def __init__(self, app): self.app = app
+
+    async def __call__(self, scope, receive, send):
+        enabled = benchmark_enabled() and scope.get("path") == "/api/spectrum"
+        if not enabled:
+            await self.app(scope, receive, send)
+            return
+        context = {"request_start_ns": perf_counter_ns(), "timings_ms": {}}
+        scope.setdefault("state", {})["benchmark_context"] = context
+        response_start_ns = None
+        async def observed_send(message):
+            nonlocal response_start_ns
+            if message["type"] == "http.response.start":
+                response_start_ns = perf_counter_ns()
+                context["timings_ms"]["response_prepare_ms"] = (
+                    response_start_ns - context.get("endpoint_logic_end_ns", response_start_ns)
+                ) / 1_000_000
+            elif message["type"] == "http.response.body":
+                context["response_bytes"] = context.get("response_bytes", 0) + len(message.get("body", b""))
+                if not message.get("more_body", False):
+                    # These durations end when the downstream ASGI send completes.
+                    await send(message)
+                    finished_ns = perf_counter_ns()
+                    context["timings_ms"]["http_total_ms"] = (finished_ns - context["request_start_ns"]) / 1_000_000
+                    context["timings_ms"]["response_body_emit_ms"] = (finished_ns - (response_start_ns or finished_ns)) / 1_000_000
+                    finish_benchmark_window(context)
+                    return
+            await send(message)
+        await self.app(scope, receive, observed_send)
+
+
+app.add_middleware(BenchmarkHttpMiddleware)
 
 
 class ScanRequest(BaseModel):
@@ -453,7 +687,9 @@ def update_usb_device_state(next_state):
                 force=True,
             )
 
+            disconnected_session_id = None
             with state_lock:
+                disconnected_session_id = scan_state.get("session_id")
                 if scan_state.get("running"):
                     now = datetime.now().isoformat(timespec="seconds")
                     scan_state["running"] = False
@@ -462,6 +698,10 @@ def update_usb_device_state(next_state):
                         "The USRP connection was lost while the scan was running."
                     )
                     scan_state["updated_at"] = now
+            discard_benchmark_session(
+                disconnected_session_id,
+                "usb_disconnected",
+            )
 
 
 def get_usb_device_state():
@@ -506,6 +746,10 @@ def app_startup():
 def app_shutdown():
     stop_usb_detector()
     scanner_manager.release("application shutdown", force=True)
+    discard_benchmark_session(
+        get_current_state().get("session_id"),
+        "application_shutdown",
+    )
 
 
 def get_current_state():
@@ -555,6 +799,7 @@ def release_scan_lock_after_error(
         failed_state = deepcopy(scan_state)
 
     scanner_manager.release("scan error", force=True)
+    discard_benchmark_session(expected_session_id, "scan_error")
     return failed_state
 
 
@@ -1088,17 +1333,28 @@ def build_empty_debug_clusters():
     }
 
 
-def classify_frequency(frequency_mhz: float) -> dict:
+def classify_frequency(frequency_mhz: float, metrics: dict | None = None) -> dict:
     """
     Menjalankan semua classifier untuk satu titik frekuensi.
     """
 
-    return {
-        "gsm": classify_gsm(frequency_mhz),
-        "umts": classify_umts(frequency_mhz),
-        "lte": classify_lte(frequency_mhz),
-        "nr": classify_nr(frequency_mhz),
-    }
+    if metrics is None:
+        return {
+            "gsm": classify_gsm(frequency_mhz),
+            "umts": classify_umts(frequency_mhz),
+            "lte": classify_lte(frequency_mhz),
+            "nr": classify_nr(frequency_mhz),
+        }
+    breakdown = benchmark_classifier_breakdown_enabled()
+    result = {}
+    for name, classifier in (("gsm", classify_gsm), ("umts", classify_umts),
+                             ("lte", classify_lte), ("nr", classify_nr)):
+        started_ns = perf_counter_ns() if breakdown else 0
+        result[name] = classifier(frequency_mhz)
+        if breakdown:
+            metric_name = f"{name}_classifier_ms"
+            metrics[metric_name] = metrics.get(metric_name, 0.0) + benchmark_ms_since(started_ns)
+    return result
 
 
 def build_detections_from_threshold_points(
@@ -1109,6 +1365,7 @@ def build_detections_from_threshold_points(
     window_start_mhz: float,
     window_end_mhz: float,
     window_index: int,
+    metrics: dict | None = None,
 ) -> list[dict]:
     """
     Konsep baru:
@@ -1119,13 +1376,27 @@ def build_detections_from_threshold_points(
     Setiap index FFT di atas threshold menjadi satu detection.
     """
 
+    threshold_started_ns = perf_counter_ns() if metrics is not None else 0
     threshold_indexes = np.where(power_db >= threshold_db)[0]
+    if metrics is not None:
+        metrics["threshold_index_ms"] = benchmark_ms_since(threshold_started_ns)
+        metrics["threshold_bin_count"] = int(len(threshold_indexes))
+        metrics["classification_total_ms"] = 0.0
+        if benchmark_classifier_breakdown_enabled():
+            for name in ("gsm", "umts", "lte", "nr"):
+                metrics[f"{name}_classifier_ms"] = 0.0
     detections = []
+    detection_started_ns = perf_counter_ns() if metrics is not None else 0
 
     for index in threshold_indexes:
         detected_frequency_mhz = float(frequency_axis_mhz[index])
         detected_power_db = float(power_db[index])
-        classification = classify_frequency(detected_frequency_mhz)
+        classification_started_ns = perf_counter_ns() if metrics is not None else 0
+        classification = classify_frequency(detected_frequency_mhz, metrics)
+        if metrics is not None:
+            metrics["classification_total_ms"] = metrics.get(
+                "classification_total_ms", 0.0
+            ) + benchmark_ms_since(classification_started_ns)
 
         detections.append(
             {
@@ -1141,6 +1412,8 @@ def build_detections_from_threshold_points(
             }
         )
 
+    if metrics is not None:
+        metrics["detection_build_total_ms"] = benchmark_ms_since(detection_started_ns)
     return detections
 
 
@@ -1235,6 +1508,9 @@ def scan_frequency_window(
     threshold_db: float,
     window_index: int,
     channel_targets: list[dict] | None = None,
+    metrics: dict | None = None,
+    request_id: str | None = None,
+    benchmark_context: dict | None = None,
 ) -> dict:
     """
     Membaca satu window frekuensi, menghitung FFT, dan mengambil semua
@@ -1252,6 +1528,9 @@ def scan_frequency_window(
             num_samps=NUM_SAMPS,
             center_frequency_hz=center_frequency_hz,
             sample_rate_hz=sample_rate_hz,
+            metrics=metrics,
+            request_id=request_id,
+            benchmark_context=benchmark_context,
         )
 
     except UhdScannerError as error:
@@ -1272,7 +1551,10 @@ def scan_frequency_window(
             ),
         ) from error
 
+    asarray_started_ns = perf_counter_ns() if metrics is not None else 0
     iq_samples = np.asarray(iq_samples)
+    if metrics is not None:
+        metrics["main_iq_asarray_ms"] = benchmark_ms_since(asarray_started_ns)
 
     if len(iq_samples) == 0:
         raise HTTPException(
@@ -1280,14 +1562,24 @@ def scan_frequency_window(
             detail="The USRP did not send IQ samples.",
         )
 
+    hann_started_ns = perf_counter_ns() if metrics is not None else 0
     window = np.hanning(len(iq_samples))
+    if metrics is not None:
+        metrics["hann_ms"] = benchmark_ms_since(hann_started_ns)
 
+    fft_started_ns = perf_counter_ns() if metrics is not None else 0
     fft_data = np.fft.fftshift(
         np.fft.fft(iq_samples * window)
     )
+    if metrics is not None:
+        metrics["fft_ms"] = benchmark_ms_since(fft_started_ns)
 
+    power_started_ns = perf_counter_ns() if metrics is not None else 0
     power_db = 20 * np.log10(np.abs(fft_data) + 1e-12)
+    if metrics is not None:
+        metrics["power_conversion_ms"] = benchmark_ms_since(power_started_ns)
 
+    axis_started_ns = perf_counter_ns() if metrics is not None else 0
     frequency_axis_mhz = (
         np.fft.fftshift(
             np.fft.fftfreq(
@@ -1297,10 +1589,15 @@ def scan_frequency_window(
         )
         + center_frequency_hz
     ) / 1e6
+    if metrics is not None:
+        metrics["frequency_axis_ms"] = benchmark_ms_since(axis_started_ns)
 
+    peak_started_ns = perf_counter_ns() if metrics is not None else 0
     peak_index = int(np.argmax(power_db))
     peak_frequency_mhz = float(frequency_axis_mhz[peak_index])
     peak_power_db = float(power_db[peak_index])
+    if metrics is not None:
+        metrics["peak_lookup_ms"] = benchmark_ms_since(peak_started_ns)
 
     detections = build_detections_from_threshold_points(
         frequency_axis_mhz=frequency_axis_mhz,
@@ -1309,8 +1606,10 @@ def scan_frequency_window(
         window_start_mhz=window_start_mhz,
         window_end_mhz=window_end_mhz,
         window_index=window_index,
+        metrics=metrics,
     )
 
+    channel_started_ns = perf_counter_ns() if metrics is not None else 0
     channel_measurements = build_channel_measurements_from_fft(
         frequency_axis_mhz=frequency_axis_mhz,
         power_db=power_db,
@@ -1320,6 +1619,8 @@ def scan_frequency_window(
         window_index=window_index,
         channel_targets=channel_targets,
     )
+    if metrics is not None:
+        metrics["channel_measurement_ms"] = benchmark_ms_since(channel_started_ns)
 
     (
         display_frequency_mhz,
@@ -1329,7 +1630,8 @@ def scan_frequency_window(
         power_db,
     )
 
-    return {
+    list_started_ns = perf_counter_ns() if metrics is not None else 0
+    result = {
         "window": {
             "window_index": int(window_index),
             "start_frequency_mhz": float(window_start_mhz),
@@ -1351,6 +1653,9 @@ def scan_frequency_window(
         "detections": detections,
         "channel_measurements": channel_measurements,
     }
+    if metrics is not None:
+        metrics["spectrum_to_list_ms"] = benchmark_ms_since(list_started_ns)
+    return result
 
 
 @app.get("/")
@@ -1531,6 +1836,8 @@ def start_scan(request: ScanRequest):
         scan_state["session_saved"] = False
         started_state = deepcopy(scan_state)
 
+    create_benchmark_session(started_state)
+
     return {
         "message": (
             f"{requested_owner.title()} sweep scan started."
@@ -1568,6 +1875,7 @@ def stop_scan(request: StopScanRequest):
         state = deepcopy(scan_state)
 
     scanner_manager.release("scan stopped", force=True)
+    discard_benchmark_session(state.get("session_id"), "manual_stop")
 
     return {
         "message": f"{requested_owner.title()} Scan stopped.",
@@ -1664,7 +1972,7 @@ def scan_history_detail(session_id: str):
 
 
 @app.get("/api/spectrum")
-def get_spectrum():
+def get_spectrum(request: Request):
     """
     Endpoint ini sekarang menjalankan sweep secara bertahap.
 
@@ -1675,6 +1983,8 @@ def get_spectrum():
     - current_start_mhz maju ke window berikutnya
     """
 
+    benchmark_context = getattr(request.state, "benchmark_context", None)
+    endpoint_started_ns = perf_counter_ns() if benchmark_context is not None else 0
     state = get_current_state()
 
     if not state["running"]:
@@ -1709,6 +2019,15 @@ def get_spectrum():
         full_end_mhz,
     )
     window_index = int(sweep["scanned_windows"]) + 1
+
+    if benchmark_context is not None:
+        benchmark_context.update({
+            "session_id": state.get("session_id"), "request_id": uuid4().hex,
+            "scan_owner": state.get("scan_owner"), "window_index": window_index,
+            "total_windows": sweep["total_windows"], "window_start_mhz": window_start_mhz,
+            "window_end_mhz": window_end_mhz, "window": True,
+        })
+        register_benchmark_poll(benchmark_context)
 
     # Jika sudah tidak ada window tersisa, tandai selesai.
     if window_start_mhz >= full_end_mhz:
@@ -1759,8 +2078,21 @@ def get_spectrum():
                 if state.get("scan_owner") == SCAN_OWNER_SPECIFIC
                 else []
             ),
+            metrics=(benchmark_context["timings_ms"] if benchmark_context is not None else None),
+            request_id=(benchmark_context["request_id"] if benchmark_context is not None else None),
+            benchmark_context=({
+                "session_id": state.get("session_id"), "scan_owner": state.get("scan_owner"),
+                "window_index": window_index,
+            } if benchmark_context is not None else None),
         )
     except HTTPException as error:
+        if benchmark_context is not None:
+            with benchmark_lock:
+                session = benchmark_sessions.get(state.get("session_id"))
+                if session is not None:
+                    session["acquisition_error_count"] += 1
+            safe_benchmark_log("[BENCH]", {"event": "spectrum_error", "schema_version": 1,
+                "request_id": benchmark_context["request_id"], "session_id": state.get("session_id"), "error": str(error.detail)})
         release_scan_lock_after_error(
             state.get("session_id"),
             str(error.detail),
@@ -1773,6 +2105,13 @@ def get_spectrum():
             ),
         ) from error
     except Exception as error:
+        if benchmark_context is not None:
+            with benchmark_lock:
+                session = benchmark_sessions.get(state.get("session_id"))
+                if session is not None:
+                    session["acquisition_error_count"] += 1
+            safe_benchmark_log("[BENCH]", {"event": "spectrum_error", "schema_version": 1,
+                "request_id": benchmark_context["request_id"], "session_id": state.get("session_id"), "error": str(error)})
         release_scan_lock_after_error(
             state.get("session_id"),
             str(error),
@@ -1788,8 +2127,15 @@ def get_spectrum():
     next_start_mhz = window_end_mhz
     completed = next_start_mhz >= full_end_mhz
 
+    state_wait_started_ns = perf_counter_ns() if benchmark_context is not None else 0
     with state_lock:
+        if benchmark_context is not None:
+            benchmark_context["timings_ms"]["state_lock_wait_ms"] = benchmark_ms_since(state_wait_started_ns)
+        state_update_started_ns = perf_counter_ns() if benchmark_context is not None else 0
+        detections_extend_started_ns = perf_counter_ns() if benchmark_context is not None else 0
         scan_state["detections"].extend(scan_result["detections"])
+        if benchmark_context is not None:
+            benchmark_context["timings_ms"]["detections_extend_ms"] = benchmark_ms_since(detections_extend_started_ns)
         scan_state["last_window_detections"] = scan_result["detections"]
 
         for measurement in scan_result["channel_measurements"]:
@@ -1811,11 +2157,14 @@ def get_spectrum():
                     measurement_key
                 ] = measurement
 
+        preview_started_ns = perf_counter_ns() if benchmark_context is not None else 0
         append_spectrum_preview_window(
             scan_state["spectrum_preview"],
             scan_result["spectrum"],
             scan_state["sweep"]["total_windows"],
         )
+        if benchmark_context is not None:
+            benchmark_context["timings_ms"]["preview_append_ms"] = benchmark_ms_since(preview_started_ns)
         scan_state["last_peak"] = scan_result["peak"]
         scan_state["sweep"]["last_window_start_mhz"] = window_start_mhz
         scan_state["sweep"]["last_window_end_mhz"] = window_end_mhz
@@ -1836,14 +2185,30 @@ def get_spectrum():
 
         if completed:
             scan_state["completed_at"] = updated_at
+            history_started_ns = perf_counter_ns() if benchmark_context is not None else 0
             save_completed_session_if_needed_locked()
+            if benchmark_context is not None:
+                benchmark_context["timings_ms"]["completion_history_save_ms"] = benchmark_ms_since(history_started_ns)
 
+        deepcopy_started_ns = perf_counter_ns() if benchmark_context is not None else 0
         updated_state = deepcopy(scan_state)
+        if benchmark_context is not None:
+            benchmark_context["timings_ms"]["state_deepcopy_ms"] = benchmark_ms_since(deepcopy_started_ns)
+            benchmark_context["timings_ms"]["state_update_locked_ms"] = benchmark_ms_since(state_update_started_ns)
 
     if completed:
         scanner_manager.release("scan completed")
 
-    return {
+    channel_snapshot_started_ns = perf_counter_ns() if benchmark_context is not None else 0
+    channel_snapshot = get_channel_measurements(updated_state)
+    if benchmark_context is not None:
+        benchmark_context["timings_ms"]["channel_snapshot_ms"] = benchmark_ms_since(channel_snapshot_started_ns)
+    preview_finalize_started_ns = perf_counter_ns() if benchmark_context is not None else 0
+    spectrum_preview = finalize_spectrum_preview(updated_state)
+    if benchmark_context is not None:
+        benchmark_context["timings_ms"]["preview_finalize_ms"] = benchmark_ms_since(preview_finalize_started_ns)
+    response_started_ns = perf_counter_ns() if benchmark_context is not None else 0
+    response = {
         "running": updated_state["running"],
         "completed": updated_state["completed"],
         "timestamp": datetime.now().isoformat(timespec="seconds"),
@@ -1859,10 +2224,25 @@ def get_spectrum():
         "detections": scan_result["detections"],
         "last_window_detection_count": len(scan_result["detections"]),
         "detection_count": len(updated_state["detections"]),
-        "channel_measurements": get_channel_measurements(updated_state),
-        "spectrum_preview": finalize_spectrum_preview(updated_state),
+        "channel_measurements": channel_snapshot,
+        "spectrum_preview": spectrum_preview,
         "session_id": updated_state["session_id"],
         "completed_at": updated_state["completed_at"],
         "session_saved": updated_state["session_saved"],
         "debug_clusters": build_empty_debug_clusters(),
     }
+    if benchmark_context is not None:
+        benchmark_context.update({
+            "sample_count": scan_result["window"]["sample_count"],
+            "threshold_bin_count": benchmark_context["timings_ms"].get("threshold_bin_count", 0),
+            "detection_count": len(scan_result["detections"]),
+            "cumulative_detection_count": len(updated_state["detections"]),
+            "channel_measurement_count": len(scan_result["channel_measurements"]),
+            "threshold_detection_invariant_ok": benchmark_context["timings_ms"].get("threshold_bin_count", 0) == len(scan_result["detections"]),
+            "sweep_completed": completed,
+            "success": True,
+        })
+        benchmark_context["timings_ms"]["response_dict_build_ms"] = benchmark_ms_since(response_started_ns)
+        benchmark_context["endpoint_logic_end_ns"] = perf_counter_ns()
+        benchmark_context["timings_ms"]["endpoint_logic_ms"] = benchmark_ms_since(endpoint_started_ns)
+    return response

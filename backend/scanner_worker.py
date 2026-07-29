@@ -10,11 +10,24 @@ from __future__ import annotations
 
 from multiprocessing import get_context
 from threading import Lock
-from time import monotonic
+from time import monotonic, perf_counter_ns
+import json
 from uuid import uuid4
 
 import numpy as np
 import uhd
+
+
+def _ms_since(start_ns: int) -> float:
+    return (perf_counter_ns() - start_ns) / 1_000_000
+
+
+def _safe_worker_benchmark_log(payload: dict) -> None:
+    """Best-effort worker benchmark logging must never affect acquisition."""
+    try:
+        print("[BENCH_WORKER] " + json.dumps(payload, separators=(",", ":")))
+    except Exception:
+        pass
 
 
 class UhdScannerError(RuntimeError):
@@ -82,8 +95,19 @@ def _scanner_worker_main(connection, config: dict) -> None:
                 continue
 
             request_id = command.get("request_id")
+            if "benchmark_enabled" in command:
+                benchmark_enabled = bool(command.get("benchmark_enabled"))
+                benchmark_context = (
+                    command.get("benchmark_context") or {}
+                    if benchmark_enabled
+                    else None
+                )
+            else:
+                benchmark_enabled = False
+                benchmark_context = None
 
             try:
+                recv_started_ns = perf_counter_ns() if benchmark_enabled else None
                 samples = usrp_device.recv_num_samps(
                     int(command["num_samps"]),
                     float(command["center_frequency_hz"]),
@@ -91,18 +115,43 @@ def _scanner_worker_main(connection, config: dict) -> None:
                     [int(config["channel"])],
                     float(config["gain_db"]),
                 )
-
-                iq_samples = np.asarray(samples[0]).copy()
-
-                _safe_send(
-                    connection,
-                    {
-                        "type": "result",
-                        "request_id": request_id,
-                        "ok": True,
-                        "samples": iq_samples,
-                    },
+                recv_ms = (
+                    _ms_since(recv_started_ns)
+                    if recv_started_ns is not None
+                    else None
                 )
+
+                copy_started_ns = perf_counter_ns() if benchmark_enabled else None
+                iq_samples = np.asarray(samples[0]).copy()
+                copy_ms = (
+                    _ms_since(copy_started_ns)
+                    if copy_started_ns is not None
+                    else None
+                )
+
+                payload = {
+                    "type": "result",
+                    "request_id": request_id,
+                    "ok": True,
+                    "samples": iq_samples,
+                }
+                if benchmark_enabled:
+                    payload["worker_timings_ms"] = {
+                        "uhd_recv_num_samps_ms": recv_ms,
+                        "worker_iq_copy_ms": copy_ms,
+                        "worker_pre_send_total_ms": recv_ms + copy_ms,
+                    }
+
+                send_started_ns = perf_counter_ns() if benchmark_enabled else None
+                _safe_send(connection, payload)
+                if benchmark_enabled:
+                    _safe_worker_benchmark_log({
+                        "event": "worker_result_send",
+                        "schema_version": 1,
+                        "request_id": request_id,
+                        "worker_result_send_ms": _ms_since(send_started_ns),
+                        **benchmark_context,
+                    })
 
             except BaseException as error:
                 # Setelah error UHD, worker ini dianggap tidak aman untuk
@@ -257,6 +306,7 @@ class UhdScannerManager:
         timeout_seconds: float,
         expected_type: str,
         request_id: str | None = None,
+        metrics: dict | None = None,
     ) -> dict:
         deadline = monotonic() + timeout_seconds
 
@@ -273,7 +323,12 @@ class UhdScannerManager:
                 )
 
             try:
+                poll_started_ns = perf_counter_ns() if metrics is not None else None
                 has_message = connection.poll(0.1)
+                if metrics is not None:
+                    metrics["pipe_wait_total_ms"] = metrics.get(
+                        "pipe_wait_total_ms", 0.0
+                    ) + _ms_since(poll_started_ns)
             except (EOFError, OSError) as error:
                 raise UhdScannerError(
                     "The connection to the UHD scanner process was lost."
@@ -283,7 +338,12 @@ class UhdScannerManager:
                 continue
 
             try:
+                recv_started_ns = perf_counter_ns() if metrics is not None else None
                 message = connection.recv()
+                if metrics is not None:
+                    metrics["pipe_result_recv_ms"] = metrics.get(
+                        "pipe_result_recv_ms", 0.0
+                    ) + _ms_since(recv_started_ns)
             except (EOFError, OSError) as error:
                 raise UhdScannerError(
                     "The UHD scanner process closed the connection without a response."
@@ -305,7 +365,8 @@ class UhdScannerManager:
             f"{timeout_seconds:.0f} seconds."
         )
 
-    def _start_worker(self):
+    def _start_worker(self, metrics: dict | None = None):
+        prepare_started_ns = perf_counter_ns() if metrics is not None else None
         existing_process, existing_connection = self._get_current_worker()
 
         if (
@@ -313,6 +374,10 @@ class UhdScannerManager:
             and existing_connection is not None
             and existing_process.is_alive()
         ):
+            if metrics is not None:
+                metrics["worker_reused"] = True
+                metrics["worker_started_this_call"] = False
+                metrics["worker_prepare_ms"] = _ms_since(prepare_started_ns)
             return existing_process, existing_connection
 
         if existing_process is not None or existing_connection is not None:
@@ -380,6 +445,10 @@ class UhdScannerManager:
                 )
             raise UhdScannerError(error_message)
 
+        if metrics is not None:
+            metrics["worker_reused"] = False
+            metrics["worker_started_this_call"] = True
+            metrics["worker_prepare_ms"] = _ms_since(prepare_started_ns)
         return process, parent_connection
 
     def acquire_samples(
@@ -389,6 +458,9 @@ class UhdScannerManager:
         center_frequency_hz: float,
         sample_rate_hz: float,
         timeout_seconds: float | None = None,
+        metrics: dict | None = None,
+        request_id: str | None = None,
+        benchmark_context: dict | None = None,
     ) -> np.ndarray:
         """Membaca IQ sample melalui proses worker terisolasi."""
 
@@ -398,22 +470,31 @@ class UhdScannerManager:
             else float(timeout_seconds)
         )
 
+        acquire_started_ns = perf_counter_ns() if metrics is not None else None
+        command_wait_started_ns = (
+            perf_counter_ns() if metrics is not None else None
+        )
         with self._command_lock:
-            process, connection = self._start_worker()
-            request_id = uuid4().hex
+            if metrics is not None:
+                metrics["command_lock_wait_ms"] = _ms_since(command_wait_started_ns)
+            process, connection = self._start_worker(metrics=metrics)
+            request_id = request_id or uuid4().hex
 
             try:
-                connection.send(
-                    {
-                        "type": "acquire",
-                        "request_id": request_id,
-                        "num_samps": int(num_samps),
-                        "center_frequency_hz": float(
-                            center_frequency_hz
-                        ),
-                        "sample_rate_hz": float(sample_rate_hz),
-                    }
-                )
+                command = {
+                    "type": "acquire",
+                    "request_id": request_id,
+                    "num_samps": int(num_samps),
+                    "center_frequency_hz": float(center_frequency_hz),
+                    "sample_rate_hz": float(sample_rate_hz),
+                }
+                if metrics is not None:
+                    command["benchmark_enabled"] = True
+                    command["benchmark_context"] = benchmark_context or {}
+                    send_started_ns = perf_counter_ns()
+                connection.send(command)
+                if metrics is not None:
+                    metrics["pipe_command_send_ms"] = _ms_since(send_started_ns)
 
                 result_message = self._wait_for_message(
                     process=process,
@@ -421,6 +502,7 @@ class UhdScannerManager:
                     timeout_seconds=timeout,
                     expected_type="result",
                     request_id=request_id,
+                    metrics=metrics,
                 )
 
                 if not result_message.get("ok"):
@@ -429,7 +511,12 @@ class UhdScannerManager:
                         or "The worker failed to read IQ samples."
                     )
 
-                return np.asarray(result_message["samples"])
+                array_started_ns = perf_counter_ns() if metrics is not None else None
+                result = np.asarray(result_message["samples"])
+                if metrics is not None:
+                    metrics["parent_result_array_ms"] = _ms_since(array_started_ns)
+                    metrics.update(result_message.get("worker_timings_ms") or {})
+                return result
 
             except BaseException:
                 if self._detach_if_current(process, connection):
@@ -439,3 +526,8 @@ class UhdScannerManager:
                         force=True,
                     )
                 raise
+            finally:
+                if metrics is not None:
+                    metrics["manager_acquire_total_ms"] = _ms_since(
+                        acquire_started_ns
+                    )
