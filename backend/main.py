@@ -149,6 +149,10 @@ def create_benchmark_session(state: dict) -> None:
             "last_response_finish_ns": None, "windows": [],
             "acquisition_error_count": 0, "in_flight_count": 0,
             "completed": False, "summary_emitted": False,
+            "terminal_outcome": None,
+            "snapshot_request_count": 0, "snapshot_last_request_start_ns": None,
+            "snapshot_last_response_finish_ns": None, "snapshot_polls": [],
+            "architecture_mode": "continuous_rolling_sweep",
         }
 
 
@@ -185,13 +189,74 @@ def discard_benchmark_session(session_id: str | None, reason: str) -> None:
         return
     try:
         with benchmark_lock:
-            session = benchmark_sessions.pop(session_id, None)
+            session = benchmark_sessions.get(session_id)
+            # A completed scan owns the successful terminal event.  A late Stop,
+            # disconnect, or acquisition exception must not turn it into abort.
+            if session is None or session.get("completed") or session.get("terminal_outcome"):
+                return False
+            session["terminal_outcome"] = "sweep_aborted"
+            benchmark_sessions.pop(session_id, None)
         if session is not None:
             safe_benchmark_log("[BENCH]", {
                 "event": "sweep_aborted", "schema_version": BENCHMARK_SCHEMA_VERSION,
                 "session_id": session_id, "scan_owner": session.get("scan_owner"),
                 "reason": reason,
             })
+        return True
+    except Exception:
+        return False
+
+
+def register_benchmark_snapshot_poll(context: dict) -> None:
+    """Record read-only spectrum polling independently of acquisition windows."""
+    session_id = context.get("session_id")
+    if not session_id:
+        return
+    with benchmark_lock:
+        session = benchmark_sessions.get(session_id)
+        if session is None or session.get("terminal_outcome"):
+            return
+        started_ns = context["request_start_ns"]
+        previous_start = session["snapshot_last_request_start_ns"]
+        previous_finish = session["snapshot_last_response_finish_ns"]
+        if previous_start is not None:
+            context["timings_ms"]["snapshot_request_gap_ms"] = (
+                started_ns - previous_start
+            ) / 1_000_000
+        if previous_finish is not None:
+            context["timings_ms"]["snapshot_poll_idle_ms"] = (
+                started_ns - previous_finish
+            ) / 1_000_000
+        session["snapshot_last_request_start_ns"] = started_ns
+        session["snapshot_request_count"] += 1
+        context["snapshot_registered"] = True
+
+
+def finish_benchmark_snapshot_poll(context: dict) -> None:
+    """Finish an HTTP snapshot metric without changing acquisition state."""
+    if not context.get("snapshot_request"):
+        return
+    try:
+        finished_ns = perf_counter_ns()
+        context["timings_ms"]["snapshot_request_latency_ms"] = (
+            finished_ns - context["request_start_ns"]
+        ) / 1_000_000
+        session_id = context.get("session_id")
+        with benchmark_lock:
+            session = benchmark_sessions.get(session_id)
+            if session is not None and context.get("snapshot_registered"):
+                session["snapshot_last_response_finish_ns"] = finished_ns
+                session["snapshot_polls"].append({
+                    "latency_ms": context["timings_ms"]["snapshot_request_latency_ms"],
+                    "response_bytes": context.get("response_bytes", 0),
+                    "gap_ms": context["timings_ms"].get("snapshot_request_gap_ms"),
+                })
+        safe_benchmark_log("[BENCH]", {
+            "event": "spectrum_snapshot", "schema_version": BENCHMARK_SCHEMA_VERSION,
+            "architecture_mode": "autonomous_single_sweep", "session_id": session_id,
+            "response_bytes": context.get("response_bytes", 0),
+            "timings_ms": context["timings_ms"],
+        })
     except Exception:
         pass
 
@@ -250,17 +315,37 @@ def finish_benchmark_window(context: dict) -> None:
         pass
 
 
-def emit_benchmark_summary(session_id: str) -> None:
+def emit_benchmark_summary(
+    session_id: str,
+    *,
+    terminal_event: str = "sweep_summary",
+    continuous_state: dict | None = None,
+) -> None:
     try:
         with benchmark_lock:
             session = benchmark_sessions.get(session_id)
-            if session is None or not session.get("summary_emitted"):
+            if session is None or session.get("terminal_outcome"):
                 return
+            if (
+                not session.get("summary_emitted")
+                and session.get("architecture_mode") != "continuous_rolling_sweep"
+            ):
+                return
+            session["terminal_outcome"] = terminal_event
             benchmark_sessions.pop(session_id, None)
         if session is None:
             return
         windows = session["windows"]
-        metrics = ("http_total_ms", "poll_idle_ms", "manager_acquire_total_ms",
+        architecture_mode = session.get("architecture_mode", "request_driven")
+        active_metric = (
+            "controller_window_active_ms"
+            if architecture_mode in {
+                "autonomous_single_sweep",
+                "continuous_rolling_sweep",
+            }
+            else "endpoint_logic_ms"
+        )
+        metrics = (active_metric, "http_total_ms", "poll_idle_ms", "manager_acquire_total_ms",
                    "uhd_recv_num_samps_ms", "fft_ms", "threshold_index_ms",
                    "classification_total_ms", "channel_measurement_ms", "preview_append_ms",
                    "state_deepcopy_ms", "preview_finalize_ms", "response_prepare_ms",
@@ -269,26 +354,63 @@ def emit_benchmark_summary(session_id: str) -> None:
             return {name: percentile_values([w["timings_ms"].get(name, w.get(name))
                     for w in source if w["timings_ms"].get(name, w.get(name)) is not None]) for name in metrics}
         poll_idle_total = sum(w["timings_ms"].get("poll_idle_ms", 0.0) for w in windows)
+        snapshot_polls = session["snapshot_polls"]
+        snapshot_gaps = [
+            poll["gap_ms"] for poll in snapshot_polls if poll["gap_ms"] is not None
+        ]
+        snapshot_mean_gap_ms = (
+            sum(snapshot_gaps) / len(snapshot_gaps) if snapshot_gaps else None
+        )
         wall_ms = (perf_counter_ns() - session["started_ns"]) / 1_000_000
+        if architecture_mode == "continuous_rolling_sweep":
+            expected_window = lambda index: (index % session["expected_window_count"]) + 1
+            sequence_gap_count = sum(
+                1 for index, window in enumerate(windows)
+                if window["window_index"] != expected_window(index)
+            )
+        else:
+            sequence_gap_count = sum(
+                1 for index, window in enumerate(windows, 1)
+                if window["window_index"] != index
+            )
         summary = {
-            "event": "sweep_summary", "schema_version": BENCHMARK_SCHEMA_VERSION,
-            "architecture_mode": "request_driven", "session_id": session_id,
+            "event": terminal_event, "schema_version": BENCHMARK_SCHEMA_VERSION,
+            "architecture_mode": architecture_mode, "session_id": session_id,
             "scan_owner": session["scan_owner"], "range_start_mhz": session["range_start_mhz"],
             "range_end_mhz": session["range_end_mhz"], "window_count": len(windows),
             "expected_window_count": session["expected_window_count"], "sweep_wall_ms": wall_ms,
-            "active_pipeline_total_ms": sum(w["timings_ms"].get("endpoint_logic_ms", 0.0) for w in windows),
+            "active_pipeline_metric": active_metric,
+            "active_pipeline_total_ms": sum(w["timings_ms"].get(active_metric, 0.0) for w in windows),
             "poll_idle_total_ms": poll_idle_total,
             "poll_idle_percent": (poll_idle_total / wall_ms * 100) if wall_ms else 0.0,
             "hop_per_second": (len(windows) / (wall_ms / 1000)) if wall_ms else 0.0,
             "sample_count_total": sum(w.get("sample_count", 0) for w in windows),
             "detection_count_total": sum(w.get("detection_count", 0) for w in windows),
             "response_bytes_total": sum(w.get("response_bytes", 0) for w in windows),
+            "snapshot_polling": {
+                "request_count": session["snapshot_request_count"],
+                "request_gap_percentiles_ms": percentile_values(snapshot_gaps),
+                "mean_polling_frequency_hz": (
+                    1000 / snapshot_mean_gap_ms if snapshot_mean_gap_ms else None
+                ),
+                "request_latency_percentiles_ms": percentile_values([
+                    poll["latency_ms"] for poll in snapshot_polls
+                ]),
+                "response_bytes_total": sum(poll["response_bytes"] for poll in snapshot_polls),
+            },
             "acquisition_error_count": session["acquisition_error_count"],
-            "window_sequence_gap_count": sum(1 for i, w in enumerate(windows, 1) if w["window_index"] != i),
+            "window_sequence_gap_count": sequence_gap_count,
             "deadline_metrics_supported": False,
             "timing_percentiles_ms": {"all_windows": percentiles(windows),
                 "warm_windows_excluding_first": percentiles(windows[1:])},
         }
+        if continuous_state is not None:
+            summary.update({
+                "completed_cycle_count": continuous_state.get("completed_cycles", 0),
+                "current_rolling_detection_count": len(
+                    continuous_state.get("detections", [])
+                ),
+            })
         safe_benchmark_log("[BENCH]", summary)
     except Exception:
         pass
@@ -321,7 +443,10 @@ class BenchmarkHttpMiddleware:
                     finished_ns = perf_counter_ns()
                     context["timings_ms"]["http_total_ms"] = (finished_ns - context["request_start_ns"]) / 1_000_000
                     context["timings_ms"]["response_body_emit_ms"] = (finished_ns - (response_start_ns or finished_ns)) / 1_000_000
-                    finish_benchmark_window(context)
+                    if context.get("snapshot_request"):
+                        finish_benchmark_snapshot_poll(context)
+                    else:
+                        finish_benchmark_window(context)
                     return
             await send(message)
         await self.app(scope, receive, observed_send)
@@ -375,8 +500,13 @@ scan_state = {
         "progress_percent": 0.0,
     },
     "detections": [],
+    # Rolling per-window state. Public `detections` remains a stable flattened
+    # view for compatibility, while this map prevents growth across cycles.
+    "detections_by_window": {},
     "last_window_detections": [],
+    "latest_window_snapshot": None,
     "spectrum_preview": {
+        "segments": {},
         "frequency_mhz": [],
         "power_db": [],
         "source_point_count": 0,
@@ -389,15 +519,32 @@ scan_state = {
     "completed_at": None,
     "updated_at": None,
     "session_saved": False,
+    "history_save_error": None,
+    "cycle_index": 1,
+    "completed_cycles": 0,
+    "cycle_window_index": 0,
+    "cycle_total_windows": 1,
+    "cycle_progress_percent": 0.0,
+    "last_completed_cycle_at": None,
 }
 
 state_lock = Lock()
+# Serializes worker release against the narrow start/controller-registration
+# interval so a stale lifecycle action cannot release a newer worker.
+scan_lifecycle_lock = Lock()
 scanner_manager = UhdScannerManager(
     serial=USRP_SERIAL,
     channel=CHANNEL,
     rx_antenna=RX_ANTENNA,
     gain_db=GAIN_DB,
 )
+
+# The controller owns autonomous window progression; these objects are never
+# stored in scan_state or persisted to scan history.
+controller_lock = Lock()
+controller_thread = None
+controller_session_id = None
+controller_stop_event = None
 
 # Detector USB pasif. Detector ini hanya membaca daftar perangkat Plug and
 # Play Windows (konsep yang setara dengan lsusb di Linux). Detector tidak
@@ -682,12 +829,7 @@ def update_usb_device_state(next_state):
         # Worker UHD berada di proses terpisah. Ketika USB hilang, proses
         # scanner dihentikan paksa agar crash native tidak menjatuhkan FastAPI.
         if next_status == "disconnected":
-            scanner_manager.release(
-                "USB disconnected",
-                force=True,
-            )
-
-            disconnected_session_id = None
+            scan_lifecycle_lock.acquire()
             with state_lock:
                 disconnected_session_id = scan_state.get("session_id")
                 if scan_state.get("running"):
@@ -698,10 +840,18 @@ def update_usb_device_state(next_state):
                         "The USRP connection was lost while the scan was running."
                     )
                     scan_state["updated_at"] = now
+            # The session id is captured while state is protected, then all
+            # potentially blocking controller/worker operations happen outside.
+            _signal_controller_stop(disconnected_session_id)
+            try:
+                scanner_manager.release("USB disconnected", force=True)
+            except Exception:
+                pass
             discard_benchmark_session(
                 disconnected_session_id,
                 "usb_disconnected",
             )
+            scan_lifecycle_lock.release()
 
 
 def get_usb_device_state():
@@ -745,11 +895,18 @@ def app_startup():
 @app.on_event("shutdown")
 def app_shutdown():
     stop_usb_detector()
-    scanner_manager.release("application shutdown", force=True)
-    discard_benchmark_session(
-        get_current_state().get("session_id"),
-        "application_shutdown",
-    )
+    scan_lifecycle_lock.acquire()
+    state = get_current_state()
+    session_id = state.get("session_id")
+    _signal_controller_stop(session_id)
+    try:
+        scanner_manager.release("application shutdown", force=True)
+    except Exception:
+        pass
+    finally:
+        _join_controller(session_id)
+        discard_benchmark_session(session_id, "application_shutdown")
+        scan_lifecycle_lock.release()
 
 
 def get_current_state():
@@ -784,12 +941,24 @@ def release_scan_lock_after_error(
 ) -> dict:
     """Menghentikan scan gagal agar ownership scanner tidak tertinggal."""
 
+    scan_lifecycle_lock.acquire()
     with state_lock:
+        with controller_lock:
+            controller_matches = controller_session_id == expected_session_id
+            stop_requested = (
+                controller_matches
+                and controller_stop_event is not None
+                and controller_stop_event.is_set()
+            )
         if (
-            expected_session_id is not None
-            and scan_state.get("session_id") != expected_session_id
+            expected_session_id is None
+            or scan_state.get("session_id") != expected_session_id
+            or not scan_state.get("running")
+            or not controller_matches
+            or stop_requested
         ):
-            return deepcopy(scan_state)
+            scan_lifecycle_lock.release()
+            return {"transitioned": False, "state": deepcopy(scan_state)}
 
         now = datetime.now().isoformat(timespec="seconds")
         scan_state["running"] = False
@@ -798,9 +967,14 @@ def release_scan_lock_after_error(
         scan_state["updated_at"] = now
         failed_state = deepcopy(scan_state)
 
-    scanner_manager.release("scan error", force=True)
+    _signal_controller_stop(expected_session_id)
+    try:
+        scanner_manager.release("scan error", force=True)
+    except Exception:
+        pass
     discard_benchmark_session(expected_session_id, "scan_error")
-    return failed_state
+    scan_lifecycle_lock.release()
+    return {"transitioned": True, "state": failed_state}
 
 
 def resolve_specific_machine(machine_id: int) -> dict:
@@ -924,6 +1098,7 @@ def create_empty_spectrum_preview() -> dict:
     """
 
     return {
+        "segments": {},
         "frequency_mhz": [],
         "power_db": [],
         "source_point_count": 0,
@@ -1040,8 +1215,20 @@ def finalize_spectrum_preview(state: dict) -> dict | None:
     """
 
     preview = deepcopy(state.get("spectrum_preview") or {})
-    frequency_values = preview.get("frequency_mhz", [])
-    power_values = preview.get("power_db", [])
+    segments = preview.get("segments") or {}
+    if segments:
+        frequency_values = []
+        power_values = []
+        for _, segment in sorted(segments.items(), key=lambda item: int(item[0])):
+            point_count = min(
+                len(segment.get("frequency_mhz", [])),
+                len(segment.get("power_db", [])),
+            )
+            frequency_values.extend(segment.get("frequency_mhz", [])[:point_count])
+            power_values.extend(segment.get("power_db", [])[:point_count])
+    else:
+        frequency_values = preview.get("frequency_mhz", [])
+        power_values = preview.get("power_db", [])
     point_count = min(len(frequency_values), len(power_values))
 
     if point_count <= 0:
@@ -1055,8 +1242,17 @@ def finalize_spectrum_preview(state: dict) -> dict | None:
         key=lambda index: float(frequency_values[index]),
     )
 
-    sorted_frequency = [float(frequency_values[index]) for index in order]
-    sorted_power = [float(power_values[index]) for index in order]
+    sorted_frequency = []
+    sorted_power = []
+    seen_frequency = set()
+    for index in order:
+        frequency = float(frequency_values[index])
+        power = float(power_values[index])
+        key = format(frequency, ".12g")
+        if key not in seen_frequency:
+            seen_frequency.add(key)
+            sorted_frequency.append(frequency)
+            sorted_power.append(power)
 
     config = state.get("config", {})
 
@@ -1065,7 +1261,10 @@ def finalize_spectrum_preview(state: dict) -> dict | None:
         "frequency_mhz": sorted_frequency,
         "power_db": sorted_power,
         "point_count": len(sorted_frequency),
-        "source_point_count": int(preview.get("source_point_count", 0)),
+        "source_point_count": int(sum(
+            int(segment.get("source_point_count", 0))
+            for segment in segments.values()
+        )) if segments else int(preview.get("source_point_count", 0)),
         "target_point_count": SPECTRUM_PREVIEW_TARGET_POINTS,
         "start_frequency_mhz": config.get("start_frequency_mhz"),
         "end_frequency_mhz": config.get("end_frequency_mhz"),
@@ -1160,6 +1359,7 @@ def build_scan_session_payload(state: dict, completed_at: str) -> dict:
         **get_scan_identity(state),
         "config": state.get("config", {}),
         "sweep": state.get("sweep", {}),
+        **get_cycle_state(state),
         "peak": state.get("last_peak"),
         "spectrum_preview": spectrum_preview,
         "detections": detections,
@@ -1167,6 +1367,7 @@ def build_scan_session_payload(state: dict, completed_at: str) -> dict:
         "detectionCount": len(detections),
         "detection_count": len(detections),
         "last_error": state.get("last_error"),
+        "history_save_error": state.get("history_save_error"),
     }
 
 
@@ -1184,13 +1385,13 @@ def save_scan_session_payload(session_payload: dict) -> None:
         json.dump(session_payload, file, ensure_ascii=False, indent=2)
 
 
-def save_completed_session_if_needed_locked() -> dict | None:
+def save_completed_session_if_needed_locked(allow_stopped: bool = False) -> dict | None:
     """
     Dipanggil saat state_lock sedang aktif.
     Menyimpan hasil scan sekali saja ketika scan completed.
     """
 
-    if not scan_state.get("completed"):
+    if not scan_state.get("completed") and not allow_stopped:
         return None
 
     if scan_state.get("session_saved"):
@@ -1202,14 +1403,22 @@ def save_completed_session_if_needed_locked() -> dict | None:
 
     scan_state["completed_at"] = completed_at
 
-    session_payload = build_scan_session_payload(
-        deepcopy(scan_state),
-        completed_at,
-    )
+    try:
+        session_payload = build_scan_session_payload(
+            deepcopy(scan_state),
+            completed_at,
+        )
+        save_scan_session_payload(session_payload)
+    except Exception as error:
+        # History persistence is best-effort after RF completion; it must not
+        # prevent benchmark finalization, worker release, or thread cleanup.
+        scan_state["session_saved"] = False
+        scan_state["history_save_error"] = f"Unable to save scan history: {error}"
+        print(f"[HISTORY] {scan_state['history_save_error']}")
+        return None
 
-    save_scan_session_payload(session_payload)
     scan_state["session_saved"] = True
-
+    scan_state["history_save_error"] = None
     return session_payload
 
 
@@ -1658,6 +1867,34 @@ def scan_frequency_window(
     return result
 
 
+def get_cycle_state(state: dict) -> dict:
+    """Public, serializable rolling-cycle fields shared by scan endpoints."""
+    return {
+        "cycle_index": state.get("cycle_index", 1),
+        "completed_cycles": state.get("completed_cycles", 0),
+        "cycle_window_index": state.get("cycle_window_index", 0),
+        "cycle_total_windows": state.get("cycle_total_windows", 1),
+        "cycle_progress_percent": state.get("cycle_progress_percent", 0.0),
+        "last_completed_cycle_at": state.get("last_completed_cycle_at"),
+    }
+
+
+def flatten_rolling_detections(detections_by_window: dict) -> list[dict]:
+    """Stable API order without changing the one-detection-per-bin rule."""
+    flattened = []
+    for window_index, detections in sorted(
+        detections_by_window.items(), key=lambda item: int(item[0])
+    ):
+        flattened.extend(sorted(
+            detections,
+            key=lambda item: (
+                float(item.get("frequency_mhz", 0.0)),
+                float(item.get("power_db", 0.0)),
+            ),
+        ))
+    return flattened
+
+
 @app.get("/")
 def root():
     return {
@@ -1716,6 +1953,7 @@ def scan_status():
         **get_scan_identity(state),
         "config": state["config"],
         "sweep": state["sweep"],
+        **get_cycle_state(state),
         "detection_count": len(state["detections"]),
         "last_window_detection_count": len(
             state["last_window_detections"]
@@ -1730,7 +1968,256 @@ def scan_status():
         "completed_at": state["completed_at"],
         "updated_at": state["updated_at"],
         "session_saved": state["session_saved"],
+        "history_save_error": state["history_save_error"],
     }
+
+
+def _controller_is_active() -> bool:
+    with controller_lock:
+        return controller_thread is not None and controller_thread.is_alive()
+
+
+def _signal_controller_stop(session_id: str | None) -> None:
+    with controller_lock:
+        if controller_session_id == session_id and controller_stop_event is not None:
+            controller_stop_event.set()
+
+
+def _clear_controller_reference(session_id: str) -> None:
+    global controller_thread, controller_session_id, controller_stop_event
+    with controller_lock:
+        if controller_session_id == session_id:
+            controller_thread = None
+            controller_session_id = None
+            controller_stop_event = None
+
+
+def _join_controller(session_id: str | None, timeout: float = 2.0) -> None:
+    with controller_lock:
+        thread = (
+            controller_thread
+            if controller_session_id == session_id
+            else None
+        )
+    if thread is not None:
+        thread.join(timeout=timeout)
+
+
+def _record_autonomous_window(context: dict, completed: bool) -> None:
+    """Record controller-owned window timing without involving HTTP polling."""
+    if not benchmark_enabled():
+        return
+    try:
+        session_id = context["session_id"]
+        with benchmark_lock:
+            session = benchmark_sessions.get(session_id)
+            if session is None:
+                return
+            session["windows"].append(context)
+        safe_benchmark_log("[BENCH]", {
+            "event": "spectrum_window", "schema_version": 1,
+            "architecture_mode": "continuous_rolling_sweep",
+            "session_id": session_id, "request_id": context["request_id"],
+            "scan_owner": context["scan_owner"], "window_index": context["window_index"],
+            "total_windows": context["total_windows"],
+            "window_start_mhz": context["window_start_mhz"], "window_end_mhz": context["window_end_mhz"],
+            "sample_count": context["sample_count"], "threshold_bin_count": context["threshold_bin_count"],
+            "detection_count": context["detection_count"], "cumulative_detection_count": context["cumulative_detection_count"],
+            "channel_measurement_count": context["channel_measurement_count"],
+            "threshold_detection_invariant_ok": context["threshold_detection_invariant_ok"],
+            "worker_reused": context["timings_ms"].get("worker_reused", False),
+            "worker_started_this_call": context["timings_ms"].get("worker_started_this_call", False),
+            "response_bytes": 0, "timings_ms": context["timings_ms"],
+        })
+    except Exception:
+        pass
+
+
+def _record_benchmark_cycle_summary(
+    session_id: str,
+    cycle_index: int,
+    windows: list[dict],
+    cycle_started_ns: int,
+) -> None:
+    """Emit a non-terminal cycle summary; the session remains active."""
+    if not benchmark_enabled() or not windows:
+        return
+    try:
+        duration_ms = benchmark_ms_since(cycle_started_ns)
+        safe_benchmark_log("[BENCH]", {
+            "event": "sweep_cycle_summary", "schema_version": BENCHMARK_SCHEMA_VERSION,
+            "architecture_mode": "continuous_rolling_sweep", "session_id": session_id,
+            "cycle_index": cycle_index, "window_count": len(windows),
+            "expected_window_count": windows[-1]["total_windows"],
+            "cycle_duration_ms": duration_ms,
+            "hop_per_second": (len(windows) / (duration_ms / 1000)) if duration_ms else 0.0,
+            "detection_count": sum(window["detection_count"] for window in windows),
+            "acquisition_error_count": 0,
+        })
+    except Exception:
+        pass
+
+
+def _commit_autonomous_window(
+    session_id: str,
+    stop_event: Event,
+    scan_result: dict,
+    window_start_mhz: float,
+    window_end_mhz: float,
+    window_index: int,
+    range_end_mhz: float,
+    metrics: dict | None,
+) -> tuple[bool, bool, int]:
+    """Atomically publish one fully processed window if its session is active."""
+    lock_started_ns = perf_counter_ns() if metrics is not None else None
+    with state_lock:
+        if (
+            stop_event.is_set()
+            or scan_state.get("session_id") != session_id
+            or not scan_state.get("running")
+        ):
+            return False, False, 0
+        if metrics is not None:
+            metrics["state_lock_wait_ms"] = benchmark_ms_since(lock_started_ns)
+        update_started_ns = perf_counter_ns() if metrics is not None else None
+        extend_started_ns = perf_counter_ns() if metrics is not None else None
+        detections_by_window = scan_state.setdefault("detections_by_window", {})
+        detections_by_window[str(window_index)] = deepcopy(scan_result["detections"])
+        scan_state["detections"] = flatten_rolling_detections(detections_by_window)
+        if metrics is not None:
+            metrics["detections_extend_ms"] = benchmark_ms_since(extend_started_ns)
+        scan_state["last_window_detections"] = scan_result["detections"]
+        measurement_windows = scan_state.setdefault("channel_measurements_by_window", {})
+        measurement_windows[str(window_index)] = deepcopy(scan_result["channel_measurements"])
+        scan_state["channel_measurements"] = {}
+        for measurements in measurement_windows.values():
+            for measurement in measurements:
+                measurement_key = f'{measurement["channel_id"]}:{measurement["side"]}'
+                previous = scan_state["channel_measurements"].get(measurement_key)
+                if previous is None or abs(measurement["frequency_offset_khz"]) <= abs(previous["frequency_offset_khz"]):
+                    scan_state["channel_measurements"][measurement_key] = measurement
+        preview_started_ns = perf_counter_ns() if metrics is not None else None
+        replace_spectrum_preview_window(
+            scan_state["spectrum_preview"],
+            window_index,
+            scan_result["spectrum"],
+            scan_state["sweep"]["total_windows"],
+        )
+        if metrics is not None:
+            metrics["preview_append_ms"] = benchmark_ms_since(preview_started_ns)
+        completed = window_index >= scan_state["sweep"]["total_windows"]
+        next_start_mhz = window_end_mhz
+        timestamp = datetime.now().isoformat(timespec="seconds")
+        scan_state["last_peak"] = scan_result["peak"]
+        current_window = deepcopy(scan_result["window"])
+        current_window["cycle_index"] = scan_state["cycle_index"]
+        scan_state["latest_window_snapshot"] = {
+            "current_window": current_window, "spectrum": scan_result["spectrum"],
+            "peak": scan_result["peak"], "detections": scan_result["detections"],
+            "last_window_detection_count": len(scan_result["detections"]),
+            "timestamp": timestamp, "debug_clusters": build_empty_debug_clusters(),
+        }
+        sweep = scan_state["sweep"]
+        sweep["last_window_start_mhz"] = window_start_mhz
+        sweep["last_window_end_mhz"] = window_end_mhz
+        sweep["current_start_mhz"] = next_start_mhz
+        sweep["current_end_mhz"] = min(next_start_mhz + SWEEP_WINDOW_MHZ, range_end_mhz)
+        sweep["scanned_windows"] = window_index
+        sweep["progress_percent"] = round((window_index / sweep["total_windows"]) * 100, 2)
+        scan_state["cycle_window_index"] = window_index
+        scan_state["cycle_progress_percent"] = sweep["progress_percent"]
+        scan_state["running"] = True
+        scan_state["completed"] = False
+        scan_state["updated_at"] = timestamp
+        if completed:
+            scan_state["completed_cycles"] += 1
+            scan_state["last_completed_cycle_at"] = timestamp
+            scan_state["cycle_index"] += 1
+            scan_state["cycle_window_index"] = 0
+            scan_state["cycle_progress_percent"] = 0.0
+            sweep["current_start_mhz"] = scan_state["config"]["start_frequency_mhz"]
+            sweep["current_end_mhz"] = min(
+                scan_state["config"]["start_frequency_mhz"] + SWEEP_WINDOW_MHZ,
+                scan_state["config"]["end_frequency_mhz"],
+            )
+            sweep["scanned_windows"] = 0
+            sweep["progress_percent"] = 0.0
+        if metrics is not None:
+            metrics["state_update_locked_ms"] = benchmark_ms_since(update_started_ns)
+        return True, completed, len(scan_state["detections"])
+
+
+def _run_autonomous_single_sweep(snapshot: dict, stop_event: Event) -> None:
+    session_id = snapshot["session_id"]
+    previous_window_finished_ns = perf_counter_ns() if benchmark_enabled() else None
+    try:
+        while not stop_event.is_set():
+            with state_lock:
+                if scan_state.get("session_id") != session_id or not scan_state.get("running"):
+                    return
+                cycle_index = scan_state["cycle_index"]
+            cycle_started_ns = perf_counter_ns()
+            cycle_windows = []
+            current_start_mhz = snapshot["range_start_mhz"]
+            for window_index in range(1, snapshot["total_windows"] + 1):
+                if stop_event.is_set():
+                    return
+                with state_lock:
+                    if scan_state.get("session_id") != session_id or not scan_state.get("running"):
+                        return
+                window_end_mhz = min(current_start_mhz + SWEEP_WINDOW_MHZ, snapshot["range_end_mhz"])
+                timings = {} if benchmark_enabled() else None
+                window_started_ns = perf_counter_ns() if timings is not None else None
+                if timings is not None and previous_window_finished_ns is not None:
+                    timings["inter_window_backend_gap_ms"] = benchmark_ms_since(previous_window_finished_ns)
+                    timings["controller_task_startup_ms"] = benchmark_ms_since(snapshot["controller_started_ns"])
+                request_id = uuid4().hex
+                try:
+                    result = scan_frequency_window(
+                        window_start_mhz=current_start_mhz, window_end_mhz=window_end_mhz,
+                        threshold_db=snapshot["config"]["threshold_db"], window_index=window_index,
+                        channel_targets=snapshot["specific_channel_targets"], metrics=timings,
+                        request_id=request_id,
+                        benchmark_context={"session_id": session_id, "scan_owner": snapshot["scan_owner"], "window_index": window_index},
+                    )
+                except Exception as error:
+                    release_scan_lock_after_error(
+                        session_id, str(getattr(error, "detail", error))
+                    )
+                    return
+                if stop_event.is_set():
+                    return
+                committed, cycle_completed, rolling_count = _commit_autonomous_window(
+                    session_id, stop_event, result, current_start_mhz, window_end_mhz,
+                    window_index, snapshot["range_end_mhz"], timings,
+                )
+                if not committed:
+                    return
+                if timings is not None:
+                    timings["controller_window_active_ms"] = benchmark_ms_since(window_started_ns)
+                    context = {
+                        "session_id": session_id, "request_id": request_id,
+                        "scan_owner": snapshot["scan_owner"], "window_index": window_index,
+                        "cycle_index": cycle_index, "total_windows": snapshot["total_windows"],
+                        "window_start_mhz": current_start_mhz, "window_end_mhz": window_end_mhz,
+                        "sample_count": result["window"]["sample_count"],
+                        "threshold_bin_count": timings.get("threshold_bin_count", 0),
+                        "detection_count": len(result["detections"]), "cumulative_detection_count": rolling_count,
+                        "channel_measurement_count": len(result["channel_measurements"]),
+                        "threshold_detection_invariant_ok": timings.get("threshold_bin_count", 0) == len(result["detections"]),
+                        "timings_ms": timings,
+                    }
+                    _record_autonomous_window(context, cycle_completed)
+                    cycle_windows.append(context)
+                if cycle_completed:
+                    if stop_event.is_set():
+                        return
+                    _record_benchmark_cycle_summary(session_id, cycle_index, cycle_windows, cycle_started_ns)
+                    break
+                current_start_mhz = window_end_mhz
+                previous_window_finished_ns = perf_counter_ns() if timings is not None else None
+    finally:
+        _clear_controller_reference(session_id)
 
 
 @app.post("/api/scan/start")
@@ -1788,11 +2275,20 @@ def start_scan(request: ScanRequest):
     now = datetime.now().isoformat(timespec="seconds")
     session_id = create_scan_session_id()
 
+    scan_lifecycle_lock.acquire()
+    if _controller_is_active():
+        scan_lifecycle_lock.release()
+        raise HTTPException(
+            status_code=409,
+            detail="The previous scan controller is still stopping.",
+        )
+
     # Pemeriksaan dan pengambilan ownership dilakukan dalam lock yang sama.
     # Request kedua tidak dapat menimpa scan yang masih berjalan.
     with state_lock:
         if scan_state["running"]:
             active_owner = scan_state.get("scan_owner") or "unknown"
+            scan_lifecycle_lock.release()
             raise HTTPException(
                 status_code=409,
                 detail=(
@@ -1825,8 +2321,11 @@ def start_scan(request: ScanRequest):
             "progress_percent": 0.0,
         }
         scan_state["detections"] = []
+        scan_state["detections_by_window"] = {}
         scan_state["last_window_detections"] = []
+        scan_state["latest_window_snapshot"] = None
         scan_state["spectrum_preview"] = create_empty_spectrum_preview()
+        scan_state["channel_measurements_by_window"] = {}
         scan_state["last_peak"] = None
         scan_state["last_error"] = None
         scan_state["session_id"] = session_id
@@ -1834,9 +2333,88 @@ def start_scan(request: ScanRequest):
         scan_state["completed_at"] = None
         scan_state["updated_at"] = now
         scan_state["session_saved"] = False
+        scan_state["history_save_error"] = None
+        scan_state["cycle_index"] = 1
+        scan_state["completed_cycles"] = 0
+        scan_state["cycle_window_index"] = 0
+        scan_state["cycle_total_windows"] = total_windows
+        scan_state["cycle_progress_percent"] = 0.0
+        scan_state["last_completed_cycle_at"] = None
         started_state = deepcopy(scan_state)
 
     create_benchmark_session(started_state)
+    controller_snapshot = {
+        "session_id": session_id, "scan_owner": requested_owner,
+        "config": deepcopy(new_config), "range_start_mhz": start_mhz,
+        "range_end_mhz": end_mhz, "total_windows": total_windows,
+        "specific_channel_targets": deepcopy(selected_channel_targets),
+        "controller_started_ns": perf_counter_ns(),
+    }
+    stop_event = Event()
+    thread = Thread(
+        target=_run_autonomous_single_sweep,
+        args=(controller_snapshot, stop_event),
+        name="autonomous-sweep-controller",
+        daemon=True,
+    )
+    global controller_thread, controller_session_id, controller_stop_event
+    with controller_lock:
+        if controller_thread is not None and controller_thread.is_alive():
+            discard_benchmark_session(session_id, "controller_busy")
+            with state_lock:
+                if scan_state.get("session_id") == session_id:
+                    scan_state["running"] = False
+            scan_lifecycle_lock.release()
+            raise HTTPException(
+                status_code=409,
+                detail="The previous scan controller is still stopping.",
+            )
+        controller_thread = thread
+        controller_session_id = session_id
+        controller_stop_event = stop_event
+    try:
+        thread.start()
+    except BaseException:
+        _clear_controller_reference(session_id)
+        with state_lock:
+            if scan_state.get("session_id") == session_id:
+                scan_state["running"] = False
+                scan_state["completed"] = False
+                scan_state["scan_owner"] = None
+                scan_state["scan_mode"] = None
+                scan_state["selected_machine_id"] = None
+                scan_state["selected_machine_name"] = None
+                scan_state["specific_channel_targets"] = []
+                scan_state["session_id"] = None
+                scan_state["config"] = default_config.copy()
+                scan_state["sweep"] = {
+                    "current_start_mhz": default_config["start_frequency_mhz"],
+                    "current_end_mhz": default_config["end_frequency_mhz"],
+                    "last_window_start_mhz": None, "last_window_end_mhz": None,
+                    "total_windows": 1, "scanned_windows": 0,
+                    "progress_percent": 0.0,
+                }
+                scan_state["latest_window_snapshot"] = None
+                scan_state["detections"] = []
+                scan_state["last_window_detections"] = []
+                scan_state["channel_measurements"] = {}
+                scan_state["spectrum_preview"] = create_empty_spectrum_preview()
+                scan_state["last_peak"] = None
+                scan_state["started_at"] = None
+                scan_state["completed_at"] = None
+                scan_state["session_saved"] = False
+                scan_state["history_save_error"] = None
+                scan_state["last_error"] = "Failed to start the scan controller."
+                scan_state["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        try:
+            scanner_manager.release("controller start failed", force=True)
+        except Exception:
+            pass
+        discard_benchmark_session(session_id, "controller_start_failed")
+        scan_lifecycle_lock.release()
+        raise
+
+    scan_lifecycle_lock.release()
 
     return {
         "message": (
@@ -1847,6 +2425,7 @@ def start_scan(request: ScanRequest):
         **get_scan_identity(started_state),
         "config": new_config,
         "sweep": started_state["sweep"],
+        **get_cycle_state(started_state),
         "session_id": session_id,
     }
 
@@ -1855,10 +2434,12 @@ def start_scan(request: ScanRequest):
 def stop_scan(request: StopScanRequest):
     requested_owner = normalize_scan_owner(request.scan_owner)
 
+    scan_lifecycle_lock.acquire()
     with state_lock:
         active_owner = scan_state.get("scan_owner")
 
         if scan_state["running"] and active_owner != requested_owner:
+            scan_lifecycle_lock.release()
             raise HTTPException(
                 status_code=409,
                 detail=(
@@ -1868,14 +2449,50 @@ def stop_scan(request: StopScanRequest):
                 ),
             )
 
+        # Completion is terminal.  Do not convert a successful completed
+        # benchmark/session into a manual abort while its controller unwinds.
+        if scan_state["completed"] and not scan_state["running"]:
+            state = deepcopy(scan_state)
+            response = {
+                "message": f"{requested_owner.title()} Scan already completed.",
+                "running": False,
+                "completed": True,
+                **get_scan_identity(state),
+                "config": state["config"],
+                "sweep": state["sweep"],
+                "detection_count": len(state["detections"]),
+            }
+            scan_lifecycle_lock.release()
+            return response
+
         scan_state["running"] = False
         scan_state["updated_at"] = datetime.now().isoformat(
             timespec="seconds"
         )
+        save_completed_session_if_needed_locked(allow_stopped=True)
         state = deepcopy(scan_state)
 
-    scanner_manager.release("scan stopped", force=True)
-    discard_benchmark_session(state.get("session_id"), "manual_stop")
+    # Continuous scans are terminal only on Stop.  Claim and emit the normal
+    # Start-to-Stop summary before stopping the controller; unlike errors this
+    # must not be reported as a sweep abort.
+    try:
+        emit_benchmark_summary(
+            state.get("session_id"),
+            terminal_event="continuous_sweep_summary",
+            continuous_state=state,
+        )
+    except Exception:
+        # Benchmark reporting is best-effort; Stop cleanup must continue.
+        pass
+    _signal_controller_stop(state.get("session_id"))
+    try:
+        scanner_manager.release("scan stopped", force=True)
+    except Exception:
+        # A forced worker release racing an intentional stop is expected.
+        pass
+
+    _join_controller(state.get("session_id"))
+    scan_lifecycle_lock.release()
 
     return {
         "message": f"{requested_owner.title()} Scan stopped.",
@@ -1884,6 +2501,7 @@ def stop_scan(request: StopScanRequest):
         **get_scan_identity(state),
         "config": state["config"],
         "sweep": state["sweep"],
+        **get_cycle_state(state),
         "detection_count": len(state["detections"]),
     }
 
@@ -1902,6 +2520,7 @@ def scan_results():
         **get_scan_identity(state),
         "config": state["config"],
         "sweep": state["sweep"],
+        **get_cycle_state(state),
         "detection_count": len(state["detections"]),
         "detections": state["detections"],
         "last_window_detections": state["last_window_detections"],
@@ -1913,6 +2532,7 @@ def scan_results():
         "started_at": state["started_at"],
         "completed_at": state["completed_at"],
         "session_saved": state["session_saved"],
+        "history_save_error": state["history_save_error"],
     }
 
 
@@ -1974,275 +2594,79 @@ def scan_history_detail(session_id: str):
 @app.get("/api/spectrum")
 def get_spectrum(request: Request):
     """
-    Endpoint ini sekarang menjalankan sweep secara bertahap.
-
-    Setiap kali frontend memanggil /api/spectrum:
-    - backend membaca 1 window frekuensi
-    - semua titik FFT yang melewati threshold dihitung
-    - hasilnya ditambahkan ke detections kumulatif
-    - current_start_mhz maju ke window berikutnya
+    Mengembalikan snapshot atomik read-only dari window terakhir controller.
     """
 
     benchmark_context = getattr(request.state, "benchmark_context", None)
     endpoint_started_ns = perf_counter_ns() if benchmark_context is not None else 0
     state = get_current_state()
 
-    if not state["running"]:
-        return {
-            "running": False,
-            "completed": state["completed"],
-            **get_scan_identity(state),
-            "config": state["config"],
-            "sweep": state["sweep"],
-            "spectrum": {
-                "frequency_mhz": [],
-                "power_db": [],
-            },
-            "peak": state["last_peak"],
-            "detections": state["last_window_detections"],
-            "detection_count": len(state["detections"]),
-            "channel_measurements": get_channel_measurements(state),
-            "spectrum_preview": finalize_spectrum_preview(state),
-            "session_id": state["session_id"],
-            "completed_at": state["completed_at"],
-            "session_saved": state["session_saved"],
-            "debug_clusters": build_empty_debug_clusters(),
-        }
-
-    config = state["config"]
-    sweep = state["sweep"]
-
-    full_end_mhz = config["end_frequency_mhz"]
-    window_start_mhz = sweep["current_start_mhz"]
-    window_end_mhz = min(
-        window_start_mhz + SWEEP_WINDOW_MHZ,
-        full_end_mhz,
-    )
-    window_index = int(sweep["scanned_windows"]) + 1
-
-    if benchmark_context is not None:
-        benchmark_context.update({
-            "session_id": state.get("session_id"), "request_id": uuid4().hex,
-            "scan_owner": state.get("scan_owner"), "window_index": window_index,
-            "total_windows": sweep["total_windows"], "window_start_mhz": window_start_mhz,
-            "window_end_mhz": window_end_mhz, "window": True,
-        })
-        register_benchmark_poll(benchmark_context)
-
-    # Jika sudah tidak ada window tersisa, tandai selesai.
-    if window_start_mhz >= full_end_mhz:
-        with state_lock:
-            scan_state["running"] = False
-            scan_state["completed"] = True
-            scan_state["sweep"]["progress_percent"] = 100.0
-            completed_at = datetime.now().isoformat(timespec="seconds")
-            scan_state["completed_at"] = completed_at
-            scan_state["updated_at"] = completed_at
-            save_completed_session_if_needed_locked()
-            finished_state = deepcopy(scan_state)
-
-        scanner_manager.release("scan completed")
-
-        return {
-            "running": False,
-            "completed": True,
-            "timestamp": datetime.now().isoformat(timespec="seconds"),
-            **get_scan_identity(finished_state),
-            "config": finished_state["config"],
-            "sweep": finished_state["sweep"],
-            "spectrum": {
-                "frequency_mhz": [],
-                "power_db": [],
-            },
-            "peak": finished_state["last_peak"],
-            "detections": finished_state["last_window_detections"],
-            "detection_count": len(finished_state["detections"]),
-            "channel_measurements": get_channel_measurements(
-                finished_state
-            ),
-            "spectrum_preview": finalize_spectrum_preview(finished_state),
-            "session_id": finished_state["session_id"],
-            "completed_at": finished_state["completed_at"],
-            "session_saved": finished_state["session_saved"],
-            "debug_clusters": build_empty_debug_clusters(),
-        }
-
-    try:
-        scan_result = scan_frequency_window(
-            window_start_mhz=window_start_mhz,
-            window_end_mhz=window_end_mhz,
-            threshold_db=config["threshold_db"],
-            window_index=window_index,
-            channel_targets=(
-                state.get("specific_channel_targets", [])
-                if state.get("scan_owner") == SCAN_OWNER_SPECIFIC
-                else []
-            ),
-            metrics=(benchmark_context["timings_ms"] if benchmark_context is not None else None),
-            request_id=(benchmark_context["request_id"] if benchmark_context is not None else None),
-            benchmark_context=({
-                "session_id": state.get("session_id"), "scan_owner": state.get("scan_owner"),
-                "window_index": window_index,
-            } if benchmark_context is not None else None),
-        )
-    except HTTPException as error:
-        if benchmark_context is not None:
-            with benchmark_lock:
-                session = benchmark_sessions.get(state.get("session_id"))
-                if session is not None:
-                    session["acquisition_error_count"] += 1
-            safe_benchmark_log("[BENCH]", {"event": "spectrum_error", "schema_version": 1,
-                "request_id": benchmark_context["request_id"], "session_id": state.get("session_id"), "error": str(error.detail)})
-        release_scan_lock_after_error(
-            state.get("session_id"),
-            str(error.detail),
-        )
-        raise HTTPException(
-            status_code=error.status_code,
-            detail=(
-                f"{error.detail} "
-                "The scanner lock was released automatically so the scan can be restarted."
-            ),
-        ) from error
-    except Exception as error:
-        if benchmark_context is not None:
-            with benchmark_lock:
-                session = benchmark_sessions.get(state.get("session_id"))
-                if session is not None:
-                    session["acquisition_error_count"] += 1
-            safe_benchmark_log("[BENCH]", {"event": "spectrum_error", "schema_version": 1,
-                "request_id": benchmark_context["request_id"], "session_id": state.get("session_id"), "error": str(error)})
-        release_scan_lock_after_error(
-            state.get("session_id"),
-            str(error),
-        )
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                f"Scan failed: {error}. "
-                "The scanner lock was released automatically so the scan can be restarted."
-            ),
-        ) from error
-
-    next_start_mhz = window_end_mhz
-    completed = next_start_mhz >= full_end_mhz
-
-    state_wait_started_ns = perf_counter_ns() if benchmark_context is not None else 0
-    with state_lock:
-        if benchmark_context is not None:
-            benchmark_context["timings_ms"]["state_lock_wait_ms"] = benchmark_ms_since(state_wait_started_ns)
-        state_update_started_ns = perf_counter_ns() if benchmark_context is not None else 0
-        detections_extend_started_ns = perf_counter_ns() if benchmark_context is not None else 0
-        scan_state["detections"].extend(scan_result["detections"])
-        if benchmark_context is not None:
-            benchmark_context["timings_ms"]["detections_extend_ms"] = benchmark_ms_since(detections_extend_started_ns)
-        scan_state["last_window_detections"] = scan_result["detections"]
-
-        for measurement in scan_result["channel_measurements"]:
-            measurement_key = (
-                f'{measurement["channel_id"]}:{measurement["side"]}'
-            )
-            previous_measurement = scan_state[
-                "channel_measurements"
-            ].get(measurement_key)
-
-            # Target yang tepat berada pada batas dua window dapat diukur dua
-            # kali. Simpan measurement dengan FFT bin paling dekat.
-            if (
-                previous_measurement is None
-                or abs(measurement["frequency_offset_khz"])
-                <= abs(previous_measurement["frequency_offset_khz"])
-            ):
-                scan_state["channel_measurements"][
-                    measurement_key
-                ] = measurement
-
-        preview_started_ns = perf_counter_ns() if benchmark_context is not None else 0
-        append_spectrum_preview_window(
-            scan_state["spectrum_preview"],
-            scan_result["spectrum"],
-            scan_state["sweep"]["total_windows"],
-        )
-        if benchmark_context is not None:
-            benchmark_context["timings_ms"]["preview_append_ms"] = benchmark_ms_since(preview_started_ns)
-        scan_state["last_peak"] = scan_result["peak"]
-        scan_state["sweep"]["last_window_start_mhz"] = window_start_mhz
-        scan_state["sweep"]["last_window_end_mhz"] = window_end_mhz
-        scan_state["sweep"]["current_start_mhz"] = next_start_mhz
-        scan_state["sweep"]["current_end_mhz"] = min(
-            next_start_mhz + SWEEP_WINDOW_MHZ,
-            full_end_mhz,
-        )
-        scan_state["sweep"]["scanned_windows"] = window_index
-        scan_state["sweep"]["progress_percent"] = round(
-            (window_index / scan_state["sweep"]["total_windows"]) * 100,
-            2,
-        )
-        scan_state["running"] = not completed
-        scan_state["completed"] = completed
-        updated_at = datetime.now().isoformat(timespec="seconds")
-        scan_state["updated_at"] = updated_at
-
-        if completed:
-            scan_state["completed_at"] = updated_at
-            history_started_ns = perf_counter_ns() if benchmark_context is not None else 0
-            save_completed_session_if_needed_locked()
-            if benchmark_context is not None:
-                benchmark_context["timings_ms"]["completion_history_save_ms"] = benchmark_ms_since(history_started_ns)
-
-        deepcopy_started_ns = perf_counter_ns() if benchmark_context is not None else 0
-        updated_state = deepcopy(scan_state)
-        if benchmark_context is not None:
-            benchmark_context["timings_ms"]["state_deepcopy_ms"] = benchmark_ms_since(deepcopy_started_ns)
-            benchmark_context["timings_ms"]["state_update_locked_ms"] = benchmark_ms_since(state_update_started_ns)
-
-    if completed:
-        scanner_manager.release("scan completed")
-
-    channel_snapshot_started_ns = perf_counter_ns() if benchmark_context is not None else 0
-    channel_snapshot = get_channel_measurements(updated_state)
-    if benchmark_context is not None:
-        benchmark_context["timings_ms"]["channel_snapshot_ms"] = benchmark_ms_since(channel_snapshot_started_ns)
-    preview_finalize_started_ns = perf_counter_ns() if benchmark_context is not None else 0
-    spectrum_preview = finalize_spectrum_preview(updated_state)
-    if benchmark_context is not None:
-        benchmark_context["timings_ms"]["preview_finalize_ms"] = benchmark_ms_since(preview_finalize_started_ns)
+    latest_snapshot = state.get("latest_window_snapshot") or {
+        "current_window": None,
+        "spectrum": {"frequency_mhz": [], "power_db": []},
+        "peak": state["last_peak"],
+        "detections": state["last_window_detections"],
+        "last_window_detection_count": len(state["last_window_detections"]),
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "debug_clusters": build_empty_debug_clusters(),
+    }
+    channel_snapshot = get_channel_measurements(state)
+    spectrum_preview = finalize_spectrum_preview(state)
     response_started_ns = perf_counter_ns() if benchmark_context is not None else 0
     response = {
-        "running": updated_state["running"],
-        "completed": updated_state["completed"],
-        "timestamp": datetime.now().isoformat(timespec="seconds"),
-        **get_scan_identity(updated_state),
-        "config": updated_state["config"],
-        "sweep": updated_state["sweep"],
-        "current_window": scan_result["window"],
-        "spectrum": scan_result["spectrum"],
-        "peak": scan_result["peak"],
-        # Untuk kompatibilitas frontend lama:
-        # detections berisi hasil window terakhir.
-        # Hasil lengkap ada di /api/scan/results.
-        "detections": scan_result["detections"],
-        "last_window_detection_count": len(scan_result["detections"]),
-        "detection_count": len(updated_state["detections"]),
+        "running": state["running"], "completed": state["completed"],
+        "timestamp": latest_snapshot["timestamp"], **get_scan_identity(state),
+        "config": state["config"], "sweep": state["sweep"], **get_cycle_state(state),
+        "current_window": latest_snapshot["current_window"],
+        "spectrum": latest_snapshot["spectrum"], "peak": latest_snapshot["peak"],
+        "detections": state["detections"],
+        "last_window_detections": latest_snapshot["detections"],
+        "last_window_detection_count": latest_snapshot["last_window_detection_count"],
+        "detection_count": len(state["detections"]),
         "channel_measurements": channel_snapshot,
         "spectrum_preview": spectrum_preview,
-        "session_id": updated_state["session_id"],
-        "completed_at": updated_state["completed_at"],
-        "session_saved": updated_state["session_saved"],
-        "debug_clusters": build_empty_debug_clusters(),
+        "session_id": state["session_id"], "completed_at": state["completed_at"],
+        "session_saved": state["session_saved"],
+        "history_save_error": state["history_save_error"],
+        "debug_clusters": latest_snapshot["debug_clusters"],
     }
     if benchmark_context is not None:
         benchmark_context.update({
-            "sample_count": scan_result["window"]["sample_count"],
-            "threshold_bin_count": benchmark_context["timings_ms"].get("threshold_bin_count", 0),
-            "detection_count": len(scan_result["detections"]),
-            "cumulative_detection_count": len(updated_state["detections"]),
-            "channel_measurement_count": len(scan_result["channel_measurements"]),
-            "threshold_detection_invariant_ok": benchmark_context["timings_ms"].get("threshold_bin_count", 0) == len(scan_result["detections"]),
-            "sweep_completed": completed,
-            "success": True,
+            "snapshot_request": True, "session_id": state.get("session_id"),
+            "endpoint_logic_end_ns": perf_counter_ns(),
         })
-        benchmark_context["timings_ms"]["response_dict_build_ms"] = benchmark_ms_since(response_started_ns)
-        benchmark_context["endpoint_logic_end_ns"] = perf_counter_ns()
-        benchmark_context["timings_ms"]["endpoint_logic_ms"] = benchmark_ms_since(endpoint_started_ns)
+        benchmark_context["timings_ms"]["snapshot_response_prepare_ms"] = benchmark_ms_since(response_started_ns)
+        benchmark_context["timings_ms"]["snapshot_endpoint_logic_ms"] = benchmark_ms_since(endpoint_started_ns)
+        register_benchmark_snapshot_poll(benchmark_context)
     return response
+
+
+def replace_spectrum_preview_window(
+    preview: dict,
+    window_index: int,
+    spectrum: dict,
+    total_windows: int,
+) -> None:
+    """Replace one bounded preview segment with the latest window result."""
+    frequency_values = spectrum.get("frequency_mhz", [])
+    power_values = spectrum.get("power_db", [])
+    source_point_count = min(len(frequency_values), len(power_values))
+    segments = preview.setdefault("segments", {})
+    key = str(int(window_index))
+
+    if source_point_count <= 0:
+        segments[key] = {"frequency_mhz": [], "power_db": [], "source_point_count": 0}
+        return
+
+    points_per_window = max(
+        8,
+        int(ceil(SPECTRUM_PREVIEW_TARGET_POINTS / max(1, total_windows))),
+    )
+    frequency, power = downsample_spectrum_peak_preserving(
+        frequency_values, power_values, points_per_window,
+    )
+    segments[key] = {
+        "frequency_mhz": frequency,
+        "power_db": power,
+        "source_point_count": int(source_point_count),
+    }
