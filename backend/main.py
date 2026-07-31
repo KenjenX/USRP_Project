@@ -2,6 +2,7 @@
 from datetime import datetime
 from threading import Event, Lock, Thread
 from copy import deepcopy
+from collections import OrderedDict
 from math import ceil, isfinite
 from time import perf_counter_ns
 from uuid import uuid4
@@ -48,6 +49,14 @@ GAIN_DB = 35
 # tetapi proses scan juga semakin berat.
 NUM_SAMPS = 1024
 DISPLAY_POINTS = NUM_SAMPS
+
+# The C++ scanner uses an empirical display scale derived from FFT raw power;
+# it is deliberately not a calibrated RF-power or dBm scale.
+REFERENCE_POWER_SCALE_MODE = "reference_cpp_display_db"
+LEGACY_POWER_SCALE_MODE = "legacy_python_power_db"
+_HANN_WINDOW_CACHE_MAX_ENTRIES = 8
+_hann_window_cache: OrderedDict[int, np.ndarray] = OrderedDict()
+_hann_window_cache_lock = Lock()
 
 # Batas frekuensi valid USRP B210 berdasarkan probe perangkat Anda.
 USRP_MIN_FREQUENCY_MHZ = 50.0
@@ -111,6 +120,79 @@ def benchmark_classifier_breakdown_enabled() -> bool:
     return benchmark_enabled() and os.environ.get(
         "USRP_BENCHMARK_CLASSIFIER_BREAKDOWN"
     ) == "1"
+
+
+def _parse_reference_power_scale_enabled(value: str | None) -> bool:
+    """Parse the explicit power-scale rollback flag without silent fallback."""
+    if value is None:
+        return True
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise RuntimeError(
+        "USRP_REFERENCE_POWER_SCALE_ENABLED must be one of "
+        "1, true, yes, on, 0, false, no, off"
+    )
+
+
+def reference_power_scale_enabled() -> bool:
+    return _parse_reference_power_scale_enabled(
+        os.environ.get("USRP_REFERENCE_POWER_SCALE_ENABLED")
+    )
+
+
+def current_power_scale_mode() -> str:
+    return (
+        REFERENCE_POWER_SCALE_MODE if reference_power_scale_enabled()
+        else LEGACY_POWER_SCALE_MODE
+    )
+
+
+def reference_power_norm(num_samps: int) -> float:
+    """C++ reference FFT raw-power normalization: 1 / N_FFT^2."""
+    if not isinstance(num_samps, (int, np.integer)) or num_samps <= 0:
+        raise ValueError("num_samps must be a positive integer")
+    return 1.0 / (num_samps * num_samps)
+
+
+def reference_display_power_from_raw(raw_power, num_samps: int):
+    """Convert non-negative FFT magnitude-squared power to C++ display scale."""
+    norm = reference_power_norm(num_samps)
+    raw_array = np.asarray(raw_power)
+    if np.iscomplexobj(raw_array) or np.any(raw_array < 0):
+        raise ValueError("raw_power must contain only non-negative real values")
+    return (10.0 * np.log10(raw_array * norm + 1e-15) - 76.0) * 0.846 + 5.0
+
+
+def reference_threshold_to_raw_power(threshold_db, num_samps: int):
+    """Invert the C++ empirical display transform into raw FFT power."""
+    threshold_array = np.asarray(threshold_db)
+    if np.iscomplexobj(threshold_array) or not np.all(np.isfinite(threshold_array)):
+        raise ValueError("threshold_db must contain only finite real values")
+    norm = reference_power_norm(num_samps)
+    return 10.0 ** ((((threshold_array - 5.0) / 0.846) + 76.0) / 10.0) / norm
+
+
+def get_reference_hann_window(num_samps: int) -> np.ndarray:
+    """Return a bounded cached symmetric Hann window (the C++ N-1 form)."""
+    if not isinstance(num_samps, (int, np.integer)) or num_samps <= 0:
+        raise ValueError("num_samps must be a positive integer")
+    sample_count = int(num_samps)
+    with _hann_window_cache_lock:
+        cached = _hann_window_cache.get(sample_count)
+        if cached is not None:
+            _hann_window_cache.move_to_end(sample_count)
+            return cached
+        # np.hanning uses 0.5 * (1 - cos(2*pi*i/(N-1))), matching the
+        # reference symmetric Hann definition.  N=1 follows NumPy's [1] rule.
+        window = np.hanning(sample_count)
+        window.setflags(write=False)
+        _hann_window_cache[sample_count] = window
+        while len(_hann_window_cache) > _HANN_WINDOW_CACHE_MAX_ENTRIES:
+            _hann_window_cache.popitem(last=False)
+        return window
 
 
 def benchmark_ms_since(start_ns: int) -> float:
@@ -1594,10 +1676,14 @@ def build_detections_from_threshold_points(
     window_end_mhz: float,
     window_index: int,
     metrics: dict | None = None,
+    raw_power=None,
+    raw_threshold=None,
 ) -> list[dict]:
     """
     Konsep baru:
-    semua titik FFT yang power-nya >= threshold dihitung.
+    Semua titik FFT yang melewati threshold dihitung. Legacy mode retains its
+    original display-scale >= comparison; reference mode supplies raw power
+    and uses the C++ strict > comparison.
 
     Tidak ada cluster.
     Tidak ada pemilihan peak terkuat per cluster.
@@ -1605,7 +1691,13 @@ def build_detections_from_threshold_points(
     """
 
     threshold_started_ns = perf_counter_ns() if metrics is not None else 0
-    threshold_indexes = np.where(power_db >= threshold_db)[0]
+    if raw_power is None:
+        # Legacy behavior is intentionally unchanged for rollback.
+        threshold_indexes = np.where(power_db >= threshold_db)[0]
+    else:
+        # C++ raw-power comparison is strictly greater-than, before display
+        # conversion, so values serialized below remain aligned by index.
+        threshold_indexes = np.where(raw_power > raw_threshold)[0]
     if metrics is not None:
         metrics["threshold_index_ms"] = benchmark_ms_since(threshold_started_ns)
         metrics["threshold_bin_count"] = int(len(threshold_indexes))
@@ -1654,6 +1746,8 @@ def build_channel_measurements_from_fft(
     window_end_mhz: float,
     window_index: int,
     channel_targets: list[dict] | None,
+    raw_power=None,
+    raw_threshold=None,
 ) -> list[dict]:
     """
     Mengambil nilai power FFT terdekat untuk setiap target Channel Specific.
@@ -1705,7 +1799,9 @@ def build_channel_measurements_from_fft(
                 "power_db": measured_power_db,
                 "threshold_db": float(threshold_db),
                 "above_threshold": bool(
-                    measured_power_db >= threshold_db
+                    raw_power[nearest_index] > raw_threshold
+                    if raw_power is not None
+                    else measured_power_db >= threshold_db
                 ),
                 "fft_index": nearest_index,
                 "window_index": int(window_index),
@@ -1798,20 +1894,46 @@ def scan_frequency_window(
             detail="The USRP did not send IQ samples.",
         )
 
+    power_scale_mode = current_power_scale_mode()
+    if metrics is not None:
+        metrics["power_scale_mode"] = power_scale_mode
+
     hann_started_ns = perf_counter_ns() if metrics is not None else 0
-    window = np.hanning(len(iq_samples))
+    window = get_reference_hann_window(len(iq_samples))
     if metrics is not None:
         metrics["hann_ms"] = benchmark_ms_since(hann_started_ns)
 
+    window_apply_started_ns = perf_counter_ns() if metrics is not None else 0
+    windowed_iq = iq_samples * window
+    if metrics is not None:
+        metrics["window_application_ms"] = benchmark_ms_since(window_apply_started_ns)
+
     fft_started_ns = perf_counter_ns() if metrics is not None else 0
-    fft_data = np.fft.fftshift(
-        np.fft.fft(iq_samples * window)
-    )
+    fft_execution_started_ns = perf_counter_ns() if metrics is not None else 0
+    fft_data = np.fft.fft(windowed_iq)
+    if metrics is not None:
+        metrics["fft_execution_ms"] = benchmark_ms_since(fft_execution_started_ns)
+    fftshift_started_ns = perf_counter_ns() if metrics is not None else 0
+    fft_data = np.fft.fftshift(fft_data)
     if metrics is not None:
         metrics["fft_ms"] = benchmark_ms_since(fft_started_ns)
+        metrics["fftshift_ms"] = benchmark_ms_since(fftshift_started_ns)
 
     power_started_ns = perf_counter_ns() if metrics is not None else 0
-    power_db = 20 * np.log10(np.abs(fft_data) + 1e-12)
+    raw_power = None
+    raw_threshold = None
+    if power_scale_mode == REFERENCE_POWER_SCALE_MODE:
+        raw_power_started_ns = perf_counter_ns() if metrics is not None else 0
+        raw_power = fft_data.real * fft_data.real + fft_data.imag * fft_data.imag
+        if metrics is not None:
+            metrics["raw_magnitude_squared_ms"] = benchmark_ms_since(raw_power_started_ns)
+        display_transform_started_ns = perf_counter_ns() if metrics is not None else 0
+        power_db = reference_display_power_from_raw(raw_power, len(iq_samples))
+        if metrics is not None:
+            metrics["display_transform_ms"] = benchmark_ms_since(display_transform_started_ns)
+    else:
+        # Exact pre-stage-2 Python formula retained by the rollback switch.
+        power_db = 20 * np.log10(np.abs(fft_data) + 1e-12)
     if metrics is not None:
         metrics["power_conversion_ms"] = benchmark_ms_since(power_started_ns)
 
@@ -1838,6 +1960,8 @@ def scan_frequency_window(
     )
     frequency_axis_mhz = frequency_axis_mhz[in_requested_range]
     power_db = power_db[in_requested_range]
+    if raw_power is not None:
+        raw_power = raw_power[in_requested_range]
     if metrics is not None:
         metrics["range_crop_ms"] = benchmark_ms_since(crop_started_ns)
     if len(frequency_axis_mhz) == 0:
@@ -1853,6 +1977,14 @@ def scan_frequency_window(
     if metrics is not None:
         metrics["peak_lookup_ms"] = benchmark_ms_since(peak_started_ns)
 
+    threshold_inverse_started_ns = perf_counter_ns() if metrics is not None else 0
+    if raw_power is not None:
+        raw_threshold = reference_threshold_to_raw_power(
+            threshold_db, len(iq_samples)
+        )
+    if metrics is not None:
+        metrics["threshold_inverse_ms"] = benchmark_ms_since(threshold_inverse_started_ns)
+
     detections = build_detections_from_threshold_points(
         frequency_axis_mhz=frequency_axis_mhz,
         power_db=power_db,
@@ -1861,6 +1993,8 @@ def scan_frequency_window(
         window_end_mhz=window_end_mhz,
         window_index=window_index,
         metrics=metrics,
+        raw_power=raw_power,
+        raw_threshold=raw_threshold,
     )
 
     channel_started_ns = perf_counter_ns() if metrics is not None else 0
@@ -1872,6 +2006,8 @@ def scan_frequency_window(
         window_end_mhz=window_end_mhz,
         window_index=window_index,
         channel_targets=channel_targets,
+        raw_power=raw_power,
+        raw_threshold=raw_threshold,
     )
     if metrics is not None:
         metrics["channel_measurement_ms"] = benchmark_ms_since(channel_started_ns)
@@ -1902,7 +2038,11 @@ def scan_frequency_window(
         "peak": {
             "frequency_mhz": peak_frequency_mhz,
             "power_db": peak_power_db,
-            "above_threshold": bool(peak_power_db >= threshold_db),
+            "above_threshold": bool(
+                raw_power[peak_index] > raw_threshold
+                if raw_power is not None
+                else peak_power_db >= threshold_db
+            ),
         },
         "detections": detections,
         "channel_measurements": channel_measurements,
