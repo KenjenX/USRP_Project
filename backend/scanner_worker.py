@@ -10,12 +10,37 @@ from __future__ import annotations
 
 from multiprocessing import get_context
 from threading import Lock
-from time import monotonic, perf_counter_ns
+from time import monotonic, perf_counter_ns, sleep
 import json
+import os
 from uuid import uuid4
 
 import numpy as np
 import uhd
+
+
+def _parse_explicit_streamer_enabled(value: str | None) -> bool:
+    """Parse the deliberate rollout switch; never guess an invalid value."""
+    if value is None:
+        return True
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise RuntimeError(
+        "USRP_EXPLICIT_STREAMER_ENABLED must be one of "
+        "1/0, true/false, yes/no, or on/off."
+    )
+
+
+EXPLICIT_STREAMER_ENABLED = _parse_explicit_streamer_enabled(
+    os.environ.get("USRP_EXPLICIT_STREAMER_ENABLED")
+)
+
+
+def _acquisition_backend_name(enabled: bool = EXPLICIT_STREAMER_ENABLED) -> str:
+    return "explicit_streamer" if enabled else "legacy_recv_num_samps"
 
 
 def _ms_since(start_ns: int) -> float:
@@ -38,6 +63,140 @@ class UhdScannerTimeoutError(UhdScannerError):
     """Scanner worker tidak memberikan respons dalam batas waktu."""
 
 
+class UhdAcquisitionError(UhdScannerError):
+    """A single hardware acquisition failed and contains its UHD detail."""
+
+
+class _PersistentRxAcquirer:
+    """Owns the explicit UHD RX streamer and its non-escaping receive buffer."""
+
+    CPU_FORMAT = "fc32"
+    WIRE_FORMAT = "sc16"
+    RECEIVE_TIMEOUT_SECONDS = 0.1
+    SETTLE_SECONDS = 0.002
+
+    def __init__(self, usrp_device, config: dict) -> None:
+        self._usrp_device = usrp_device
+        self._config = config
+        self._streamer = None
+        self._streamer_key = None
+        self._metadata = None
+        self._buffer = None
+
+    def clear(self) -> None:
+        self._streamer = None
+        self._streamer_key = None
+        self._metadata = None
+        self._buffer = None
+
+    def _ensure_streamer(self, sample_rate_hz: float) -> bool:
+        channel = int(self._config["channel"])
+        key = (float(sample_rate_hz), channel, self.CPU_FORMAT, self.WIRE_FORMAT)
+        if self._streamer is not None and self._streamer_key == key:
+            return False
+
+        # These settings belong to the active scan configuration, not a hop.
+        self._usrp_device.set_master_clock_rate(float(sample_rate_hz))
+        self._usrp_device.set_rx_rate(float(sample_rate_hz), channel)
+        self._usrp_device.set_rx_gain(float(self._config["gain_db"]), channel)
+        self._usrp_device.set_rx_antenna(self._config["rx_antenna"], channel)
+        stream_args = uhd.usrp.StreamArgs(self.CPU_FORMAT, self.WIRE_FORMAT)
+        stream_args.channels = [channel]
+        self._streamer = self._usrp_device.get_rx_stream(stream_args)
+        self._metadata = uhd.types.RXMetadata()
+        self._streamer_key = key
+        self._buffer = None
+        return True
+
+    @staticmethod
+    def _metadata_error(
+        metadata, *, received: int, expected: int, backend: str
+    ) -> str | None:
+        error_code = getattr(metadata, "error_code", None)
+        no_error = getattr(getattr(uhd.types, "RXMetadataErrorCode", None), "none", None)
+        if error_code is None or error_code == no_error:
+            return None
+        # Some UHD bindings stringify the enum as "none" rather than exposing
+        # the enum singleton above.
+        if str(error_code).strip().lower() in {"none", "rxmetadataerrorcode.none"}:
+            return None
+        diagnostic = getattr(metadata, "strerror", None)
+        if callable(diagnostic):
+            try:
+                diagnostic = diagnostic()
+            except Exception as error:
+                diagnostic = f"strerror() failed: {type(error).__name__}: {error}"
+        if diagnostic is None:
+            diagnostic = "no metadata diagnostic"
+        return (
+            f"metadata error code={error_code}; message={diagnostic}; "
+            f"received={received}; expected={expected}; backend={backend}"
+        )
+
+    @staticmethod
+    def _num_done_stream_mode():
+        try:
+            return uhd.types.StreamMode.num_done
+        except AttributeError as error:
+            raise UhdAcquisitionError(
+                "Installed UHD binding is incompatible: "
+                "uhd.types.StreamMode.num_done is required for finite RX streaming."
+            ) from error
+
+    def acquire(self, *, num_samps: int, center_frequency_hz: float,
+                sample_rate_hz: float, timings: dict | None = None) -> np.ndarray:
+        if num_samps <= 0:
+            raise UhdAcquisitionError("num_samps must be positive.")
+        self._ensure_streamer(sample_rate_hz)
+        channel = int(self._config["channel"])
+        if self._buffer is None or self._buffer.shape != (1, int(num_samps)):
+            # UHD 4.10 RX examples use channel-major (channels, samples)
+            # arrays. RXMetadata is overwritten by each recv(), so retaining
+            # this one object is safe and avoids per-hop allocations.
+            self._buffer = np.empty((1, int(num_samps)), dtype=np.complex64)
+
+        tune_started_ns = perf_counter_ns() if timings is not None else None
+        self._usrp_device.set_rx_freq(float(center_frequency_hz), channel)
+        if timings is not None:
+            timings["uhd_tune_call_ms"] = _ms_since(tune_started_ns)
+        settle_started_ns = perf_counter_ns() if timings is not None else None
+        sleep(self.SETTLE_SECONDS)
+        if timings is not None:
+            timings["uhd_settle_ms"] = _ms_since(settle_started_ns)
+
+        command_started_ns = perf_counter_ns() if timings is not None else None
+        command = uhd.types.StreamCMD(self._num_done_stream_mode())
+        command.num_samps = int(num_samps)
+        command.stream_now = True
+        self._streamer.issue_stream_cmd(command)
+        if timings is not None:
+            timings["uhd_stream_command_ms"] = _ms_since(command_started_ns)
+
+        recv_started_ns = perf_counter_ns() if timings is not None else None
+        received = self._streamer.recv(
+            self._buffer, self._metadata, self.RECEIVE_TIMEOUT_SECONDS
+        )
+        if timings is not None:
+            timings["uhd_receive_ms"] = _ms_since(recv_started_ns)
+        backend = _acquisition_backend_name(True)
+        metadata_error = self._metadata_error(
+            self._metadata,
+            received=int(received),
+            expected=int(num_samps),
+            backend=backend,
+        )
+        if metadata_error:
+            raise UhdAcquisitionError(metadata_error)
+        if int(received) != int(num_samps):
+            raise UhdAcquisitionError(
+                f"short receive: expected={num_samps}; received={received}; "
+                f"backend={backend}."
+            )
+        # The worker buffer is intentionally reused; it must never cross the
+        # process boundary by reference or be mistaken for a later receive.
+        return self._buffer[0, :int(received)].copy()
+
+
 def _safe_send(connection, payload: dict) -> None:
     """Mengirim payload tanpa membuat worker gagal saat parent sudah menutup."""
 
@@ -51,16 +210,17 @@ def _scanner_worker_main(connection, config: dict) -> None:
     """Entry point proses anak. Semua objek UHD hanya hidup di sini."""
 
     usrp_device = None
+    explicit_acquirer = None
 
     try:
         try:
             usrp_device = uhd.usrp.MultiUSRP(
                 f"serial={config['serial']}"
             )
-            usrp_device.set_rx_antenna(
-                config["rx_antenna"],
-                config["channel"],
-            )
+            if EXPLICIT_STREAMER_ENABLED:
+                explicit_acquirer = _PersistentRxAcquirer(usrp_device, config)
+            else:
+                usrp_device.set_rx_antenna(config["rx_antenna"], config["channel"])
         except BaseException as error:
             _safe_send(
                 connection,
@@ -107,22 +267,34 @@ def _scanner_worker_main(connection, config: dict) -> None:
                 benchmark_context = None
 
             try:
-                recv_started_ns = perf_counter_ns() if benchmark_enabled else None
-                samples = usrp_device.recv_num_samps(
-                    int(command["num_samps"]),
-                    float(command["center_frequency_hz"]),
-                    float(command["sample_rate_hz"]),
-                    [int(config["channel"])],
-                    float(config["gain_db"]),
-                )
-                recv_ms = (
-                    _ms_since(recv_started_ns)
-                    if recv_started_ns is not None
-                    else None
-                )
+                worker_timings = {} if benchmark_enabled else None
+                acquisition_started_ns = perf_counter_ns() if benchmark_enabled else None
+                if EXPLICIT_STREAMER_ENABLED:
+                    iq_samples = explicit_acquirer.acquire(
+                        num_samps=int(command["num_samps"]),
+                        center_frequency_hz=float(command["center_frequency_hz"]),
+                        sample_rate_hz=float(command["sample_rate_hz"]),
+                        timings=worker_timings,
+                    )
+                    acquisition_backend = _acquisition_backend_name(True)
+                else:
+                    recv_started_ns = perf_counter_ns() if benchmark_enabled else None
+                    samples = usrp_device.recv_num_samps(
+                        int(command["num_samps"]),
+                        float(command["center_frequency_hz"]),
+                        float(command["sample_rate_hz"]),
+                        [int(config["channel"])],
+                        float(config["gain_db"]),
+                    )
+                    iq_samples = np.asarray(samples[0]).copy()
+                    if worker_timings is not None:
+                        worker_timings["uhd_recv_num_samps_ms"] = _ms_since(recv_started_ns)
+                    acquisition_backend = _acquisition_backend_name(False)
 
                 copy_started_ns = perf_counter_ns() if benchmark_enabled else None
-                iq_samples = np.asarray(samples[0]).copy()
+                # This is retained for benchmark compatibility.  Explicit
+                # acquisition already made an independent copy above.
+                iq_samples = np.asarray(iq_samples).copy()
                 copy_ms = (
                     _ms_since(copy_started_ns)
                     if copy_started_ns is not None
@@ -136,11 +308,12 @@ def _scanner_worker_main(connection, config: dict) -> None:
                     "samples": iq_samples,
                 }
                 if benchmark_enabled:
-                    payload["worker_timings_ms"] = {
-                        "uhd_recv_num_samps_ms": recv_ms,
+                    worker_timings.update({
                         "worker_iq_copy_ms": copy_ms,
-                        "worker_pre_send_total_ms": recv_ms + copy_ms,
-                    }
+                        "worker_pre_send_total_ms": _ms_since(acquisition_started_ns),
+                        "acquisition_backend": acquisition_backend,
+                    })
+                    payload["worker_timings_ms"] = worker_timings
 
                 send_started_ns = perf_counter_ns() if benchmark_enabled else None
                 _safe_send(connection, payload)
@@ -169,6 +342,8 @@ def _scanner_worker_main(connection, config: dict) -> None:
                 break
 
     finally:
+        if explicit_acquirer is not None:
+            explicit_acquirer.clear()
         try:
             connection.close()
         except OSError:

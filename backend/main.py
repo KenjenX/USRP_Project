@@ -2,7 +2,7 @@
 from datetime import datetime
 from threading import Event, Lock, Thread
 from copy import deepcopy
-from math import ceil
+from math import ceil, isfinite
 from time import perf_counter_ns
 from uuid import uuid4
 import json
@@ -612,6 +612,26 @@ def validate_scan_range(start_mhz: float, end_mhz: float) -> float:
     return end_mhz - start_mhz
 
 
+def select_reference_sweep_rate_mhz(start_mhz: float, stop_mhz: float) -> float:
+    """C++ SDRScannerEngine scan-rate policy for the full requested span."""
+    if not isfinite(start_mhz) or not isfinite(stop_mhz) or stop_mhz <= start_mhz:
+        raise ValueError("scan range must be finite with stop greater than start")
+    return 20.0 if (stop_mhz - start_mhz) < 100.0 else 56.0
+
+
+def build_reference_hop_plan(start_mhz: float, stop_mhz: float) -> tuple[float, tuple[float, ...]]:
+    """Immutable, index-built equivalent of the reference C++ center loop."""
+    rate_mhz = select_reference_sweep_rate_mhz(start_mhz, stop_mhz)
+    span_mhz = stop_mhz - start_mhz
+    if span_mhz <= rate_mhz:
+        return rate_mhz, (start_mhz + span_mhz / 2.0,)
+    # The C++ condition is center < stop + rate / 2.  Computing each center
+    # from its integer index avoids endpoint drift from repeated additions.
+    hop_count = int(ceil(span_mhz / rate_mhz))
+    centers = tuple(start_mhz + rate_mhz * (index + 0.5) for index in range(hop_count))
+    return rate_mhz, centers
+
+
 
 def _normalize_usb_probe_result(connected, **extra):
     now = datetime.now().isoformat(timespec="seconds")
@@ -1088,8 +1108,7 @@ def get_channel_measurements(state: dict) -> list[dict]:
 
 
 def calculate_total_windows(start_mhz: float, end_mhz: float) -> int:
-    scan_width_mhz = end_mhz - start_mhz
-    return max(1, int(ceil(scan_width_mhz / SWEEP_WINDOW_MHZ)))
+    return len(build_reference_hop_plan(start_mhz, end_mhz)[1])
 
 
 def create_empty_spectrum_preview() -> dict:
@@ -1720,14 +1739,22 @@ def scan_frequency_window(
     metrics: dict | None = None,
     request_id: str | None = None,
     benchmark_context: dict | None = None,
+    acquisition_center_mhz: float | None = None,
+    acquisition_sample_rate_mhz: float | None = None,
 ) -> dict:
     """
     Membaca satu window frekuensi, menghitung FFT, dan mengambil semua
     titik yang melewati threshold.
     """
 
-    center_frequency_mhz = (window_start_mhz + window_end_mhz) / 2
-    sample_rate_mhz = window_end_mhz - window_start_mhz
+    center_frequency_mhz = (
+        (window_start_mhz + window_end_mhz) / 2
+        if acquisition_center_mhz is None else float(acquisition_center_mhz)
+    )
+    sample_rate_mhz = (
+        window_end_mhz - window_start_mhz
+        if acquisition_sample_rate_mhz is None else float(acquisition_sample_rate_mhz)
+    )
 
     center_frequency_hz = center_frequency_mhz * 1e6
     sample_rate_hz = sample_rate_mhz * 1e6
@@ -1800,6 +1827,24 @@ def scan_frequency_window(
     ) / 1e6
     if metrics is not None:
         metrics["frequency_axis_ms"] = benchmark_ms_since(axis_started_ns)
+
+    # A final reference hop can intentionally capture past stop.  Keep its
+    # hardware block intact, but never expose out-of-requested-range bins to
+    # spectrum, detections, measurements, or peak telemetry.
+    crop_started_ns = perf_counter_ns() if metrics is not None else 0
+    in_requested_range = (
+        (frequency_axis_mhz >= float(window_start_mhz))
+        & (frequency_axis_mhz <= float(window_end_mhz))
+    )
+    frequency_axis_mhz = frequency_axis_mhz[in_requested_range]
+    power_db = power_db[in_requested_range]
+    if metrics is not None:
+        metrics["range_crop_ms"] = benchmark_ms_since(crop_started_ns)
+    if len(frequency_axis_mhz) == 0:
+        raise HTTPException(
+            status_code=503,
+            detail="The USRP capture contained no samples in the requested range.",
+        )
 
     peak_started_ns = perf_counter_ns() if metrics is not None else 0
     peak_index = int(np.argmax(power_db))
@@ -2121,7 +2166,10 @@ def _commit_autonomous_window(
         sweep["last_window_start_mhz"] = window_start_mhz
         sweep["last_window_end_mhz"] = window_end_mhz
         sweep["current_start_mhz"] = next_start_mhz
-        sweep["current_end_mhz"] = min(next_start_mhz + SWEEP_WINDOW_MHZ, range_end_mhz)
+        sweep["current_end_mhz"] = min(
+            next_start_mhz + float(scan_state["config"].get("sweep_window_mhz", SWEEP_WINDOW_MHZ)),
+            range_end_mhz,
+        )
         sweep["scanned_windows"] = window_index
         sweep["progress_percent"] = round((window_index / sweep["total_windows"]) * 100, 2)
         scan_state["cycle_window_index"] = window_index
@@ -2137,7 +2185,8 @@ def _commit_autonomous_window(
             scan_state["cycle_progress_percent"] = 0.0
             sweep["current_start_mhz"] = scan_state["config"]["start_frequency_mhz"]
             sweep["current_end_mhz"] = min(
-                scan_state["config"]["start_frequency_mhz"] + SWEEP_WINDOW_MHZ,
+                scan_state["config"]["start_frequency_mhz"]
+                + float(scan_state["config"].get("sweep_window_mhz", SWEEP_WINDOW_MHZ)),
                 scan_state["config"]["end_frequency_mhz"],
             )
             sweep["scanned_windows"] = 0
@@ -2150,6 +2199,14 @@ def _commit_autonomous_window(
 def _run_autonomous_single_sweep(snapshot: dict, stop_event: Event) -> None:
     session_id = snapshot["session_id"]
     previous_window_finished_ns = perf_counter_ns() if benchmark_enabled() else None
+    sample_rate_mhz = snapshot.get("sample_rate_mhz")
+    hop_centers_mhz = snapshot.get("hop_centers_mhz")
+    if sample_rate_mhz is None or hop_centers_mhz is None:
+        # Backward-compatible internal snapshot shape for lifecycle tests and
+        # any already-created controller snapshot during a rolling deploy.
+        sample_rate_mhz, hop_centers_mhz = build_reference_hop_plan(
+            snapshot["range_start_mhz"], snapshot["range_end_mhz"]
+        )
     try:
         while not stop_event.is_set():
             with state_lock:
@@ -2158,14 +2215,16 @@ def _run_autonomous_single_sweep(snapshot: dict, stop_event: Event) -> None:
                 cycle_index = scan_state["cycle_index"]
             cycle_started_ns = perf_counter_ns()
             cycle_windows = []
-            current_start_mhz = snapshot["range_start_mhz"]
-            for window_index in range(1, snapshot["total_windows"] + 1):
+            for window_index, center_mhz in enumerate(hop_centers_mhz, start=1):
                 if stop_event.is_set():
                     return
                 with state_lock:
                     if scan_state.get("session_id") != session_id or not scan_state.get("running"):
                         return
-                window_end_mhz = min(current_start_mhz + SWEEP_WINDOW_MHZ, snapshot["range_end_mhz"])
+                capture_start_mhz = center_mhz - sample_rate_mhz / 2.0
+                capture_end_mhz = center_mhz + sample_rate_mhz / 2.0
+                window_start_mhz = max(snapshot["range_start_mhz"], capture_start_mhz)
+                window_end_mhz = min(snapshot["range_end_mhz"], capture_end_mhz)
                 timings = {} if benchmark_enabled() else None
                 window_started_ns = perf_counter_ns() if timings is not None else None
                 if timings is not None and previous_window_finished_ns is not None:
@@ -2174,11 +2233,13 @@ def _run_autonomous_single_sweep(snapshot: dict, stop_event: Event) -> None:
                 request_id = uuid4().hex
                 try:
                     result = scan_frequency_window(
-                        window_start_mhz=current_start_mhz, window_end_mhz=window_end_mhz,
+                        window_start_mhz=window_start_mhz, window_end_mhz=window_end_mhz,
                         threshold_db=snapshot["config"]["threshold_db"], window_index=window_index,
                         channel_targets=snapshot["specific_channel_targets"], metrics=timings,
                         request_id=request_id,
                         benchmark_context={"session_id": session_id, "scan_owner": snapshot["scan_owner"], "window_index": window_index},
+                        acquisition_center_mhz=center_mhz,
+                        acquisition_sample_rate_mhz=sample_rate_mhz,
                     )
                 except Exception as error:
                     release_scan_lock_after_error(
@@ -2188,7 +2249,7 @@ def _run_autonomous_single_sweep(snapshot: dict, stop_event: Event) -> None:
                 if stop_event.is_set():
                     return
                 committed, cycle_completed, rolling_count = _commit_autonomous_window(
-                    session_id, stop_event, result, current_start_mhz, window_end_mhz,
+                    session_id, stop_event, result, window_start_mhz, window_end_mhz,
                     window_index, snapshot["range_end_mhz"], timings,
                 )
                 if not committed:
@@ -2199,7 +2260,7 @@ def _run_autonomous_single_sweep(snapshot: dict, stop_event: Event) -> None:
                         "session_id": session_id, "request_id": request_id,
                         "scan_owner": snapshot["scan_owner"], "window_index": window_index,
                         "cycle_index": cycle_index, "total_windows": snapshot["total_windows"],
-                        "window_start_mhz": current_start_mhz, "window_end_mhz": window_end_mhz,
+                        "window_start_mhz": window_start_mhz, "window_end_mhz": window_end_mhz,
                         "sample_count": result["window"]["sample_count"],
                         "threshold_bin_count": timings.get("threshold_bin_count", 0),
                         "detection_count": len(result["detections"]), "cumulative_detection_count": rolling_count,
@@ -2214,7 +2275,6 @@ def _run_autonomous_single_sweep(snapshot: dict, stop_event: Event) -> None:
                         return
                     _record_benchmark_cycle_summary(session_id, cycle_index, cycle_windows, cycle_started_ns)
                     break
-                current_start_mhz = window_end_mhz
                 previous_window_finished_ns = perf_counter_ns() if timings is not None else None
     finally:
         _clear_controller_reference(session_id)
@@ -2259,16 +2319,19 @@ def start_scan(request: ScanRequest):
         selected_machine_name = machine_identity["name"]
         selected_channel_targets = machine_identity["channel_targets"]
 
-    scan_width_mhz = validate_scan_range(start_mhz, end_mhz)
-    total_windows = calculate_total_windows(start_mhz, end_mhz)
+    validate_scan_range(start_mhz, end_mhz)
+    reference_rate_mhz, reference_hop_centers_mhz = build_reference_hop_plan(
+        start_mhz, end_mhz
+    )
+    total_windows = len(reference_hop_centers_mhz)
 
     new_config = {
         "threshold_db": threshold_db,
         "start_frequency_mhz": start_mhz,
         "end_frequency_mhz": end_mhz,
         "center_frequency_mhz": (start_mhz + end_mhz) / 2,
-        "sample_rate_mhz": scan_width_mhz,
-        "sweep_window_mhz": SWEEP_WINDOW_MHZ,
+        "sample_rate_mhz": reference_rate_mhz,
+        "sweep_window_mhz": reference_rate_mhz,
         "detection_mode": DETECTION_MODE,
     }
 
@@ -2311,7 +2374,7 @@ def start_scan(request: ScanRequest):
         scan_state["sweep"] = {
             "current_start_mhz": start_mhz,
             "current_end_mhz": min(
-                start_mhz + SWEEP_WINDOW_MHZ,
+                start_mhz + reference_rate_mhz,
                 end_mhz,
             ),
             "last_window_start_mhz": None,
@@ -2347,6 +2410,8 @@ def start_scan(request: ScanRequest):
         "session_id": session_id, "scan_owner": requested_owner,
         "config": deepcopy(new_config), "range_start_mhz": start_mhz,
         "range_end_mhz": end_mhz, "total_windows": total_windows,
+        "sample_rate_mhz": reference_rate_mhz,
+        "hop_centers_mhz": reference_hop_centers_mhz,
         "specific_channel_targets": deepcopy(selected_channel_targets),
         "controller_started_ns": perf_counter_ns(),
     }
