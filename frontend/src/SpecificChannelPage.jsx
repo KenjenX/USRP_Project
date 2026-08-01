@@ -482,7 +482,6 @@ function SpecificSpectrumPanel({
   scanSelectedMachineName,
   scanMatchesSelectedMachine,
   spectrumChart,
-  spectrumHistoryCharts,
   frequencyTicks,
   chartDbTicks,
   thresholdTop,
@@ -499,7 +498,7 @@ function SpecificSpectrumPanel({
   const hasSpectrum = Boolean(
     !scannerLocked &&
     scanMatchesSelectedMachine &&
-    (spectrumChart?.linePoints || spectrumHistoryCharts?.length)
+    spectrumChart?.linePoints
   );
 
   return (
@@ -568,25 +567,6 @@ function SpecificSpectrumPanel({
 
           {hasSpectrum ? (
             <>
-              {(spectrumHistoryCharts ?? []).length > 1 && (
-                <svg
-                  className="spectrum-history-svg"
-                  viewBox="0 0 1000 260"
-                  preserveAspectRatio="none"
-                  aria-label="Specific sweep spectrum history"
-                >
-                  {spectrumHistoryCharts.slice(0, -1).map((segment) => (
-                    <polyline
-                      key={segment.id}
-                      points={segment.linePoints}
-                      className="spectrum-history-line"
-                      fill="none"
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  ))}
-                </svg>
-              )}
-
               <svg
                 className="spectrum-svg"
                 viewBox="0 0 1000 260"
@@ -656,7 +636,6 @@ function SpecificChannelPage({
   scanSelectedMachineName,
   scannerLocked,
   spectrumChart,
-  spectrumHistoryCharts,
   frequencyTicks,
   chartDbTicks,
   thresholdTop,
@@ -1452,7 +1431,6 @@ function SpecificChannelPage({
           scanSelectedMachineName={scanSelectedMachineName}
           scanMatchesSelectedMachine={scanMatchesSelectedMachine}
           spectrumChart={spectrumChart}
-          spectrumHistoryCharts={spectrumHistoryCharts}
           frequencyTicks={frequencyTicks}
           chartDbTicks={chartDbTicks}
           thresholdTop={thresholdTop}

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import SpecificChannelPage from "./SpecificChannelPage.jsx";
 import {
-  createEmptyGeneralSpectrumPreview,
-  replaceGeneralSpectrumPreview,
+  createEmptySpectrumPreview,
+  replaceSpectrumPreview,
 } from "./generalSpectrumPreview.js";
 import navGeneralIcon from "./assets/nav-general.png";
 import navSpecificIcon from "./assets/nav-specific.png";
@@ -24,8 +24,6 @@ const INITIAL_STATUS_RETRY_DELAYS_MS = [0, 1000, 2000, 4000, 8000];
 // Jumlah window history yang disimpan di frontend.
 // Scan 50–6000 MHz dengan window 56 MHz butuh sekitar 107 window,
 // jadi 160 masih cukup aman untuk satu sweep penuh.
-const MAX_SPECTRUM_HISTORY_WINDOWS = 160;
-
 const CHART_SVG_HEIGHT = 260;
 const CHART_TICK_STEP_DB = 10;
 const THRESHOLD_TARGET_TOP_RATIO = 1 / 3;
@@ -1514,19 +1512,16 @@ function App() {
   const [selectedSpecificMachineId, setSelectedSpecificMachineId] = useState(null);
   const [selectedSpecificMachineName, setSelectedSpecificMachineName] = useState(null);
 
-  const [spectrum, setSpectrum] = useState({
+  const [, setSpectrum] = useState({
     frequency_mhz: [],
     power_db: [],
   });
-  // General Scan uses the bounded cumulative backend preview. `spectrum`
-  // remains the latest raw window for current-window UI.
-  const [generalSpectrumPreview, setGeneralSpectrumPreview] = useState(
-    createEmptyGeneralSpectrumPreview()
+  // Both owners use this bounded backend preview for the full-range graph.
+  // The latest raw window is still captured separately by setSpectrum().
+  const [spectrumPreview, setSpectrumPreview] = useState(
+    createEmptySpectrumPreview()
   );
 
-  // Opsi 2: history spektrum dari window sweep yang sudah discan.
-  // Data ini membuat window 56 MHz yang bergerak meninggalkan trail di chart.
-  const [spectrumHistory, setSpectrumHistory] = useState([]);
   const [sweepInfo, setSweepInfo] = useState(null);
   const [totalDetectionCount, setTotalDetectionCount] = useState(0);
 
@@ -1997,8 +1992,6 @@ function App() {
           return;
         }
 
-        const frequencyValues = spectrumData.frequency_mhz ?? [];
-        const powerValues = spectrumData.power_db ?? [];
         const timestamp = data.timestamp ?? new Date().toISOString();
         const rollingDetections = Array.isArray(data.detections)
           ? data.detections
@@ -2006,22 +1999,16 @@ function App() {
         const windowDetections = Array.isArray(data.last_window_detections)
           ? data.last_window_detections
           : [];
-        const windowIndex = Number(
-          currentWindow?.window_index ?? sweep?.scanned_windows ?? 0
-        );
-
         setSpectrum(spectrumData);
-        if (data.scan_owner === "general") {
-          const nextPreview = replaceGeneralSpectrumPreview({
-            activeSessionId,
-            responseSessionId,
-            preview: data.spectrum_preview,
+        const nextPreview = replaceSpectrumPreview({
+          activeSessionId,
+          responseSessionId,
+          preview: data.spectrum_preview,
+        });
+        if (nextPreview) {
+          setSpectrumPreview({
+            ...nextPreview,
           });
-          if (nextPreview) {
-            setGeneralSpectrumPreview({
-              ...nextPreview,
-            });
-          }
         }
         setScanOwner(data.scan_owner ?? null);
         setScanMode(data.scan_mode ?? null);
@@ -2075,48 +2062,6 @@ function App() {
           // Replace instead of merging so rescanned empty windows remove cards.
           currentScanHistoryRef.current = normalizedDetections;
           setCurrentScanHistory(normalizedDetections);
-        }
-
-        if (
-          data.scan_owner === "specific" &&
-          currentWindow &&
-          frequencyValues.length > 0 &&
-          powerValues.length > 0
-        ) {
-          const segmentId = [
-            windowIndex,
-            currentWindow.start_frequency_mhz,
-            currentWindow.end_frequency_mhz,
-          ].join("-");
-
-          const historySegment = {
-            id: segmentId,
-            windowIndex,
-            startFrequencyMhz: Number(currentWindow.start_frequency_mhz),
-            endFrequencyMhz: Number(currentWindow.end_frequency_mhz),
-            timestamp,
-            frequency_mhz: frequencyValues,
-            power_db: powerValues,
-          };
-
-          setSpectrumHistory((previousHistory) => {
-            const withoutDuplicate = previousHistory.filter(
-              (segment) => segment.id !== segmentId
-            );
-
-            const nextHistory = [
-              ...withoutDuplicate,
-              historySegment,
-            ].sort((a, b) => a.windowIndex - b.windowIndex);
-
-            if (nextHistory.length > MAX_SPECTRUM_HISTORY_WINDOWS) {
-              return nextHistory.slice(
-                nextHistory.length - MAX_SPECTRUM_HISTORY_WINDOWS
-              );
-            }
-
-            return nextHistory;
-          });
         }
 
         setErrorMessage("");
@@ -2366,20 +2311,19 @@ function App() {
       }));
   }, [chartScale, scanConfig.threshold_db]);
 
-  // Ubah pasangan frequency_mhz + power_db dari backend menjadi titik SVG.
-  // Posisi X memakai frekuensi asli pada full range scan, bukan nomor/index data.
+  // Both full-range graphs use the session-validated backend preview.
   const spectrumChart = useMemo(() => {
     const start = Number(scanConfig.start_frequency_mhz);
     const end = Number(scanConfig.end_frequency_mhz);
 
     return buildSpectrumSvgPath({
-      frequencyValues: spectrum.frequency_mhz ?? [],
-      powerValues: spectrum.power_db ?? [],
+      frequencyValues: spectrumPreview.frequency_mhz,
+      powerValues: spectrumPreview.power_db,
       start,
       end,
       chartScale,
     });
-  }, [chartScale, scanConfig, spectrum]);
+  }, [chartScale, scanConfig, spectrumPreview]);
 
   // General Scan must use the cumulative preview, not the latest polled FFT
   // window. The preview contains every committed autonomous window.
@@ -2388,52 +2332,13 @@ function App() {
     const end = Number(scanConfig.end_frequency_mhz);
 
     return buildSpectrumSvgPath({
-      frequencyValues: generalSpectrumPreview.frequency_mhz,
-      powerValues: generalSpectrumPreview.power_db,
+      frequencyValues: spectrumPreview.frequency_mhz,
+      powerValues: spectrumPreview.power_db,
       start,
       end,
       chartScale,
     });
-  }, [chartScale, generalSpectrumPreview, scanConfig]);
-
-  // Opsi 2: ubah seluruh history window sweep menjadi polyline SVG.
-  // Segment lama akan digambar lebih redup, sedangkan window aktif tetap memakai
-  // spectrumChart utama yang lebih terang.
-  const spectrumHistoryCharts = useMemo(() => {
-    const start = Number(scanConfig.start_frequency_mhz);
-    const end = Number(scanConfig.end_frequency_mhz);
-
-    if (
-      !Array.isArray(spectrumHistory) ||
-      spectrumHistory.length === 0 ||
-      !Number.isFinite(start) ||
-      !Number.isFinite(end) ||
-      end <= start
-    ) {
-      return [];
-    }
-
-    return spectrumHistory
-      .map((segment) => {
-        const path = buildSpectrumSvgPath({
-          frequencyValues: segment.frequency_mhz ?? [],
-          powerValues: segment.power_db ?? [],
-          start,
-          end,
-          chartScale,
-        });
-
-        if (!path.linePoints) {
-          return null;
-        }
-
-        return {
-          ...segment,
-          ...path,
-        };
-      })
-      .filter(Boolean);
-  }, [chartScale, scanConfig, spectrumHistory]);
+  }, [chartScale, scanConfig, spectrumPreview]);
 
 
   // Posisi garis threshold pada grafik.
@@ -2729,10 +2634,9 @@ function App() {
         frequency_mhz: [],
         power_db: [],
       });
-      setGeneralSpectrumPreview(
-        createEmptyGeneralSpectrumPreview(data.session_id ?? null)
+      setSpectrumPreview(
+        createEmptySpectrumPreview(data.session_id ?? null)
       );
-      setSpectrumHistory([]);
       setCurrentScanHistory([]);
       currentScanHistoryRef.current = [];
       activeScanMetaRef.current = {
@@ -3109,28 +3013,6 @@ function App() {
 
                   {generalSpectrumChart.linePoints ? (
                     <>
-                  {spectrumHistoryCharts.length > 1 && (
-                    <svg
-                      className="spectrum-history-svg"
-                      viewBox={`0 0 1000 ${CHART_SVG_HEIGHT}`}
-                      preserveAspectRatio="none"
-                      aria-label="USRP sweep spectrum history"
-                    >
-                      {spectrumHistoryCharts.slice(0, -1).map((segment) => (
-                        <polyline
-                          key={segment.id}
-                          points={segment.linePoints}
-                          className="spectrum-history-line"
-                          fill="none"
-                          vectorEffect="non-scaling-stroke"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          shapeRendering="geometricPrecision"
-                        />
-                      ))}
-                    </svg>
-                  )}
-
                       <svg
                         className="spectrum-svg"
                         viewBox={`0 0 1000 ${CHART_SVG_HEIGHT}`}
@@ -3424,9 +3306,6 @@ function App() {
               scanOwner === "specific"
                 ? spectrumChart
                 : { linePoints: "", areaPoints: "" }
-            }
-            spectrumHistoryCharts={
-              scanOwner === "specific" ? spectrumHistoryCharts : []
             }
             frequencyTicks={frequencyTicks}
             chartDbTicks={chartDbTicks}

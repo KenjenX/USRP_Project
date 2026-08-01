@@ -1,4 +1,4 @@
-export function createEmptyGeneralSpectrumPreview(sessionId = null) {
+export function createEmptySpectrumPreview(sessionId = null) {
   return {
     sessionId,
     frequency_mhz: [],
@@ -6,7 +6,7 @@ export function createEmptyGeneralSpectrumPreview(sessionId = null) {
   };
 }
 
-export function normalizeGeneralSpectrumPreview(preview) {
+export function normalizeSpectrumPreview(preview) {
   if (!preview || typeof preview !== "object") {
     return null;
   }
@@ -54,7 +54,7 @@ export function normalizeGeneralSpectrumPreview(preview) {
   };
 }
 
-export function replaceGeneralSpectrumPreview({
+export function replaceSpectrumPreview({
   activeSessionId,
   responseSessionId,
   preview,
@@ -67,7 +67,7 @@ export function replaceGeneralSpectrumPreview({
     return null;
   }
 
-  const normalizedPreview = normalizeGeneralSpectrumPreview(preview);
+  const normalizedPreview = normalizeSpectrumPreview(preview);
   if (!normalizedPreview) {
     return null;
   }
