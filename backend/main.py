@@ -1,5 +1,6 @@
 
 from datetime import datetime
+import asyncio
 from threading import Event, Lock, Thread
 from copy import deepcopy
 from collections import OrderedDict
@@ -13,7 +14,7 @@ import subprocess
 from pathlib import Path
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -35,6 +36,7 @@ from backend.scanner_worker import (
     UhdScannerError,
     UhdScannerManager,
 )
+from backend.spectrum_stream import SpectrumStreamManager
 
 # =========================
 # KONFIGURASI USRP
@@ -627,6 +629,9 @@ controller_lock = Lock()
 controller_thread = None
 controller_session_id = None
 controller_stop_event = None
+spectrum_stream_manager = SpectrumStreamManager(
+    lambda: build_spectrum_stream_message()
+)
 
 # Detector USB pasif. Detector ini hanya membaca daftar perangkat Plug and
 # Play Windows (konsep yang setara dengan lsusb di Linux). Detector tidak
@@ -931,6 +936,7 @@ def update_usb_device_state(next_state):
         # Worker UHD berada di proses terpisah. Ketika USB hilang, proses
         # scanner dihentikan paksa agar crash native tidak menjatuhkan FastAPI.
         if next_status == "disconnected":
+            scan_was_running = False
             scan_lifecycle_lock.acquire()
             with state_lock:
                 disconnected_session_id = scan_state.get("session_id")
@@ -942,6 +948,7 @@ def update_usb_device_state(next_state):
                         "The USRP connection was lost while the scan was running."
                     )
                     scan_state["updated_at"] = now
+                    scan_was_running = True
             # The session id is captured while state is protected, then all
             # potentially blocking controller/worker operations happen outside.
             _signal_controller_stop(disconnected_session_id)
@@ -954,6 +961,8 @@ def update_usb_device_state(next_state):
                 "usb_disconnected",
             )
             scan_lifecycle_lock.release()
+            if scan_was_running:
+                publish_spectrum_snapshot_threadsafe()
 
 
 def get_usb_device_state():
@@ -990,12 +999,13 @@ def stop_usb_detector():
 
 
 @app.on_event("startup")
-def app_startup():
+async def app_startup():
+    spectrum_stream_manager.bind_event_loop(asyncio.get_running_loop())
     start_usb_detector()
 
 
 @app.on_event("shutdown")
-def app_shutdown():
+async def app_shutdown():
     stop_usb_detector()
     scan_lifecycle_lock.acquire()
     state = get_current_state()
@@ -1009,6 +1019,7 @@ def app_shutdown():
         _join_controller(session_id)
         discard_benchmark_session(session_id, "application_shutdown")
         scan_lifecycle_lock.release()
+    await spectrum_stream_manager.shutdown()
 
 
 def get_current_state():
@@ -1076,6 +1087,7 @@ def release_scan_lock_after_error(
         pass
     discard_benchmark_session(expected_session_id, "scan_error")
     scan_lifecycle_lock.release()
+    publish_spectrum_snapshot_threadsafe()
     return {"transitioned": True, "state": failed_state}
 
 
@@ -1373,6 +1385,53 @@ def finalize_spectrum_preview(state: dict) -> dict | None:
         "min_power_db": min(sorted_power),
         "max_power_db": max(sorted_power),
     }
+
+
+def build_spectrum_snapshot(state: dict | None = None) -> dict:
+    """Build the shared REST/WebSocket snapshot from one copied state."""
+    state = get_current_state() if state is None else state
+    latest_snapshot = state.get("latest_window_snapshot") or {
+        "current_window": None,
+        "spectrum": {"frequency_mhz": [], "power_db": []},
+        "peak": state["last_peak"],
+        "detections": state["last_window_detections"],
+        "last_window_detection_count": len(state["last_window_detections"]),
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "debug_clusters": build_empty_debug_clusters(),
+    }
+    channel_snapshot = get_channel_measurements(state)
+
+    return {
+        "running": state["running"], "completed": state["completed"],
+        "timestamp": latest_snapshot["timestamp"], **get_scan_identity(state),
+        "config": state["config"], "sweep": state["sweep"], **get_cycle_state(state),
+        "current_window": latest_snapshot["current_window"],
+        "spectrum": latest_snapshot["spectrum"], "peak": latest_snapshot["peak"],
+        "detections": state["detections"],
+        "last_window_detections": latest_snapshot["detections"],
+        "last_window_detection_count": latest_snapshot["last_window_detection_count"],
+        "detection_count": len(state["detections"]),
+        "channel_measurements": channel_snapshot,
+        "spectrum_preview": finalize_spectrum_preview(state),
+        "session_id": state["session_id"], "completed_at": state["completed_at"],
+        "session_saved": state["session_saved"],
+        "history_save_error": state["history_save_error"],
+        "last_error": state["last_error"],
+        "debug_clusters": latest_snapshot["debug_clusters"],
+    }
+
+
+def build_spectrum_stream_message() -> dict:
+    return {
+        "protocol_version": 1,
+        "message_type": "spectrum_snapshot",
+        **build_spectrum_snapshot(),
+    }
+
+
+def publish_spectrum_snapshot_threadsafe() -> None:
+    """Notify the ASGI loop only; scan and lifecycle threads never await I/O."""
+    spectrum_stream_manager.publish_threadsafe()
 
 
 def ensure_scan_history_dir() -> None:
@@ -2394,6 +2453,7 @@ def _run_autonomous_single_sweep(snapshot: dict, stop_event: Event) -> None:
                 )
                 if not committed:
                     return
+                publish_spectrum_snapshot_threadsafe()
                 if timings is not None:
                     timings["controller_window_active_ms"] = benchmark_ms_since(window_started_ns)
                     context = {
@@ -2620,6 +2680,7 @@ def start_scan(request: ScanRequest):
         raise
 
     scan_lifecycle_lock.release()
+    publish_spectrum_snapshot_threadsafe()
 
     return {
         "message": (
@@ -2698,6 +2759,7 @@ def stop_scan(request: StopScanRequest):
 
     _join_controller(state.get("session_id"))
     scan_lifecycle_lock.release()
+    publish_spectrum_snapshot_threadsafe()
 
     return {
         "message": f"{requested_owner.title()} Scan stopped.",
@@ -2805,36 +2867,8 @@ def get_spectrum(request: Request):
     benchmark_context = getattr(request.state, "benchmark_context", None)
     endpoint_started_ns = perf_counter_ns() if benchmark_context is not None else 0
     state = get_current_state()
-
-    latest_snapshot = state.get("latest_window_snapshot") or {
-        "current_window": None,
-        "spectrum": {"frequency_mhz": [], "power_db": []},
-        "peak": state["last_peak"],
-        "detections": state["last_window_detections"],
-        "last_window_detection_count": len(state["last_window_detections"]),
-        "timestamp": datetime.now().isoformat(timespec="seconds"),
-        "debug_clusters": build_empty_debug_clusters(),
-    }
-    channel_snapshot = get_channel_measurements(state)
-    spectrum_preview = finalize_spectrum_preview(state)
     response_started_ns = perf_counter_ns() if benchmark_context is not None else 0
-    response = {
-        "running": state["running"], "completed": state["completed"],
-        "timestamp": latest_snapshot["timestamp"], **get_scan_identity(state),
-        "config": state["config"], "sweep": state["sweep"], **get_cycle_state(state),
-        "current_window": latest_snapshot["current_window"],
-        "spectrum": latest_snapshot["spectrum"], "peak": latest_snapshot["peak"],
-        "detections": state["detections"],
-        "last_window_detections": latest_snapshot["detections"],
-        "last_window_detection_count": latest_snapshot["last_window_detection_count"],
-        "detection_count": len(state["detections"]),
-        "channel_measurements": channel_snapshot,
-        "spectrum_preview": spectrum_preview,
-        "session_id": state["session_id"], "completed_at": state["completed_at"],
-        "session_saved": state["session_saved"],
-        "history_save_error": state["history_save_error"],
-        "debug_clusters": latest_snapshot["debug_clusters"],
-    }
+    response = build_spectrum_snapshot(state)
     if benchmark_context is not None:
         benchmark_context.update({
             "snapshot_request": True, "session_id": state.get("session_id"),
@@ -2844,6 +2878,22 @@ def get_spectrum(request: Request):
         benchmark_context["timings_ms"]["snapshot_endpoint_logic_ms"] = benchmark_ms_since(endpoint_started_ns)
         register_benchmark_snapshot_poll(benchmark_context)
     return response
+
+
+@app.websocket("/api/spectrum/stream")
+async def spectrum_stream(websocket: WebSocket):
+    await websocket.accept()
+    client_id = await spectrum_stream_manager.register(
+        websocket,
+        build_spectrum_stream_message(),
+    )
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await spectrum_stream_manager.remove(client_id)
 
 
 def replace_spectrum_preview_window(

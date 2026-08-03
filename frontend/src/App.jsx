@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import SpecificChannelPage from "./SpecificChannelPage.jsx";
 import SpectrumCanvas from "./SpectrumCanvas.jsx";
+import useSpectrumStream from "./useSpectrumStream.js";
+import { shouldUseSpectrumRestFallback } from "./spectrumTransport.js";
 import {
   createEmptySpectrumPreview,
   replaceSpectrumPreview,
@@ -18,6 +20,7 @@ import signalIcon from "./assets/signal-icon.png";
 const API_BASE_URL = "http://127.0.0.1:8000";
 
 const SPECTRUM_REFRESH_MS = 250;
+const ENABLE_SPECTRUM_WEBSOCKET = true;
 const DEVICE_STATUS_REFRESH_MS = 5000;
 const INITIAL_STATUS_RETRY_DELAYS_MS = [0, 1000, 2000, 4000, 8000];
 
@@ -1499,6 +1502,10 @@ function App() {
   const currentScanHistoryRef = useRef([]);
   const activeScanMetaRef = useRef(null);
   const scanSessionSavedRef = useRef(false);
+  const lastSnapshotKeyRef = useRef(null);
+  const streamAcceptedSnapshotCountRef = useRef(0);
+  const streamRejectedSnapshotCountRef = useRef(0);
+  const [spectrumStreamHealthy, setSpectrumStreamHealthy] = useState(false);
 
   const [peak, setPeak] = useState(null);
   const [detections, setDetections] = useState([]);
@@ -1912,9 +1919,138 @@ function App() {
     };
   }, [syncScanStateFromBackend]);
 
-  // Ambil data spectrum baru setiap 250 ms saat scan berjalan.
+  const applySpectrumSnapshot = useCallback(async (data) => {
+    const responseSessionId = data?.session_id ?? null;
+    const activeScan = activeScanMetaRef.current;
+    const activeSessionId = activeScan?.id ?? null;
+    const expectedOwner = activeScan?.request?.scan_owner ?? null;
+    const expectedMachineId = activeScan?.request?.selected_machine_id;
+
+    if (
+      !responseSessionId ||
+      !activeSessionId ||
+      responseSessionId !== activeSessionId ||
+      (expectedOwner && data.scan_owner !== expectedOwner) ||
+      (expectedOwner === "specific" && expectedMachineId !== null && expectedMachineId !== undefined &&
+        Number(data.selected_machine_id) !== Number(expectedMachineId))
+    ) {
+      return { accepted: false, running: Boolean(data?.running) };
+    }
+
+    const currentWindow = data.current_window ?? null;
+    const sweep = data.sweep ?? null;
+    const timestamp = data.timestamp ?? new Date().toISOString();
+    const snapshotKey = [
+      responseSessionId,
+      timestamp,
+      data.cycle_index,
+      currentWindow?.window_index,
+      data.spectrum_preview?.point_count,
+      data.running,
+      data.last_error,
+    ].join("|");
+    if (lastSnapshotKeyRef.current === snapshotKey) {
+      return { accepted: true, running: Boolean(data.running), duplicate: true };
+    }
+    lastSnapshotKeyRef.current = snapshotKey;
+
+    const spectrumData = data.spectrum ?? { frequency_mhz: [], power_db: [] };
+    const rollingDetections = Array.isArray(data.detections) ? data.detections : [];
+    const windowDetections = Array.isArray(data.last_window_detections)
+      ? data.last_window_detections
+      : [];
+    setSpectrum(spectrumData);
+    const nextPreview = replaceSpectrumPreview({
+      activeSessionId,
+      responseSessionId,
+      preview: data.spectrum_preview,
+    });
+    if (nextPreview) setSpectrumPreview({ ...nextPreview });
+    setScanOwner(data.scan_owner ?? null);
+    setScanMode(data.scan_mode ?? null);
+    setScanSelectedMachineId(data.selected_machine_id ?? null);
+    setScanSelectedMachineName(data.selected_machine_name ?? null);
+    setPeak(data.peak);
+    setDetections(windowDetections);
+    setChannelMeasurements(Array.isArray(data.channel_measurements) ? data.channel_measurements : []);
+    setDebugClusters(data.debug_clusters ?? {
+      merge_gap_mhz: 0.05,
+      raw_clusters: [],
+      merged_clusters: [],
+    });
+    if (data.config) setScanConfig(data.config);
+    setSweepInfo({
+      ...sweep,
+      cycle_index: data.cycle_index,
+      completed_cycles: data.completed_cycles,
+      cycle_window_index: data.cycle_window_index,
+      cycle_total_windows: data.cycle_total_windows,
+      cycle_progress_percent: data.cycle_progress_percent,
+    });
+    setTotalDetectionCount(
+      Number.isFinite(Number(data.detection_count)) ? data.detection_count : windowDetections.length
+    );
+    const normalizedDetections = rollingDetections.map((detection, detectionIndex) => ({
+      ...detection,
+      history_id: buildDetectionHistoryId(detection, detectionIndex),
+      captured_at: timestamp,
+      window_label: formatWindowMHz(detection.window_start_mhz, detection.window_end_mhz),
+    }));
+    currentScanHistoryRef.current = normalizedDetections;
+    setCurrentScanHistory(normalizedDetections);
+    setErrorMessage("");
+
+    if (!data.running) {
+      setIsScanning(false);
+      if (data.completed && !scanSessionSavedRef.current) {
+        try {
+          await loadPersistentScanSessions({ selectLatest: true });
+        } catch (historyError) {
+          setErrorMessage(`Scan history error: ${historyError.message}`);
+          notify("Failed to load Scan History.", "error", "load-scan-history");
+        }
+        scanSessionSavedRef.current = true;
+      }
+      setStatusMessage(data.completed ? "Scan completed and was saved to Scan History." : "Scan stopped.");
+      if (data.completed && !scanCompletionToastRef.current) {
+        scanCompletionToastRef.current = true;
+        notify("Scan completed.", "success", "scan-completed");
+      } else if (!data.completed && data.last_error && !manualStopRequestedRef.current) {
+        notifyScanFailure(new Error(data.last_error));
+      }
+      return { accepted: true, running: false };
+    }
+
+    if (currentWindow && sweep) {
+      setStatusMessage(
+        `Scanning ${formatWindowMHz(currentWindow.start_frequency_mhz, currentWindow.end_frequency_mhz)} Â· Window ${sweep.scanned_windows}/${sweep.total_windows} Â· ${sweep.progress_percent}%`
+      );
+    } else {
+      setStatusMessage(`Spectrum updated: ${data.timestamp || "real time"}`);
+    }
+    return { accepted: true, running: true };
+  }, [loadPersistentScanSessions, notify, notifyScanFailure]);
+
+  useSpectrumStream({
+    enabled: ENABLE_SPECTRUM_WEBSOCKET && isScanning,
+    apiBaseUrl: API_BASE_URL,
+    activeScanMetaRef,
+    onSnapshot: (snapshot) => {
+      streamAcceptedSnapshotCountRef.current += 1;
+      applySpectrumSnapshot(snapshot);
+    },
+    onHealthChange: setSpectrumStreamHealthy,
+    onRejected: () => {
+      streamRejectedSnapshotCountRef.current += 1;
+    },
+  });
+
+  // REST remains the Stage 1 fallback while the WebSocket is unavailable.
   useEffect(() => {
-    if (!isScanning) {
+    if (!isScanning || !shouldUseSpectrumRestFallback(
+      ENABLE_SPECTRUM_WEBSOCKET,
+      spectrumStreamHealthy
+    )) {
       return undefined;
     }
 
@@ -1934,123 +2070,16 @@ function App() {
           return;
         }
 
-        const spectrumData = data.spectrum ?? {
-          frequency_mhz: [],
-          power_db: [],
-        };
-        const currentWindow = data.current_window ?? null;
-        const sweep = data.sweep ?? null;
-        const responseSessionId = data.session_id ?? null;
-        const activeSessionId = activeScanMetaRef.current?.id ?? null;
-
-        // Do not let an in-flight response from a stopped/replaced scan add
-        // preview points to the active session.
-        if (
-          !responseSessionId ||
-          !activeSessionId ||
-          responseSessionId !== activeSessionId
-        ) {
+        const applied = await applySpectrumSnapshot(data);
+        if (!applied.accepted || !applied.running) {
           return;
         }
-
-        const timestamp = data.timestamp ?? new Date().toISOString();
-        const rollingDetections = Array.isArray(data.detections)
-          ? data.detections
-          : [];
-        const windowDetections = Array.isArray(data.last_window_detections)
-          ? data.last_window_detections
-          : [];
-        setSpectrum(spectrumData);
-        const nextPreview = replaceSpectrumPreview({
-          activeSessionId,
-          responseSessionId,
-          preview: data.spectrum_preview,
-        });
-        if (nextPreview) {
-          setSpectrumPreview({
-            ...nextPreview,
-          });
+        if (!cancelled) {
+          timeoutId = window.setTimeout(pollSpectrum, SPECTRUM_REFRESH_MS);
         }
-        setScanOwner(data.scan_owner ?? null);
-        setScanMode(data.scan_mode ?? null);
-        setScanSelectedMachineId(data.selected_machine_id ?? null);
-        setScanSelectedMachineName(data.selected_machine_name ?? null);
-        setPeak(data.peak);
-        setDetections(windowDetections);
-        setChannelMeasurements(
-          Array.isArray(data.channel_measurements)
-            ? data.channel_measurements
-            : []
-        );
-        setDebugClusters(
-          data.debug_clusters ?? {
-            merge_gap_mhz: 0.05,
-            raw_clusters: [],
-            merged_clusters: [],
-          }
-        );
-        setScanConfig(data.config);
-        setSweepInfo({
-          ...sweep,
-          cycle_index: data.cycle_index,
-          completed_cycles: data.completed_cycles,
-          cycle_window_index: data.cycle_window_index,
-          cycle_total_windows: data.cycle_total_windows,
-          cycle_progress_percent: data.cycle_progress_percent,
-        });
-        setTotalDetectionCount(
-          Number.isFinite(Number(data.detection_count))
-            ? Number(data.detection_count)
-            : windowDetections.length
-        );
+        return;
 
-        {
-          const normalizedDetections = rollingDetections.map(
-            (detection, detectionIndex) => ({
-              ...detection,
-              history_id: buildDetectionHistoryId(
-                detection,
-                detectionIndex
-              ),
-              captured_at: timestamp,
-              window_label: formatWindowMHz(
-                detection.window_start_mhz,
-                detection.window_end_mhz
-              ),
-            })
-          );
-          // Backend detections are the complete rolling per-window state.
-          // Replace instead of merging so rescanned empty windows remove cards.
-          currentScanHistoryRef.current = normalizedDetections;
-          setCurrentScanHistory(normalizedDetections);
-        }
-
-        setErrorMessage("");
-
-        if (!data.running) {
-          setIsScanning(false);
-
-          if (data.completed && !scanSessionSavedRef.current) {
-            try {
-              await loadPersistentScanSessions({ selectLatest: true });
-            } catch (historyError) {
-              const historyForSession = currentScanHistoryRef.current;
-              const sessionId =
-                data.session_id ??
-                activeScanMetaRef.current?.id ??
-                `scan-${Date.now()}`;
-              const completedAt = data.completed_at ?? timestamp;
-
-              const fallbackOwner =
-                data.scan_owner ??
-                activeScanMetaRef.current?.request?.scan_owner ??
-                null;
-
-              const fallbackMachineName =
-                data.selected_machine_name ??
-                activeScanMetaRef.current?.selectedMachineName ??
-                null;
-
+        /*
               const fallbackOwnerLabel =
                 fallbackOwner === "specific"
                   ? fallbackMachineName
@@ -2129,6 +2158,7 @@ function App() {
             `Spectrum updated: ${data.timestamp || "real time"}`
           );
         }
+        */
       } catch (error) {
         if (cancelled) {
           return;
@@ -2170,9 +2200,6 @@ function App() {
         }
       }
 
-      if (!cancelled) {
-        timeoutId = window.setTimeout(pollSpectrum, SPECTRUM_REFRESH_MS);
-      }
     }
 
     pollSpectrum();
@@ -2182,10 +2209,12 @@ function App() {
       window.clearTimeout(timeoutId);
     };
   }, [
+    applySpectrumSnapshot,
     isScanning,
     loadPersistentScanSessions,
     notify,
     notifyScanFailure,
+    spectrumStreamHealthy,
     syncScanStateFromBackend,
   ]);
 
