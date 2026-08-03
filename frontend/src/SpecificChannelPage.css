@@ -67,7 +67,7 @@
 }
 
 .specific-spectrum-chart {
-  height: 215px;
+  height: var(--spectrum-chart-height);
   margin-top: 5px;
   border: 2px solid #101822;
   border-radius: 2px;
@@ -1169,7 +1169,7 @@
   }
 
   .specific-spectrum-chart {
-    height: 165px;
+    height: var(--spectrum-chart-height-compact);
   }
 
   .specific-figma-content {

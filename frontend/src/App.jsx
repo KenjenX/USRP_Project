@@ -5,6 +5,11 @@ import {
   createEmptySpectrumPreview,
   replaceSpectrumPreview,
 } from "./generalSpectrumPreview.js";
+import {
+  FIXED_CHART_SCALE,
+  createFixedChartDbTicks,
+  dbToChartPercent,
+} from "./spectrumChartScale.js";
 import navGeneralIcon from "./assets/nav-general.png";
 import navSpecificIcon from "./assets/nav-specific.png";
 import signalIcon from "./assets/signal-icon.png";
@@ -26,12 +31,6 @@ const INITIAL_STATUS_RETRY_DELAYS_MS = [0, 1000, 2000, 4000, 8000];
 // jadi 160 masih cukup aman untuk satu sweep penuh.
 const CHART_SVG_HEIGHT = 260;
 const CHART_TICK_STEP_DB = 10;
-const THRESHOLD_TARGET_TOP_RATIO = 1 / 3;
-
-// Batas bawah display dibuat tetap agar skala tidak bergerak
-// setiap spectrum baru diterima. Nilai spectrum di bawah -100 dB
-// akan tetap terlihat pada baseline chart.
-const CHART_REFERENCE_MIN_DB = -100;
 
 // Warna marker pada grafik. Urutan warna sama dengan urutan Signal 01, 02, 03, dan seterusnya.
 const DETECTION_MARKER_COLORS = [
@@ -1023,18 +1022,6 @@ function HistoricalSpectrumPanel({ session }) {
     preview?.end_frequency_mhz ?? config.end_frequency_mhz
   );
 
-  const chartScale = useMemo(() => {
-    const safeThreshold = Number.isFinite(thresholdValue)
-      ? thresholdValue
-      : 0;
-    const minDb = CHART_REFERENCE_MIN_DB;
-    const maxDb =
-      (safeThreshold - THRESHOLD_TARGET_TOP_RATIO * minDb) /
-      (1 - THRESHOLD_TARGET_TOP_RATIO);
-
-    return { minDb, maxDb };
-  }, [thresholdValue]);
-
   const chartPath = useMemo(() => {
     if (!preview) {
       return { linePoints: "", areaPoints: "" };
@@ -1045,9 +1032,9 @@ function HistoricalSpectrumPanel({ session }) {
       powerValues: preview.power_db ?? [],
       start,
       end,
-      chartScale,
+      chartScale: FIXED_CHART_SCALE,
     });
-  }, [preview, start, end, chartScale]);
+  }, [preview, start, end]);
 
   const frequencyTicks = useMemo(() => {
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
@@ -1066,40 +1053,13 @@ function HistoricalSpectrumPanel({ session }) {
     });
   }, [start, end]);
 
-  const chartDbTicks = useMemo(() => {
-    const safeThreshold = Number.isFinite(thresholdValue)
-      ? thresholdValue
-      : 0;
-    const values = [-100, -50, safeThreshold]
-      .filter(
-        (value, index, source) =>
-          value >= chartScale.minDb &&
-          value <= chartScale.maxDb &&
-          source.findIndex((item) => Math.abs(item - value) < 0.001) === index
-      )
-      .sort((a, b) => b - a);
-
-    return values.map((value) => ({
-      value,
-      position:
-        ((chartScale.maxDb - value) /
-          (chartScale.maxDb - chartScale.minDb)) *
-        100,
-      isThreshold: Math.abs(value - safeThreshold) < 0.001,
-    }));
-  }, [chartScale, thresholdValue]);
+  const chartDbTicks = useMemo(createFixedChartDbTicks, []);
 
   const thresholdTop = useMemo(() => {
     const value = Number.isFinite(thresholdValue) ? thresholdValue : 0;
 
-    return clamp(
-      ((chartScale.maxDb - value) /
-        (chartScale.maxDb - chartScale.minDb)) *
-        100,
-      0,
-      100
-    );
-  }, [chartScale, thresholdValue]);
+    return dbToChartPercent(value);
+  }, [thresholdValue]);
 
   return (
     <section className="history-spectrum-preview">
@@ -2253,63 +2213,8 @@ function App() {
     });
   }, [scanConfig]);
 
-  // Skala Y hanya dihitung ulang saat threshold scan berubah.
-  // Spectrum baru setiap 500 ms tidak boleh mengubah skala.
-  // Dengan batas bawah tetap -100 dB, threshold berada tepat
-  // sekitar 1/3 dari atas chart.
-  const chartScale = useMemo(() => {
-    const thresholdValue = Number(scanConfig.threshold_db);
-    const safeThreshold = Number.isFinite(thresholdValue)
-      ? thresholdValue
-      : 0;
-
-    const minDb = CHART_REFERENCE_MIN_DB;
-    const maxDb =
-      (safeThreshold - THRESHOLD_TARGET_TOP_RATIO * minDb) /
-      (1 - THRESHOLD_TARGET_TOP_RATIO);
-
-    return { minDb, maxDb };
-  }, [scanConfig.threshold_db]);
-
-  // Label sumbu Y mengikuti skala threshold yang stabil.
-  const chartDbTicks = useMemo(() => {
-    const thresholdValue = Number(scanConfig.threshold_db);
-    const safeThreshold = Number.isFinite(thresholdValue)
-      ? thresholdValue
-      : 0;
-
-    const firstTick = Math.ceil(chartScale.minDb / 50) * 50;
-    const lastTick = Math.floor(chartScale.maxDb / 50) * 50;
-
-    const values = [];
-
-    for (let value = lastTick; value >= firstTick; value -= 50) {
-      values.push(value);
-    }
-
-    const thresholdAlreadyExists = values.some(
-      (value) => Math.abs(value - safeThreshold) < 0.001
-    );
-
-    if (
-      !thresholdAlreadyExists &&
-      safeThreshold >= chartScale.minDb &&
-      safeThreshold <= chartScale.maxDb
-    ) {
-      values.push(safeThreshold);
-    }
-
-    return values
-      .sort((a, b) => b - a)
-      .map((value) => ({
-        value: Number(value.toFixed(1)),
-        position:
-          ((chartScale.maxDb - value) /
-            (chartScale.maxDb - chartScale.minDb)) *
-          100,
-        isThreshold: Math.abs(value - safeThreshold) < 0.001,
-      }));
-  }, [chartScale, scanConfig.threshold_db]);
+  // The fixed reference-power range remains stable across polling updates.
+  const chartDbTicks = useMemo(createFixedChartDbTicks, []);
 
   // Both full-range graphs use the session-validated backend preview.
   const spectrumChart = useMemo(() => {
@@ -2321,9 +2226,9 @@ function App() {
       powerValues: spectrumPreview.power_db,
       start,
       end,
-      chartScale,
+      chartScale: FIXED_CHART_SCALE,
     });
-  }, [chartScale, scanConfig, spectrumPreview]);
+  }, [scanConfig, spectrumPreview]);
 
   // General Scan must use the cumulative preview, not the latest polled FFT
   // window. The preview contains every committed autonomous window.
@@ -2336,22 +2241,17 @@ function App() {
       powerValues: spectrumPreview.power_db,
       start,
       end,
-      chartScale,
+      chartScale: FIXED_CHART_SCALE,
     });
-  }, [chartScale, scanConfig, spectrumPreview]);
+  }, [scanConfig, spectrumPreview]);
 
 
   // Posisi garis threshold pada grafik.
   const thresholdTop = useMemo(() => {
     const value = Number(scanConfig.threshold_db);
 
-    const position =
-      ((chartScale.maxDb - value) /
-        (chartScale.maxDb - chartScale.minDb)) *
-      100;
-
-    return clamp(position, 0, 100);
-  }, [chartScale, scanConfig.threshold_db]);
+    return dbToChartPercent(value);
+  }, [scanConfig.threshold_db]);
 
   // Satu marker dibuat untuk setiap detection akhir dari backend.
   // Marker ini menunjukkan peak yang dipakai untuk klasifikasi band,
@@ -2385,10 +2285,7 @@ function App() {
           return null;
         }
 
-        const verticalPosition =
-          ((chartScale.maxDb - power) /
-            (chartScale.maxDb - chartScale.minDb)) *
-          100;
+        const verticalPosition = dbToChartPercent(power);
 
         return {
           id: `${frequency}-${index}`,
@@ -2403,7 +2300,7 @@ function App() {
         };
       })
       .filter(Boolean);
-  }, [chartScale, detections, scanConfig]);
+  }, [detections, scanConfig]);
 
   // TEMPORARY DEBUG VISUAL.
   // Menampilkan area cluster akhir aktual dari backend.
