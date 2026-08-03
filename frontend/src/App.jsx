@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import SpecificChannelPage from "./SpecificChannelPage.jsx";
+import SpectrumCanvas from "./SpectrumCanvas.jsx";
 import {
   createEmptySpectrumPreview,
   replaceSpectrumPreview,
@@ -2218,40 +2219,12 @@ function App() {
 
   // Both full-range graphs use the session-validated backend preview.
   const spectrumChart = useMemo(() => {
-    const start = Number(scanConfig.start_frequency_mhz);
-    const end = Number(scanConfig.end_frequency_mhz);
-
-    return buildSpectrumSvgPath({
+    return {
       frequencyValues: spectrumPreview.frequency_mhz,
       powerValues: spectrumPreview.power_db,
-      start,
-      end,
-      chartScale: FIXED_CHART_SCALE,
-    });
-  }, [scanConfig, spectrumPreview]);
+    };
+  }, [spectrumPreview]);
 
-  // General Scan must use the cumulative preview, not the latest polled FFT
-  // window. The preview contains every committed autonomous window.
-  const generalSpectrumChart = useMemo(() => {
-    const start = Number(scanConfig.start_frequency_mhz);
-    const end = Number(scanConfig.end_frequency_mhz);
-
-    return buildSpectrumSvgPath({
-      frequencyValues: spectrumPreview.frequency_mhz,
-      powerValues: spectrumPreview.power_db,
-      start,
-      end,
-      chartScale: FIXED_CHART_SCALE,
-    });
-  }, [scanConfig, spectrumPreview]);
-
-
-  // Posisi garis threshold pada grafik.
-  const thresholdTop = useMemo(() => {
-    const value = Number(scanConfig.threshold_db);
-
-    return dbToChartPercent(value);
-  }, [scanConfig.threshold_db]);
 
   // Satu marker dibuat untuk setiap detection akhir dari backend.
   // Marker ini menunjukkan peak yang dipakai untuk klasifikasi band,
@@ -2901,37 +2874,15 @@ function App() {
                     />
                   ))}
 
-                  <div
-                    className="threshold-visual"
-                    style={{ top: `${thresholdTop}%` }}
-                  >
-                    <span>Threshold {scanConfig.threshold_db} dB</span>
-                  </div>
-
-                  {generalSpectrumChart.linePoints ? (
+                  {spectrumPreview.frequency_mhz.length > 0 ? (
                     <>
-                      <svg
-                        className="spectrum-svg"
-                        viewBox={`0 0 1000 ${CHART_SVG_HEIGHT}`}
-                        preserveAspectRatio="none"
-                        aria-label="USRP realtime spectrum"
-                      >
-                        <polygon
-                          points={generalSpectrumChart.areaPoints}
-                          className="spectrum-area"
-                        />
-
-                        <polyline
-                          points={generalSpectrumChart.linePoints}
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.35"
-                          vectorEffect="non-scaling-stroke"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          shapeRendering="geometricPrecision"
-                        />
-                      </svg>
+                      <SpectrumCanvas
+                        frequencyValues={spectrumPreview.frequency_mhz}
+                        powerValues={spectrumPreview.power_db}
+                        startFrequencyMHz={scanConfig.start_frequency_mhz}
+                        endFrequencyMHz={scanConfig.end_frequency_mhz}
+                        thresholdDb={scanConfig.threshold_db}
+                      />
 
                       {clusterAreas.map((cluster) => (
                         <div
@@ -3206,7 +3157,6 @@ function App() {
             }
             frequencyTicks={frequencyTicks}
             chartDbTicks={chartDbTicks}
-            thresholdTop={thresholdTop}
             scanDetections={
               scanOwner === "specific" ? currentScanHistorySorted : []
             }

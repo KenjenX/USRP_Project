@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "./SpecificChannelPage.css";
 import signalIcon from "./assets/signal-icon.png";
+import SpectrumCanvas from "./SpectrumCanvas.jsx";
 
 const TECHNOLOGY_OPTIONS = [
   {
@@ -484,7 +485,6 @@ function SpecificSpectrumPanel({
   spectrumChart,
   frequencyTicks,
   chartDbTicks,
-  thresholdTop,
 }) {
   const ownScanRunning =
     isScanning &&
@@ -498,7 +498,7 @@ function SpecificSpectrumPanel({
   const hasSpectrum = Boolean(
     !scannerLocked &&
     scanMatchesSelectedMachine &&
-    spectrumChart?.linePoints
+    spectrumChart?.frequencyValues?.length
   );
 
   return (
@@ -558,33 +558,15 @@ function SpecificSpectrumPanel({
             />
           ))}
 
-          <div
-            className="threshold-visual"
-            style={{ top: `${thresholdTop ?? 0}%` }}
-          >
-            <span>Threshold {scanConfig?.threshold_db ?? 0} dB</span>
-          </div>
-
           {hasSpectrum ? (
             <>
-              <svg
-                className="spectrum-svg"
-                viewBox="0 0 1000 260"
-                preserveAspectRatio="none"
-                aria-label="Specific realtime spectrum"
-              >
-                <polygon
-                  points={spectrumChart?.areaPoints ?? ""}
-                  className="spectrum-area"
-                />
-                <polyline
-                  points={spectrumChart?.linePoints ?? ""}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.25"
-                  vectorEffect="non-scaling-stroke"
-                />
-              </svg>
+              <SpectrumCanvas
+                frequencyValues={spectrumChart?.frequencyValues ?? []}
+                powerValues={spectrumChart?.powerValues ?? []}
+                startFrequencyMHz={scanConfig?.start_frequency_mhz}
+                endFrequencyMHz={scanConfig?.end_frequency_mhz}
+                thresholdDb={scanConfig?.threshold_db}
+              />
             </>
           ) : (
             <div className="chart-placeholder">
@@ -638,7 +620,6 @@ function SpecificChannelPage({
   spectrumChart,
   frequencyTicks,
   chartDbTicks,
-  thresholdTop,
   scanDetections,
   channelMeasurements,
   sweepInfo,
@@ -1433,7 +1414,6 @@ function SpecificChannelPage({
           spectrumChart={spectrumChart}
           frequencyTicks={frequencyTicks}
           chartDbTicks={chartDbTicks}
-          thresholdTop={thresholdTop}
         />
 
         {specificScanForOtherMachine && (
