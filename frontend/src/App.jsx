@@ -1503,8 +1503,6 @@ function App() {
   const activeScanMetaRef = useRef(null);
   const scanSessionSavedRef = useRef(false);
   const lastSnapshotKeyRef = useRef(null);
-  const streamAcceptedSnapshotCountRef = useRef(0);
-  const streamRejectedSnapshotCountRef = useRef(0);
   const [spectrumStreamHealthy, setSpectrumStreamHealthy] = useState(false);
 
   const [peak, setPeak] = useState(null);
@@ -2035,14 +2033,9 @@ function App() {
     enabled: ENABLE_SPECTRUM_WEBSOCKET && isScanning,
     apiBaseUrl: API_BASE_URL,
     activeScanMetaRef,
-    onSnapshot: (snapshot) => {
-      streamAcceptedSnapshotCountRef.current += 1;
-      applySpectrumSnapshot(snapshot);
-    },
+    onSnapshot: applySpectrumSnapshot,
     onHealthChange: setSpectrumStreamHealthy,
-    onRejected: () => {
-      streamRejectedSnapshotCountRef.current += 1;
-    },
+    onRejected: () => {},
   });
 
   // REST remains the Stage 1 fallback while the WebSocket is unavailable.
