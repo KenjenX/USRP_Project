@@ -39,11 +39,6 @@ const DETECTION_MARKER_COLORS = [
   "#ff9f68",
 ];
 
-// TEMPORARY DEBUG VISUAL.
-// 0.05 MHz = 50 kHz. Matikan dengan mengubah true menjadi false.
-const SHOW_MERGE_GAP_DEBUG = false;
-const MERGE_GAP_DEBUG_MHZ = 0.05;
-
 function clamp(value, minimum, maximum) {
   return Math.min(Math.max(value, minimum), maximum);
 }
@@ -1105,11 +1100,6 @@ function App() {
   const [peak, setPeak] = useState(null);
   const [detections, setDetections] = useState([]);
   const [channelMeasurements, setChannelMeasurements] = useState([]);
-  const [debugClusters, setDebugClusters] = useState({
-    merge_gap_mhz: 0.05,
-    raw_clusters: [],
-    merged_clusters: [],
-  });
   const [statusMessage, setStatusMessage] = useState(
     "Enter a configuration, then select START SCAN."
   );
@@ -1564,11 +1554,6 @@ function App() {
     setPeak(data.peak);
     setDetections(windowDetections);
     setChannelMeasurements(Array.isArray(data.channel_measurements) ? data.channel_measurements : []);
-    setDebugClusters(data.debug_clusters ?? {
-      merge_gap_mhz: 0.05,
-      raw_clusters: [],
-      merged_clusters: [],
-    });
     if (data.config) setScanConfig(data.config);
     setSweepInfo({
       ...sweep,
@@ -1800,94 +1785,6 @@ function App() {
       .filter(Boolean);
   }, [detections, scanConfig]);
 
-  // TEMPORARY DEBUG VISUAL.
-  // Menampilkan area cluster akhir aktual dari backend.
-  // Area ini menunjukkan bagian threshold yang sudah digabung
-  // dan menghasilkan satu detection/card.
-  const clusterAreas = useMemo(() => {
-    const start = Number(scanConfig.start_frequency_mhz);
-    const end = Number(scanConfig.end_frequency_mhz);
-    const scanWidthMhz = end - start;
-
-    if (
-      !Number.isFinite(scanWidthMhz) ||
-      scanWidthMhz <= 0 ||
-      !Array.isArray(debugClusters.merged_clusters)
-    ) {
-      return [];
-    }
-
-    return debugClusters.merged_clusters
-      .map((cluster, index) => {
-        const clusterStart = Number(cluster.start_mhz);
-        const clusterEnd = Number(cluster.end_mhz);
-
-        if (
-          !Number.isFinite(clusterStart) ||
-          !Number.isFinite(clusterEnd)
-        ) {
-          return null;
-        }
-
-        const left =
-          ((clusterStart - start) / scanWidthMhz) * 100;
-
-        const right =
-          ((clusterEnd - start) / scanWidthMhz) * 100;
-
-        const width = Math.max(right - left, 0.35);
-
-        return {
-          id: `cluster-${cluster.id ?? index}`,
-          label: `C${index + 1}`,
-          left: clamp(left, 0, 100),
-          width: clamp(width, 0.35, 100),
-          color:
-            DETECTION_MARKER_COLORS[
-              index % DETECTION_MARKER_COLORS.length
-            ],
-          widthKHz: Number(cluster.width_khz),
-        };
-      })
-      .filter(Boolean);
-  }, [debugClusters, scanConfig]);
-
-  // TEMPORARY DEBUG VISUAL.
-  // Menampilkan lebar 50 kHz pada grafik agar mudah melihat
-  // seberapa dekat dua cluster sebelum digabung.
-  const mergeGapDebugRulers = useMemo(() => {
-    const start = Number(scanConfig.start_frequency_mhz);
-    const end = Number(scanConfig.end_frequency_mhz);
-    const scanWidthMhz = end - start;
-
-    if (
-      !SHOW_MERGE_GAP_DEBUG ||
-      !Number.isFinite(scanWidthMhz) ||
-      scanWidthMhz <= 0
-    ) {
-      return [];
-    }
-
-    const widthPercent =
-      (MERGE_GAP_DEBUG_MHZ / scanWidthMhz) * 100;
-
-    return detectionMarkers.map((marker, index) => {
-      const useLeftSide = marker.x + widthPercent > 100;
-      const left = useLeftSide
-        ? marker.x - widthPercent
-        : marker.x;
-
-      return {
-        id: `merge-gap-${marker.id}`,
-        left: clamp(left, 0, 100),
-        width: clamp(widthPercent, 0, 100),
-        color: marker.color,
-        rowOffsetPx: 10 + (index % 4) * 15,
-        direction: useLeftSide ? "left" : "right",
-      };
-    });
-  }, [detectionMarkers, scanConfig]);
-
   async function handleScan() {
     const requestedOwner =
       activeTab === "specific"
@@ -2058,11 +1955,6 @@ function App() {
       setPeak(null);
       setDetections([]);
       setChannelMeasurements([]);
-      setDebugClusters({
-        merge_gap_mhz: 0.05,
-        raw_clusters: [],
-        merged_clusters: [],
-      });
       setIsScanning(true);
       setStatusMessage(
         requestedOwner === "specific"
@@ -2335,13 +2227,6 @@ function App() {
                     <i className="legend-line history-line" />
                     Spectrum History
                   </span>
-
-                  {SHOW_MERGE_GAP_DEBUG && (
-                    <span>
-                      <i className="legend-merge-gap" />
-                      50 kHz Debug
-                    </span>
-                  )}
                 </div>
               </div>
 
@@ -2408,25 +2293,6 @@ function App() {
                         thresholdDb={scanConfig.threshold_db}
                       />
 
-                      {clusterAreas.map((cluster) => (
-                        <div
-                          className="cluster-area"
-                          key={cluster.id}
-                          style={{
-                            left: `${cluster.left}%`,
-                            width: `${cluster.width}%`,
-                            "--cluster-color": cluster.color,
-                          }}
-                        >
-                          <span>
-                            {cluster.label}
-                            {Number.isFinite(cluster.widthKHz)
-                              ? ` · ${cluster.widthKHz.toFixed(1)} kHz`
-                              : ""}
-                          </span>
-                        </div>
-                      ))}
-
                       {detectionMarkers.map((marker) => (
                         <div
                           className={`spectrum-detection-marker ${
@@ -2451,21 +2317,6 @@ function App() {
                           >
                             {marker.label}
                           </span>
-                        </div>
-                      ))}
-
-                      {mergeGapDebugRulers.map((ruler) => (
-                        <div
-                          className={`merge-gap-debug-ruler ${ruler.direction}`}
-                          key={ruler.id}
-                          style={{
-                            left: `${ruler.left}%`,
-                            width: `${ruler.width}%`,
-                            bottom: `${ruler.rowOffsetPx}px`,
-                            "--marker-color": ruler.color,
-                          }}
-                        >
-                          <span>50 kHz</span>
                         </div>
                       ))}
                     </>
