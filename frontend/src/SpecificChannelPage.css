@@ -99,19 +99,6 @@
   left: 44px;
 }
 
-.specific-spectrum-chart .spectrum-svg {
-  color: #f4f400;
-  filter: drop-shadow(0 0 2px rgba(244, 244, 0, 0.62));
-}
-
-.specific-spectrum-chart .spectrum-area {
-  opacity: 0.12;
-}
-
-.specific-spectrum-chart .spectrum-history-line {
-  stroke: rgba(205, 220, 0, 0.38);
-}
-
 .specific-spectrum-chart .threshold-visual {
   border-top-color: #e22020;
 }

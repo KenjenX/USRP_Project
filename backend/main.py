@@ -22,10 +22,6 @@ from backend.umts_classifier import classify_umts
 from backend.lte_classifier import classify_lte
 from backend.nr_classifier import classify_nr
 
-from backend.gsm_classifier import classify_gsm
-from backend.umts_classifier import classify_umts
-from backend.lte_classifier import classify_lte
-from backend.nr_classifier import classify_nr
 from backend.machine_routes import router as machine_router
 from backend.channel_lookup_routes import router as channel_lookup_router
 from backend.channel_routes import router as channel_router
@@ -72,8 +68,8 @@ SWEEP_WINDOW_MHZ = 56
 # setiap titik FFT yang melewati threshold dihitung satu per satu.
 DETECTION_MODE = "threshold_points"
 
-# Jumlah titik maksimum untuk visual spectrum yang disimpan ke setiap file
-# Scan History. Data FFT penuh tidak disimpan agar file JSON tetap ringan.
+# Jumlah titik maksimum untuk preview spectrum bounded pada sesi scan aktif.
+# Data FFT penuh tidak disimpan di preview agar transport tetap ringan.
 SPECTRUM_PREVIEW_TARGET_POINTS = 1600
 
 # Pemilik scan. General dan Specific tetap memakai satu perangkat dan satu
@@ -1427,7 +1423,7 @@ def publish_spectrum_snapshot_threadsafe() -> None:
 
 def create_scan_session_id() -> str:
     """
-    Membuat ID session yang aman untuk nama file.
+    Membuat ID unik untuk sesi scan runtime.
     """
 
     return datetime.now().strftime("scan_%Y%m%d_%H%M%S_%f")

@@ -613,7 +613,6 @@ function SpecificChannelPage({
   scanConfig,
   isScanning,
   scanOwner,
-  scanMode,
   scanSelectedMachineId,
   scanSelectedMachineName,
   scannerLocked,

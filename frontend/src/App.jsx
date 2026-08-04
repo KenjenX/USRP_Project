@@ -24,11 +24,6 @@ const INITIAL_STATUS_RETRY_DELAYS_MS = [0, 1000, 2000, 4000, 8000];
 // Status SDR dibaca dari cache detector USB/PnP pasif. Endpoint ini tidak
 // menjalankan UHD dan tetap aman ketika USRP tidak terhubung atau sedang scan.
 
-// Jumlah window history yang disimpan di frontend.
-// Scan 50–6000 MHz dengan window 56 MHz butuh sekitar 107 window,
-// jadi 160 masih cukup aman untuk satu sweep penuh.
-const CHART_TICK_STEP_DB = 10;
-
 // Warna marker pada grafik. Urutan warna sama dengan urutan Signal 01, 02, 03, dan seterusnya.
 const DETECTION_MARKER_COLORS = [
   "#6dffba",
@@ -41,14 +36,6 @@ const DETECTION_MARKER_COLORS = [
 
 function clamp(value, minimum, maximum) {
   return Math.min(Math.max(value, minimum), maximum);
-}
-
-function roundDownToStep(value, step) {
-  return Math.floor(value / step) * step;
-}
-
-function roundUpToStep(value, step) {
-  return Math.ceil(value / step) * step;
 }
 
 function formatMHz(value) {
@@ -176,18 +163,6 @@ function buildNrDetail(candidate) {
   ].filter(Boolean);
 }
 
-
-function normalizeDetailLines(detail) {
-  if (Array.isArray(detail)) {
-    return detail.filter(Boolean);
-  }
-
-  if (detail === null || detail === undefined || detail === "") {
-    return [];
-  }
-
-  return [String(detail)];
-}
 
 function formatDetailValue(value) {
   if (value === null || value === undefined || value === "") {
@@ -733,29 +708,6 @@ function buildDetectionHistoryId(detection, fallbackIndex = 0) {
   ].join("-");
 }
 
-function mergeDetectionHistory(previousHistory, incomingDetections) {
-  const map = new Map();
-
-  previousHistory.forEach((item) => {
-    map.set(item.history_id, item);
-  });
-
-  incomingDetections.forEach((item) => {
-    map.set(item.history_id, item);
-  });
-
-  return Array.from(map.values()).sort((a, b) => {
-    const frequencyA = Number(a.frequency_mhz);
-    const frequencyB = Number(b.frequency_mhz);
-
-    if (!Number.isFinite(frequencyA) || !Number.isFinite(frequencyB)) {
-      return 0;
-    }
-
-    return frequencyA - frequencyB;
-  });
-}
-
 function normalizeDetection(detection, index = 0) {
   return {
     ...detection,
@@ -1074,19 +1026,12 @@ function App() {
   const [selectedSpecificMachineId, setSelectedSpecificMachineId] = useState(null);
   const [selectedSpecificMachineName, setSelectedSpecificMachineName] = useState(null);
 
-  const [, setSpectrum] = useState({
-    frequency_mhz: [],
-    power_db: [],
-  });
   // Both owners use this bounded backend preview for the full-range graph.
-  // The latest raw window is still captured separately by setSpectrum().
   const [spectrumPreview, setSpectrumPreview] = useState(
     createEmptySpectrumPreview()
   );
 
   const [sweepInfo, setSweepInfo] = useState(null);
-  const [totalDetectionCount, setTotalDetectionCount] = useState(0);
-
   // All threshold-exceeding points from the active rolling scan are retained
   // here for the current General or Specific view.
   const [currentScanHistory, setCurrentScanHistory] = useState([]);
@@ -1097,7 +1042,6 @@ function App() {
   const lastSnapshotKeyRef = useRef(null);
   const [spectrumStreamHealthy, setSpectrumStreamHealthy] = useState(false);
 
-  const [peak, setPeak] = useState(null);
   const [detections, setDetections] = useState([]);
   const [channelMeasurements, setChannelMeasurements] = useState([]);
   const [statusMessage, setStatusMessage] = useState(
@@ -1311,14 +1255,6 @@ function App() {
         });
       }
 
-      if (data?.last_peak !== undefined) {
-        setPeak(data.last_peak);
-      }
-
-      if (Number.isFinite(Number(data?.detection_count))) {
-        setTotalDetectionCount(Number(data.detection_count));
-      }
-
       if (Array.isArray(data?.channel_measurements)) {
         setChannelMeasurements(data.channel_measurements);
       }
@@ -1392,16 +1328,10 @@ function App() {
               ? resultsData.last_window_detections
               : []
           );
-          setPeak(resultsData.last_peak ?? statusData.last_peak ?? null);
           setChannelMeasurements(
             Array.isArray(resultsData.channel_measurements)
               ? resultsData.channel_measurements
               : []
-          );
-          setTotalDetectionCount(
-            Number.isFinite(Number(resultsData.detection_count))
-              ? Number(resultsData.detection_count)
-              : restoredDetections.length
           );
         }
       }
@@ -1535,12 +1465,10 @@ function App() {
     }
     lastSnapshotKeyRef.current = snapshotKey;
 
-    const spectrumData = data.spectrum ?? { frequency_mhz: [], power_db: [] };
     const rollingDetections = Array.isArray(data.detections) ? data.detections : [];
     const windowDetections = Array.isArray(data.last_window_detections)
       ? data.last_window_detections
       : [];
-    setSpectrum(spectrumData);
     const nextPreview = replaceSpectrumPreview({
       activeSessionId,
       responseSessionId,
@@ -1551,7 +1479,6 @@ function App() {
     setScanMode(data.scan_mode ?? null);
     setScanSelectedMachineId(data.selected_machine_id ?? null);
     setScanSelectedMachineName(data.selected_machine_name ?? null);
-    setPeak(data.peak);
     setDetections(windowDetections);
     setChannelMeasurements(Array.isArray(data.channel_measurements) ? data.channel_measurements : []);
     if (data.config) setScanConfig(data.config);
@@ -1563,9 +1490,6 @@ function App() {
       cycle_total_windows: data.cycle_total_windows,
       cycle_progress_percent: data.cycle_progress_percent,
     });
-    setTotalDetectionCount(
-      Number.isFinite(Number(data.detection_count)) ? data.detection_count : windowDetections.length
-    );
     const normalizedDetections = rollingDetections.map((detection, detectionIndex) => ({
       ...detection,
       history_id: buildDetectionHistoryId(detection, detectionIndex),
@@ -1922,10 +1846,6 @@ function App() {
       setScanSelectedMachineId(data.selected_machine_id ?? null);
       setScanSelectedMachineName(data.selected_machine_name ?? null);
       setScanConfig(data.config);
-      setSpectrum({
-        frequency_mhz: [],
-        power_db: [],
-      });
       setSpectrumPreview(
         createEmptySpectrumPreview(data.session_id ?? null)
       );
@@ -1951,8 +1871,6 @@ function App() {
         cycle_total_windows: data.cycle_total_windows,
         cycle_progress_percent: data.cycle_progress_percent,
       } : null);
-      setTotalDetectionCount(0);
-      setPeak(null);
       setDetections([]);
       setChannelMeasurements([]);
       setIsScanning(true);
@@ -2400,7 +2318,6 @@ function App() {
             scanConfig={scanConfig}
             isScanning={isScanning}
             scanOwner={scanOwner}
-            scanMode={scanMode}
             scanSelectedMachineId={scanSelectedMachineId}
             scanSelectedMachineName={scanSelectedMachineName}
             scannerLocked={scanOwner === "general"}
