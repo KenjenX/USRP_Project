@@ -420,43 +420,6 @@ button {
   font-size: 1.08rem;
 }
 
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  color: #9ec8d6;
-  font-size: 0.72rem;
-}
-
-.legend span {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.legend-line {
-  display: inline-block;
-  width: 22px;
-  height: 2px;
-}
-
-.spectrum-line {
-  background: #51d9ff;
-}
-
-.threshold-line {
-  background: #ffad52;
-}
-
-.legend-detection-marker {
-  width: 10px;
-  height: 10px;
-  border: 2px solid #eaf7ff;
-  border-radius: 50%;
-  background: #6dffba;
-  box-shadow: 0 0 8px rgba(109, 255, 186, 0.7);
-}
-
 /* Spectrum chart */
 .spectrum-chart {
   position: relative;
@@ -930,11 +893,6 @@ button {
   font-weight: 800;
 }
 
-
-/* Sweep history / Opsi 2 */
-.history-line {
-  background: rgba(78, 230, 255, 0.42);
-}
 
 .sweep-progress-card {
   display: flex;
@@ -2604,27 +2562,43 @@ body {
 }
 
 .general-spectrum-panel {
-  padding: 8px;
+  padding: 12px;
 }
 
-.general-spectrum-panel .panel-heading {
+.spectrum-panel-header {
+  display: flex;
   min-height: 28px;
   align-items: center;
-  padding: 0 6px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 5px 6px;
 }
 
-.general-spectrum-panel .panel-heading h3 {
+.spectrum-panel-title {
   margin: 0;
+  color: #f0fbff;
+  font-family: var(--font-heading);
   font-size: 0.78rem;
 }
 
-.general-spectrum-panel .section-kicker {
-  display: none;
+.spectrum-panel-status {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-family: var(--font-heading);
+  font-size: 0.56rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
 }
 
-.general-spectrum-panel .legend {
-  gap: 10px;
-  font-size: 0.58rem;
+.spectrum-panel-status i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #5ddc91;
+  box-shadow: 0 0 8px rgba(93, 220, 145, 0.7);
 }
 
 .general-spectrum-panel .sweep-progress-card {
@@ -2970,8 +2944,8 @@ body {
     padding: 7px;
   }
 
-  .general-spectrum-panel .legend {
-    display: none;
+  .spectrum-panel-header {
+    min-height: 24px;
   }
 
   .general-spectrum-panel .spectrum-chart {
@@ -3655,32 +3629,6 @@ body {
 .general-detected-panel .figma-signal-card {
   width: 100%;
 }
-
-/* =========================================================
-   GENERAL SPECTRUM LEGEND — MATCH CHART COLORS
-   Hanya menyelaraskan warna indikator legenda.
-   ========================================================= */
-.general-spectrum-panel .spectrum-line {
-  background: #f4f400;
-  box-shadow: 0 0 5px rgba(244, 244, 0, 0.45);
-}
-
-.general-spectrum-panel .threshold-line {
-  background: #e22020;
-  box-shadow: 0 0 4px rgba(226, 32, 32, 0.4);
-}
-
-.general-spectrum-panel .legend-detection-marker {
-  border-color: #dfffee;
-  background: #68e7a3;
-  box-shadow: 0 0 7px rgba(104, 231, 163, 0.75);
-}
-
-.general-spectrum-panel .history-line {
-  background: rgba(208, 222, 0, 0.55);
-  box-shadow: 0 0 4px rgba(208, 222, 0, 0.24);
-}
-
 
 /* =========================================================
    GENERAL DETECTION GRID — FIXED EMPTY SLOTS

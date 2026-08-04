@@ -500,33 +500,36 @@ function SpecificSpectrumPanel({
     scanMatchesSelectedMachine &&
     spectrumChart?.frequencyValues?.length
   );
+  const primaryStatus = ownScanRunning ? "SCANNING" : "READY";
+  const statusContext = scannerLocked
+    ? isScanning
+      ? "GENERAL SCAN ACTIVE"
+      : "GENERAL RESULT ISOLATED"
+    : ownScanRunning
+      ? `Machine: ${selectedMachineName ?? "MACHINE"}`
+      : specificScanForOtherMachine
+        ? isScanning
+          ? "OTHER MACHINE SCAN ACTIVE"
+          : "MACHINE NOT SCANNED"
+        : null;
 
   return (
     <section className="specific-spectrum-panel">
-      <div className="specific-spectrum-titlebar status-only">
-        <div className="specific-spectrum-status">
-          <i
-            className={
-              ownScanRunning
-                ? "running"
-                : scannerLocked
-                  ? "locked"
-                  : "standby"
-            }
-          />
-          {scannerLocked
-            ? isScanning
-              ? "GENERAL SCAN ACTIVE"
-              : "GENERAL RESULT ISOLATED"
-            : ownScanRunning
-              ? `SCANNING ${selectedMachineName ?? "MACHINE"}`
-              : specificScanForOtherMachine
-                ? isScanning
-                  ? "OTHER MACHINE SCAN ACTIVE"
-                  : "MACHINE NOT SCANNED"
-                : "STANDBY"}
+      <div className="spectrum-panel-header specific-spectrum-titlebar">
+        <h3 className="spectrum-panel-title">Realtime Spectrum</h3>
+        <div
+          className={`spectrum-panel-status ${
+            ownScanRunning ? "is-scanning" : ""
+          }`}
+        >
+          {ownScanRunning && <i aria-hidden="true" />}
+          {primaryStatus}
         </div>
       </div>
+
+      {statusContext && (
+        <p className="specific-spectrum-context">{statusContext}</p>
+      )}
 
       <div className="spectrum-chart specific-spectrum-chart">
         <div className="chart-y-axis" aria-hidden="true">

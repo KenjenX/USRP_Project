@@ -25,7 +25,7 @@
 
 /* Live spectrum */
 .specific-spectrum-panel {
-  padding: 8px;
+  padding: 12px;
   overflow: hidden;
   border: 0;
   border-radius: var(--radius-panel);
@@ -37,33 +37,19 @@
   display: flex;
   min-height: 28px;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 16px;
   padding: 0 5px 6px;
 }
 
-.specific-spectrum-status {
-  display: flex;
-  align-items: center;
-  gap: 7px;
+.specific-spectrum-context {
+  margin: 0;
+  padding: 0 5px;
   color: var(--text-secondary);
   font-family: var(--font-heading);
   font-size: 0.56rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-}
-
-.specific-spectrum-status i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #d6a947;
-  box-shadow: 0 0 8px rgba(214, 169, 71, 0.55);
-}
-
-.specific-spectrum-status i.running {
-  background: #5ddc91;
-  box-shadow: 0 0 8px rgba(93, 220, 145, 0.7);
+  font-weight: 800;
+  letter-spacing: 0.06em;
 }
 
 .specific-spectrum-chart {
@@ -1139,7 +1125,7 @@
 
 @media (max-width: 620px) {
   .specific-spectrum-panel {
-    padding: 6px;
+    padding: 12px;
   }
 
   .specific-spectrum-titlebar {
@@ -1288,11 +1274,6 @@
   background: #5a1a1a;
 }
 
-/* Separate scan ownership status */
-.specific-spectrum-status i.locked {
-  background: #d68b47;
-  box-shadow: 0 0 8px rgba(214, 139, 71, 0.68);
-}
 
 .specific-scan-isolation-notice {
   display: flex;

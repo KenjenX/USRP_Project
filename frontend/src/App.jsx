@@ -1907,6 +1907,12 @@ function App() {
     !isScanning &&
     Boolean(sweepInfo) &&
     Number(sweepInfo?.progress_percent ?? 0) >= 100;
+  const hasMeaningfulSweepInfo = Boolean(
+    sweepInfo &&
+      (Number(sweepInfo.scanned_windows ?? 0) > 0 ||
+        Number(sweepInfo.progress_percent ?? 0) > 0 ||
+        Number(sweepInfo.completed_cycles ?? 0) > 0)
+  );
 
   const sidebarScanStatus = errorMessage
     ? "FAILED"
@@ -2119,37 +2125,20 @@ function App() {
           ) : (
             <>
             <section className="spectrum-panel general-spectrum-panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="section-kicker">LIVE VIEW</p>
-                  <h3>Realtime Spectrum</h3>
-                </div>
-
-                <div className="legend">
-                  <span>
-                    <i className="legend-line spectrum-line" />
-                    Spectrum
-                  </span>
-
-                  <span>
-                    <i className="legend-line threshold-line" />
-                    Threshold
-                  </span>
-
-                  <span>
-                    <i className="legend-detection-marker" />
-                    Threshold Point
-                  </span>
-
-                  <span>
-                    <i className="legend-line history-line" />
-                    Spectrum History
-                  </span>
+              <div className="spectrum-panel-header">
+                <h3 className="spectrum-panel-title">Realtime Spectrum</h3>
+                <div
+                  className={`spectrum-panel-status ${
+                    isScanning ? "is-scanning" : ""
+                  }`}
+                >
+                  {isScanning && <i aria-hidden="true" />}
+                  {isScanning ? "SCANNING" : "READY"}
                 </div>
               </div>
 
-              {sweepInfo && (
-                <div className="sweep-progress-card">
+              {hasMeaningfulSweepInfo && (
+                <div className="sweep-progress-card general-spectrum-sweep">
                   <span>
                     Sweep window: {sweepInfo.scanned_windows}/
                     {sweepInfo.total_windows}
