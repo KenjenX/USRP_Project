@@ -75,8 +75,7 @@ class LifecycleTests(unittest.TestCase):
             "detections_by_window": {}, "channel_measurements_by_window": {},
             "last_window_detections": [], "latest_window_snapshot": None,
             "spectrum_preview": main.create_empty_spectrum_preview(),
-            "last_peak": None, "session_saved": False,
-            "history_save_error": None,
+            "last_peak": None,
             "sweep": {"current_start_mhz": 50.0, "current_end_mhz": 56.0,
                       "last_window_start_mhz": None, "last_window_end_mhz": None,
                       "total_windows": 1, "scanned_windows": 0,
@@ -107,8 +106,7 @@ class LifecycleTests(unittest.TestCase):
         self._active()
         main.scan_state.update({"running": False, "completed": True})
         with patch.object(main, "discard_benchmark_session") as discard:
-            with patch.object(main, "save_scan_session_payload"):
-                response = main.stop_scan(main.StopScanRequest(scan_owner="general"))
+            response = main.stop_scan(main.StopScanRequest(scan_owner="general"))
         self.assertTrue(response["completed"])
         discard.assert_not_called()
 
@@ -277,8 +275,7 @@ class LifecycleTests(unittest.TestCase):
             self._one_window_controller_state()
             main.scanner_manager = DummyManager()
             main.create_benchmark_session(main.scan_state)
-            with patch.object(main, "save_scan_session_payload"), \
-                 patch.object(main, "safe_benchmark_log") as log:
+            with patch.object(main, "safe_benchmark_log") as log:
                 main.stop_scan(main.StopScanRequest(scan_owner="general"))
                 main.discard_benchmark_session("s1", "late_stop")
             events = [call.args[1]["event"] for call in log.call_args_list]
@@ -293,8 +290,7 @@ class LifecycleTests(unittest.TestCase):
     def test_summary_failure_does_not_skip_manual_stop_release(self):
         self._one_window_controller_state()
         main.scanner_manager = DummyManager()
-        with patch.object(main, "save_scan_session_payload"), \
-             patch.object(main, "emit_benchmark_summary", side_effect=RuntimeError("log failed")):
+        with patch.object(main, "emit_benchmark_summary", side_effect=RuntimeError("log failed")):
             response = main.stop_scan(main.StopScanRequest(scan_owner="general"))
         self.assertFalse(response["running"])
         self.assertEqual(len(main.scanner_manager.calls), 1)
@@ -304,15 +300,18 @@ class LifecycleTests(unittest.TestCase):
             response = main.get_spectrum(SimpleNamespace(state=SimpleNamespace()))
         self.assertIn("spectrum", response)
 
-    def test_history_failure_on_stop_still_releases_and_cleans(self):
+    def test_stop_does_not_depend_on_scan_history_persistence(self):
         self._one_window_controller_state()
         main.scanner_manager = DummyManager()
-        with patch.object(main, "save_scan_session_payload", side_effect=OSError("disk full")):
-            response = main.stop_scan(main.StopScanRequest(scan_owner="general"))
+        response = main.stop_scan(main.StopScanRequest(scan_owner="general"))
         self.assertFalse(response["running"])
-        self.assertFalse(main.scan_state["session_saved"])
-        self.assertIn("disk full", main.scan_state["history_save_error"])
         self.assertEqual(len(main.scanner_manager.calls), 1)
+        self.assertFalse(hasattr(main, "SCAN_HISTORY_DIR"))
+        self.assertFalse(hasattr(main, "save_scan_session_payload"))
+        self.assertFalse(hasattr(main, "save_completed_session_if_needed_locked"))
+        self.assertFalse(
+            any(route.path.startswith("/api/scan/history") for route in main.app.routes)
+        )
 
     def test_stop_immediately_before_commit_discards_result_and_aborts_once(self):
         old = os.environ.get("USRP_BENCHMARK_ENABLED")
@@ -343,13 +342,11 @@ class LifecycleTests(unittest.TestCase):
         try:
             self._one_window_controller_state()
             main.create_benchmark_session(main.scan_state)
-            with patch.object(main, "save_scan_session_payload"):
-                committed, completed, total = main._commit_autonomous_window(
-                    "s1", main.controller_stop_event, self._window_result(), 50.0,
-                    56.0, 1, 56.0, {"controller_window_active_ms": 1.0},
-                )
-            with patch.object(main, "save_scan_session_payload"):
-                response = main.stop_scan(main.StopScanRequest(scan_owner="general"))
+            committed, completed, total = main._commit_autonomous_window(
+                "s1", main.controller_stop_event, self._window_result(), 50.0,
+                56.0, 1, 56.0, {"controller_window_active_ms": 1.0},
+            )
+            response = main.stop_scan(main.StopScanRequest(scan_owner="general"))
             context = {
                 "session_id": "s1", "request_id": "r1", "scan_owner": "general",
                 "window_index": 1, "total_windows": 1, "window_start_mhz": 50.0,

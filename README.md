@@ -15,7 +15,6 @@ This project uses a FastAPI backend to communicate with the USRP device and a Re
 - 4G LTE candidate classification
 - 5G NR candidate classification
 - Current Scan History
-- Scan session history
 - Signal detail modal
 - Accordion detail view for 2G, 3G, 4G, and 5G candidates
 - ARFCN, UARFCN, EARFCN, and NR-ARFCN details
@@ -83,7 +82,7 @@ Threshold Detection
    ↓
 React Frontend
    ↓
-Spectrum Chart + Scan History + Detail Modal
+Spectrum Chart + Detail Modal
 ```
 
 ## Scan Concept
@@ -165,21 +164,6 @@ Example:
 ...
 6000 MHz
 ```
-
-## Scan History
-
-After one sweep scan is completed, the result is saved as a scan session in the frontend.
-
-Each scan session contains:
-
-- Scan range
-- Threshold value
-- Total detected points
-- Scan result list
-- Candidate technology details
-
-Note: the current scan history is stored in the frontend state.  
-Refreshing the browser will clear the frontend history unless persistent storage is added later.
 
 ## Signal Detail Modal
 
@@ -365,9 +349,7 @@ node_modules/
 Possible next improvements:
 
 - Export scan results to CSV or JSON
-- Persistent scan history storage
 - SQLite database support
-- Search and filter scan history
 - Technology-specific filtering
 - Better signal grouping or summary view
 - Improved scan performance for large frequency ranges

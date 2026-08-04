@@ -11,7 +11,6 @@ import json
 import os
 import shutil
 import subprocess
-from pathlib import Path
 
 import numpy as np
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -72,10 +71,6 @@ SWEEP_WINDOW_MHZ = 56
 # Mode deteksi baru dari pembimbing:
 # setiap titik FFT yang melewati threshold dihitung satu per satu.
 DETECTION_MODE = "threshold_points"
-
-# Penyimpanan riwayat scan lokal.
-# Folder ini akan dibuat otomatis dan sebaiknya tetap masuk .gitignore.
-SCAN_HISTORY_DIR = Path(__file__).resolve().parent / "scan_history"
 
 # Jumlah titik maksimum untuk visual spectrum yang disimpan ke setiap file
 # Scan History. Data FFT penuh tidak disimpan agar file JSON tetap ringan.
@@ -602,8 +597,6 @@ scan_state = {
     "started_at": None,
     "completed_at": None,
     "updated_at": None,
-    "session_saved": False,
-    "history_save_error": None,
     "cycle_index": 1,
     "completed_cycles": 0,
     "cycle_window_index": 0,
@@ -624,7 +617,7 @@ scanner_manager = UhdScannerManager(
 )
 
 # The controller owns autonomous window progression; these objects are never
-# stored in scan_state or persisted to scan history.
+# stored in scan_state.
 controller_lock = Lock()
 controller_thread = None
 controller_session_id = None
@@ -1414,8 +1407,6 @@ def build_spectrum_snapshot(state: dict | None = None) -> dict:
         "channel_measurements": channel_snapshot,
         "spectrum_preview": finalize_spectrum_preview(state),
         "session_id": state["session_id"], "completed_at": state["completed_at"],
-        "session_saved": state["session_saved"],
-        "history_save_error": state["history_save_error"],
         "last_error": state["last_error"],
         "debug_clusters": latest_snapshot["debug_clusters"],
     }
@@ -1434,254 +1425,12 @@ def publish_spectrum_snapshot_threadsafe() -> None:
     spectrum_stream_manager.publish_threadsafe()
 
 
-def ensure_scan_history_dir() -> None:
-    """
-    Membuat folder penyimpanan riwayat scan jika belum ada.
-    """
-
-    SCAN_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
-
-
 def create_scan_session_id() -> str:
     """
     Membuat ID session yang aman untuk nama file.
     """
 
     return datetime.now().strftime("scan_%Y%m%d_%H%M%S_%f")
-
-
-def sanitize_session_id(session_id: str) -> str:
-    """
-    Mencegah path traversal saat membaca file history berdasarkan session_id.
-    """
-
-    safe_id = "".join(
-        char for char in str(session_id)
-        if char.isalnum() or char in {"_", "-"}
-    )
-
-    if not safe_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid session ID.",
-        )
-
-    return safe_id
-
-
-def get_scan_history_file_path(session_id: str) -> Path:
-    safe_id = sanitize_session_id(session_id)
-    return SCAN_HISTORY_DIR / f"{safe_id}.json"
-
-
-def build_scan_history_title(
-    completed_at: str | None,
-    session_id: str,
-    scan_owner: str | None = None,
-    selected_machine_name: str | None = None,
-) -> str:
-    owner_label = {
-        SCAN_OWNER_GENERAL: "General Scan",
-        SCAN_OWNER_SPECIFIC: "Specific Scan",
-    }.get(scan_owner, "Scan")
-
-    if scan_owner == SCAN_OWNER_SPECIFIC and selected_machine_name:
-        owner_label = f"{owner_label} — {selected_machine_name}"
-
-    if completed_at:
-        return f"{owner_label} {completed_at.replace('T', ' ')}"
-
-    return f"{owner_label} {session_id}"
-
-
-def build_scan_session_payload(state: dict, completed_at: str) -> dict:
-    """
-    Membuat payload JSON untuk satu scan session.
-    """
-
-    session_id = state.get("session_id") or create_scan_session_id()
-    detections = state.get("detections", [])
-    spectrum_preview = finalize_spectrum_preview(state)
-
-    return {
-        "id": session_id,
-        "session_id": session_id,
-        "title": build_scan_history_title(
-            completed_at,
-            session_id,
-            state.get("scan_owner"),
-            state.get("selected_machine_name"),
-        ),
-        "startedAt": state.get("started_at"),
-        "started_at": state.get("started_at"),
-        "completedAt": completed_at,
-        "completed_at": completed_at,
-        **get_scan_identity(state),
-        "config": state.get("config", {}),
-        "sweep": state.get("sweep", {}),
-        **get_cycle_state(state),
-        "peak": state.get("last_peak"),
-        "spectrum_preview": spectrum_preview,
-        "detections": detections,
-        "channel_measurements": get_channel_measurements(state),
-        "detectionCount": len(detections),
-        "detection_count": len(detections),
-        "last_error": state.get("last_error"),
-        "history_save_error": state.get("history_save_error"),
-    }
-
-
-def save_scan_session_payload(session_payload: dict) -> None:
-    """
-    Menyimpan satu scan session ke file JSON.
-    """
-
-    ensure_scan_history_dir()
-
-    session_id = session_payload["session_id"]
-    file_path = get_scan_history_file_path(session_id)
-
-    with file_path.open("w", encoding="utf-8") as file:
-        json.dump(session_payload, file, ensure_ascii=False, indent=2)
-
-
-def save_completed_session_if_needed_locked(allow_stopped: bool = False) -> dict | None:
-    """
-    Dipanggil saat state_lock sedang aktif.
-    Menyimpan hasil scan sekali saja ketika scan completed.
-    """
-
-    if not scan_state.get("completed") and not allow_stopped:
-        return None
-
-    if scan_state.get("session_saved"):
-        return None
-
-    completed_at = scan_state.get("completed_at") or datetime.now().isoformat(
-        timespec="seconds"
-    )
-
-    scan_state["completed_at"] = completed_at
-
-    try:
-        session_payload = build_scan_session_payload(
-            deepcopy(scan_state),
-            completed_at,
-        )
-        save_scan_session_payload(session_payload)
-    except Exception as error:
-        # History persistence is best-effort after RF completion; it must not
-        # prevent benchmark finalization, worker release, or thread cleanup.
-        scan_state["session_saved"] = False
-        scan_state["history_save_error"] = f"Unable to save scan history: {error}"
-        print(f"[HISTORY] {scan_state['history_save_error']}")
-        return None
-
-    scan_state["session_saved"] = True
-    scan_state["history_save_error"] = None
-    return session_payload
-
-
-def load_scan_session(session_id: str) -> dict:
-    """
-    Membaca satu file scan session dari folder scan_history.
-    """
-
-    file_path = get_scan_history_file_path(session_id)
-
-    if not file_path.exists():
-        raise HTTPException(
-            status_code=404,
-            detail="Scan session not found.",
-        )
-
-    try:
-        with file_path.open("r", encoding="utf-8") as file:
-            return json.load(file)
-
-    except json.JSONDecodeError as error:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Scan history file is corrupted: {file_path.name}",
-        ) from error
-
-
-def delete_scan_session_file(session_id: str) -> dict:
-    """
-    Menghapus satu file scan session dari folder scan_history.
-    """
-
-    file_path = get_scan_history_file_path(session_id)
-
-    if not file_path.exists():
-        raise HTTPException(
-            status_code=404,
-            detail="Scan session not found.",
-        )
-
-    safe_id = sanitize_session_id(session_id)
-    file_path.unlink()
-
-    return {
-        "deleted": True,
-        "session_id": safe_id,
-        "filename": file_path.name,
-    }
-
-
-def delete_all_scan_session_files() -> dict:
-    """
-    Menghapus semua file JSON scan history.
-    """
-
-    ensure_scan_history_dir()
-
-    deleted_files = []
-
-    for file_path in SCAN_HISTORY_DIR.glob("*.json"):
-        try:
-            file_path.unlink()
-            deleted_files.append(file_path.name)
-        except FileNotFoundError:
-            continue
-
-    return {
-        "deleted": True,
-        "deleted_count": len(deleted_files),
-        "deleted_files": deleted_files,
-    }
-
-
-def load_all_scan_sessions() -> list[dict]:
-    """
-    Membaca seluruh scan session yang tersimpan.
-    Data diurutkan dari scan terbaru ke scan terlama.
-    """
-
-    ensure_scan_history_dir()
-
-    sessions = []
-
-    for file_path in SCAN_HISTORY_DIR.glob("*.json"):
-        try:
-            with file_path.open("r", encoding="utf-8") as file:
-                session = json.load(file)
-
-            sessions.append(session)
-
-        except json.JSONDecodeError:
-            # Abaikan file JSON yang rusak agar endpoint history tetap berjalan.
-            continue
-
-    return sorted(
-        sessions,
-        key=lambda session: session.get("completed_at")
-        or session.get("completedAt")
-        or session.get("started_at")
-        or session.get("startedAt")
-        or "",
-        reverse=True,
-    )
 
 
 def build_empty_debug_clusters():
@@ -2147,7 +1896,6 @@ def root():
         "serial": USRP_SERIAL,
         "detection_mode": DETECTION_MODE,
         "sweep_window_mhz": SWEEP_WINDOW_MHZ,
-        "scan_history_storage": "json",
     }
 
 
@@ -2211,8 +1959,6 @@ def scan_status():
         "started_at": state["started_at"],
         "completed_at": state["completed_at"],
         "updated_at": state["updated_at"],
-        "session_saved": state["session_saved"],
-        "history_save_error": state["history_save_error"],
     }
 
 
@@ -2595,8 +2341,6 @@ def start_scan(request: ScanRequest):
         scan_state["started_at"] = now
         scan_state["completed_at"] = None
         scan_state["updated_at"] = now
-        scan_state["session_saved"] = False
-        scan_state["history_save_error"] = None
         scan_state["cycle_index"] = 1
         scan_state["completed_cycles"] = 0
         scan_state["cycle_window_index"] = 0
@@ -2667,8 +2411,6 @@ def start_scan(request: ScanRequest):
                 scan_state["last_peak"] = None
                 scan_state["started_at"] = None
                 scan_state["completed_at"] = None
-                scan_state["session_saved"] = False
-                scan_state["history_save_error"] = None
                 scan_state["last_error"] = "Failed to start the scan controller."
                 scan_state["updated_at"] = datetime.now().isoformat(timespec="seconds")
         try:
@@ -2735,7 +2477,6 @@ def stop_scan(request: StopScanRequest):
         scan_state["updated_at"] = datetime.now().isoformat(
             timespec="seconds"
         )
-        save_completed_session_if_needed_locked(allow_stopped=True)
         state = deepcopy(scan_state)
 
     # Continuous scans are terminal only on Stop.  Claim and emit the normal
@@ -2798,64 +2539,8 @@ def scan_results():
         "session_id": state["session_id"],
         "started_at": state["started_at"],
         "completed_at": state["completed_at"],
-        "session_saved": state["session_saved"],
-        "history_save_error": state["history_save_error"],
     }
 
-
-
-@app.get("/api/scan/history")
-def scan_history():
-    """
-    Mengambil seluruh scan session yang sudah disimpan ke file JSON.
-    """
-
-    sessions = load_all_scan_sessions()
-
-    return {
-        "count": len(sessions),
-        "storage": "json",
-        "sessions": sessions,
-    }
-
-
-@app.delete("/api/scan/history")
-def delete_all_scan_history():
-    """
-    Menghapus semua file JSON scan history.
-    """
-
-    result = delete_all_scan_session_files()
-
-    return {
-        "message": "All scan history was deleted successfully.",
-        **result,
-    }
-
-
-@app.delete("/api/scan/history/{session_id}")
-def delete_scan_history_detail(session_id: str):
-    """
-    Menghapus satu scan session berdasarkan session_id.
-    """
-
-    result = delete_scan_session_file(session_id)
-
-    return {
-        "message": "Scan history was deleted successfully.",
-        **result,
-    }
-
-
-@app.get("/api/scan/history/{session_id}")
-def scan_history_detail(session_id: str):
-    """
-    Mengambil detail satu scan session berdasarkan session_id.
-    """
-
-    session = load_scan_session(session_id)
-
-    return session
 
 
 @app.get("/api/spectrum")

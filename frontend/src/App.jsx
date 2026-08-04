@@ -8,11 +8,7 @@ import {
   createEmptySpectrumPreview,
   replaceSpectrumPreview,
 } from "./generalSpectrumPreview.js";
-import {
-  FIXED_CHART_SCALE,
-  createFixedChartDbTicks,
-  dbToChartPercent,
-} from "./spectrumChartScale.js";
+import { createFixedChartDbTicks, dbToChartPercent } from "./spectrumChartScale.js";
 import navGeneralIcon from "./assets/nav-general.png";
 import navSpecificIcon from "./assets/nav-specific.png";
 import signalIcon from "./assets/signal-icon.png";
@@ -25,15 +21,12 @@ const DEVICE_STATUS_REFRESH_MS = 5000;
 const INITIAL_STATUS_RETRY_DELAYS_MS = [0, 1000, 2000, 4000, 8000];
 
 // Saat Vite dan FastAPI dinyalakan hampir bersamaan, frontend dapat terbuka
-// beberapa detik lebih dulu daripada backend. Scan history akan dicoba ulang
-// otomatis agar user tidak perlu me-refresh halaman secara manual.
 // Status SDR dibaca dari cache detector USB/PnP pasif. Endpoint ini tidak
 // menjalankan UHD dan tetap aman ketika USRP tidak terhubung atau sedang scan.
 
 // Jumlah window history yang disimpan di frontend.
 // Scan 50–6000 MHz dengan window 56 MHz butuh sekitar 107 window,
 // jadi 160 masih cukup aman untuk satu sweep penuh.
-const CHART_SVG_HEIGHT = 260;
 const CHART_TICK_STEP_DB = 10;
 
 // Warna marker pada grafik. Urutan warna sama dengan urutan Signal 01, 02, 03, dan seterusnya.
@@ -81,78 +74,6 @@ function formatDb(value) {
   }
 
   return `${Number(value).toFixed(2)} dB`;
-}
-
-function buildSpectrumSvgPath({
-  frequencyValues,
-  powerValues,
-  start,
-  end,
-  chartScale,
-}) {
-  const pointCount = Math.min(
-    frequencyValues.length,
-    powerValues.length
-  );
-
-  if (
-    pointCount === 0 ||
-    !Number.isFinite(start) ||
-    !Number.isFinite(end) ||
-    end <= start
-  ) {
-    return {
-      linePoints: "",
-      areaPoints: "",
-    };
-  }
-
-  const chartPoints = [];
-
-  for (let index = 0; index < pointCount; index += 1) {
-    const frequency = Number(frequencyValues[index]);
-    const power = Number(powerValues[index]);
-
-    if (!Number.isFinite(frequency) || !Number.isFinite(power)) {
-      continue;
-    }
-
-    const normalizedX =
-      ((frequency - start) / (end - start)) * 1000;
-
-    const normalizedY =
-      ((chartScale.maxDb - power) /
-        (chartScale.maxDb - chartScale.minDb)) *
-      CHART_SVG_HEIGHT;
-
-    chartPoints.push({
-      x: clamp(normalizedX, 0, 1000),
-      y: clamp(normalizedY, 0, CHART_SVG_HEIGHT),
-    });
-  }
-
-  if (chartPoints.length === 0) {
-    return {
-      linePoints: "",
-      areaPoints: "",
-    };
-  }
-
-  const linePoints = chartPoints
-    .map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`)
-    .join(" ");
-
-  const firstPoint = chartPoints[0];
-  const lastPoint = chartPoints[chartPoints.length - 1];
-
-  return {
-    linePoints,
-    areaPoints: [
-      `${firstPoint.x.toFixed(2)},${CHART_SVG_HEIGHT}`,
-      linePoints,
-      `${lastPoint.x.toFixed(2)},${CHART_SVG_HEIGHT}`,
-    ].join(" "),
-  };
 }
 
 function formatWindowMHz(start, end) {
@@ -664,13 +585,6 @@ function buildTechnologyCandidates(detection) {
 }
 
 
-const HISTORY_TECHNOLOGY_GROUPS = [
-  { key: "gsm", label: "2G" },
-  { key: "umts", label: "3G" },
-  { key: "lte", label: "4G" },
-  { key: "nr", label: "5G" },
-];
-
 function TechnologyBandCard({ candidate }) {
   return (
     <span
@@ -847,30 +761,7 @@ function mergeDetectionHistory(previousHistory, incomingDetections) {
   });
 }
 
-function formatDateTime(value) {
-  if (!value) {
-    return "-";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
-  }
-
-  return date.toLocaleString("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
-
-
-function normalizePersistentDetection(detection, index = 0) {
+function normalizeDetection(detection, index = 0) {
   return {
     ...detection,
     history_id:
@@ -883,294 +774,6 @@ function normalizePersistentDetection(detection, index = 0) {
       ),
   };
 }
-
-function normalizeSpectrumPreview(preview) {
-  if (!preview || typeof preview !== "object") {
-    return null;
-  }
-
-  const frequencyValues = Array.isArray(preview.frequency_mhz)
-    ? preview.frequency_mhz.map(Number)
-    : [];
-  const powerValues = Array.isArray(preview.power_db)
-    ? preview.power_db.map(Number)
-    : [];
-  const pointCount = Math.min(frequencyValues.length, powerValues.length);
-
-  if (pointCount === 0) {
-    return null;
-  }
-
-  const normalizedFrequency = [];
-  const normalizedPower = [];
-
-  for (let index = 0; index < pointCount; index += 1) {
-    const frequency = frequencyValues[index];
-    const power = powerValues[index];
-
-    if (!Number.isFinite(frequency) || !Number.isFinite(power)) {
-      continue;
-    }
-
-    normalizedFrequency.push(frequency);
-    normalizedPower.push(power);
-  }
-
-  if (normalizedFrequency.length === 0) {
-    return null;
-  }
-
-  return {
-    ...preview,
-    frequency_mhz: normalizedFrequency,
-    power_db: normalizedPower,
-    point_count: normalizedFrequency.length,
-  };
-}
-
-
-function normalizePersistentScanSession(session, index = 0) {
-  const detections = Array.isArray(session.detections)
-    ? session.detections.map((detection, detectionIndex) =>
-        normalizePersistentDetection(detection, detectionIndex)
-      )
-    : [];
-
-  const id =
-    session.id ??
-    session.session_id ??
-    `scan-history-${index}`;
-
-  const completedAt =
-    session.completedAt ??
-    session.completed_at ??
-    session.updated_at ??
-    session.started_at ??
-    null;
-
-  const scanOwner =
-    session.scanOwner ??
-    session.scan_owner ??
-    null;
-
-  const selectedMachineId =
-    session.selectedMachineId ??
-    session.selected_machine_id ??
-    null;
-
-  const selectedMachineName =
-    session.selectedMachineName ??
-    session.selected_machine_name ??
-    null;
-
-  const scanOwnerLabel =
-    scanOwner === "specific"
-      ? selectedMachineName
-        ? `Specific Scan — ${selectedMachineName}`
-        : "Specific Scan"
-      : scanOwner === "general"
-        ? "General Scan"
-        : "Scan";
-
-  const generatedTitle = completedAt
-    ? `${scanOwnerLabel} ${String(completedAt).replace("T", " ")}`
-    : `${scanOwnerLabel} #${String(index + 1).padStart(3, "0")}`;
-
-  return {
-    ...session,
-    id,
-    scanOwner,
-    scanMode:
-      session.scanMode ??
-      session.scan_mode ??
-      null,
-    selectedMachineId,
-    selectedMachineName,
-    title:
-      scanOwner
-        ? generatedTitle
-        : session.title ?? generatedTitle,
-    startedAt:
-      session.startedAt ??
-      session.started_at ??
-      completedAt,
-    completedAt,
-    config: session.config ?? {},
-    sweep: session.sweep ?? {},
-    peak: session.peak ?? null,
-    spectrumPreview: normalizeSpectrumPreview(
-      session.spectrumPreview ?? session.spectrum_preview
-    ),
-    detections,
-    detectionCount:
-      Number.isFinite(Number(session.detectionCount))
-        ? Number(session.detectionCount)
-        : Number.isFinite(Number(session.detection_count))
-          ? Number(session.detection_count)
-          : detections.length,
-  };
-}
-
-
-
-function HistoricalSpectrumPanel({ session }) {
-  const preview = session?.spectrumPreview ?? null;
-  const config = session?.config ?? {};
-  const thresholdValue = Number(
-    preview?.threshold_db ?? config.threshold_db ?? 0
-  );
-  const start = Number(
-    preview?.start_frequency_mhz ?? config.start_frequency_mhz
-  );
-  const end = Number(
-    preview?.end_frequency_mhz ?? config.end_frequency_mhz
-  );
-
-  const chartPath = useMemo(() => {
-    if (!preview) {
-      return { linePoints: "", areaPoints: "" };
-    }
-
-    return buildSpectrumSvgPath({
-      frequencyValues: preview.frequency_mhz ?? [],
-      powerValues: preview.power_db ?? [],
-      start,
-      end,
-      chartScale: FIXED_CHART_SCALE,
-    });
-  }, [preview, start, end]);
-
-  const frequencyTicks = useMemo(() => {
-    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
-      return [];
-    }
-
-    const tickCount = 10;
-
-    return Array.from({ length: tickCount + 1 }, (_, index) => {
-      const value = start + ((end - start) / tickCount) * index;
-
-      return {
-        label: Number(value.toFixed(2)).toString(),
-        position: (index / tickCount) * 100,
-      };
-    });
-  }, [start, end]);
-
-  const chartDbTicks = useMemo(createFixedChartDbTicks, []);
-
-  const thresholdTop = useMemo(() => {
-    const value = Number.isFinite(thresholdValue) ? thresholdValue : 0;
-
-    return dbToChartPercent(value);
-  }, [thresholdValue]);
-
-  return (
-    <section className="history-spectrum-preview">
-      <div className="history-spectrum-heading">
-        <div>
-          <h4>Saved Spectrum</h4>
-        </div>
-
-        {preview && (
-          <div className="history-spectrum-meta">
-            <span>{preview.point_count ?? preview.frequency_mhz.length} preview points</span>
-          </div>
-        )}
-      </div>
-
-      {!preview || !chartPath.linePoints ? (
-        <div className="history-spectrum-unavailable">
-          Spectrum preview is unavailable for older sessions. Run a new scan
-          after updating the backend to save chart visuals.
-        </div>
-      ) : (
-        <div className="spectrum-chart history-spectrum-chart">
-          <div className="chart-y-axis" aria-hidden="true">
-            {chartDbTicks.map(({ value, position, isThreshold }) => (
-              <span
-                key={`history-y-${value}`}
-                className={isThreshold ? "threshold-y-tick" : ""}
-                style={{ top: `${position}%` }}
-              >
-                {value} dB
-              </span>
-            ))}
-          </div>
-
-          <div className="chart-plot">
-            {chartDbTicks.map(({ value, position }) => (
-              <div
-                key={`history-horizontal-${value}`}
-                className="chart-h-grid-line"
-                style={{ top: `${position}%` }}
-              />
-            ))}
-
-            {frequencyTicks.map(({ label, position }) => (
-              <div
-                key={`history-vertical-${label}-${position}`}
-                className="chart-v-grid-line"
-                style={{ left: `${position}%` }}
-              />
-            ))}
-
-            <div
-              className="threshold-visual"
-              style={{ top: `${thresholdTop}%` }}
-            >
-              <span>Threshold {Number.isFinite(thresholdValue) ? thresholdValue : 0} dB</span>
-            </div>
-
-            <svg
-              className="spectrum-svg"
-              viewBox={`0 0 1000 ${CHART_SVG_HEIGHT}`}
-              preserveAspectRatio="none"
-              aria-label="Historical spectrum preview"
-            >
-              <polygon
-                points={chartPath.areaPoints}
-                className="spectrum-area"
-              />
-
-              <polyline
-                points={chartPath.linePoints}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.25"
-                vectorEffect="non-scaling-stroke"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                shapeRendering="geometricPrecision"
-              />
-            </svg>
-          </div>
-
-          <div className="chart-x-axis" aria-hidden="true">
-            {frequencyTicks.map(({ label, position }, index) => (
-              <span
-                key={`history-x-${label}-${position}`}
-                className={
-                  index === 0
-                    ? "first-x-label"
-                    : index === frequencyTicks.length - 1
-                      ? "last-x-label"
-                      : ""
-                }
-                style={{ left: `${position}%` }}
-              >
-                {label}
-              </span>
-            ))}
-
-            <small className="chart-x-unit">MHz</small>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
 
 const TECHNOLOGY_DETAIL_GROUPS = [
   {
@@ -1489,19 +1092,13 @@ function App() {
   const [sweepInfo, setSweepInfo] = useState(null);
   const [totalDetectionCount, setTotalDetectionCount] = useState(0);
 
-  // Single scan session history:
-  // semua titik di atas threshold pada satu sweep disimpan di sini,
-  // lalu setelah sweep selesai dibuat menjadi satu folder/session.
+  // All threshold-exceeding points from the active rolling scan are retained
+  // here for the current General or Specific view.
   const [currentScanHistory, setCurrentScanHistory] = useState([]);
-  const [scanSessions] = useState([]);
-  const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [selectedDetectionDetail, setSelectedDetectionDetail] = useState(null);
-  const [historyDeleteDialog] = useState(null);
-  const [isDeletingHistory] = useState(false);
 
   const currentScanHistoryRef = useRef([]);
   const activeScanMetaRef = useRef(null);
-  const scanSessionSavedRef = useRef(false);
   const lastSnapshotKeyRef = useRef(null);
   const [spectrumStreamHealthy, setSpectrumStreamHealthy] = useState(false);
 
@@ -1746,8 +1343,6 @@ function App() {
           },
           selectedMachineName: machineName,
         };
-        scanSessionSavedRef.current = Boolean(data?.session_saved);
-
         if (showResumeMessage) {
           const ownerLabel = owner === "specific" ? "Specific" : "General";
           const machineLabel =
@@ -1796,7 +1391,7 @@ function App() {
         if (resultsResponse.ok) {
           const restoredDetections = Array.isArray(resultsData.detections)
             ? resultsData.detections.map((detection, index) =>
-                normalizePersistentDetection(detection, index)
+                normalizeDetection(detection, index)
               )
             : [];
 
@@ -1825,8 +1420,6 @@ function App() {
     },
     [applyBackendScanState]
   );
-
-  const loadPersistentScanSessions = useCallback(async () => [], []);
 
   useEffect(() => {
     if (!selectedDetectionDetail) {
@@ -2000,16 +1593,7 @@ function App() {
 
     if (!data.running) {
       setIsScanning(false);
-      if (data.completed && !scanSessionSavedRef.current) {
-        try {
-          await loadPersistentScanSessions({ selectLatest: true });
-        } catch (historyError) {
-          setErrorMessage(`Scan history error: ${historyError.message}`);
-          notify("Failed to load Scan History.", "error", "load-scan-history");
-        }
-        scanSessionSavedRef.current = true;
-      }
-      setStatusMessage(data.completed ? "Scan completed and was saved to Scan History." : "Scan stopped.");
+      setStatusMessage(data.completed ? "Scan completed." : "Scan stopped.");
       if (data.completed && !scanCompletionToastRef.current) {
         scanCompletionToastRef.current = true;
         notify("Scan completed.", "success", "scan-completed");
@@ -2027,7 +1611,7 @@ function App() {
       setStatusMessage(`Spectrum updated: ${data.timestamp || "real time"}`);
     }
     return { accepted: true, running: true };
-  }, [loadPersistentScanSessions, notify, notifyScanFailure]);
+  }, [notify, notifyScanFailure]);
 
   useSpectrumStream({
     enabled: ENABLE_SPECTRUM_WEBSOCKET && isScanning,
@@ -2072,86 +1656,6 @@ function App() {
         }
         return;
 
-        /*
-              const fallbackOwnerLabel =
-                fallbackOwner === "specific"
-                  ? fallbackMachineName
-                    ? `Specific Scan — ${fallbackMachineName}`
-                    : "Specific Scan"
-                  : fallbackOwner === "general"
-                    ? "General Scan"
-                    : "Scan";
-
-              const fallbackSession = {
-                id: sessionId,
-                title: `${fallbackOwnerLabel} ${String(completedAt).replace(
-                  "T",
-                  " "
-                )}`,
-                scanOwner: fallbackOwner,
-                scanMode: data.scan_mode ?? null,
-                selectedMachineId:
-                  data.selected_machine_id ??
-                  activeScanMetaRef.current?.request?.selected_machine_id ??
-                  null,
-                selectedMachineName: fallbackMachineName,
-                startedAt:
-                  activeScanMetaRef.current?.startedAt ?? completedAt,
-                completedAt,
-                config: data.config,
-                sweep,
-                peak: data.peak,
-                detections: historyForSession,
-                detectionCount: historyForSession.length,
-              };
-
-              setSelectedSessionId(fallbackSession.id);
-              setScanSessions((previousSessions) => [
-                fallbackSession,
-                ...previousSessions.filter(
-                  (session) => session.id !== fallbackSession.id
-                ),
-              ]);
-
-              setErrorMessage(
-                `Scan history error: ${historyError.message}`
-              );
-              notify("Failed to load Scan History.", "error", "load-scan-history");
-            }
-
-            scanSessionSavedRef.current = true;
-          }
-
-          setStatusMessage(
-            data.completed
-              ? "Scan completed and was saved to Scan History."
-              : "Scan stopped."
-          );
-
-          if (data.completed && !scanCompletionToastRef.current) {
-            scanCompletionToastRef.current = true;
-            notify("Scan completed.", "success", "scan-completed");
-          } else if (!data.completed && data.last_error && !manualStopRequestedRef.current) {
-            notifyScanFailure(new Error(data.last_error));
-          }
-          return;
-        }
-
-        if (currentWindow && sweep) {
-          setStatusMessage(
-            `Scanning ${formatWindowMHz(
-              currentWindow.start_frequency_mhz,
-              currentWindow.end_frequency_mhz
-            )} · Window ${sweep.scanned_windows}/${sweep.total_windows} · ${
-              sweep.progress_percent
-            }%`
-          );
-        } else {
-          setStatusMessage(
-            `Spectrum updated: ${data.timestamp || "real time"}`
-          );
-        }
-        */
       } catch (error) {
         if (cancelled) {
           return;
@@ -2204,7 +1708,6 @@ function App() {
   }, [
     applySpectrumSnapshot,
     isScanning,
-    loadPersistentScanSessions,
     notify,
     notifyScanFailure,
     spectrumStreamHealthy,
@@ -2540,7 +2043,6 @@ function App() {
             ? data.selected_machine_name ?? selectedSpecificMachineName
             : null,
       };
-      scanSessionSavedRef.current = false;
       scanCompletionToastRef.current = false;
       manualStopRequestedRef.current = false;
       deviceDisconnectDuringScanRef.current = false;
@@ -3041,127 +2543,6 @@ function App() {
             </section>
           </>
           )
-        ) : activeTab === "history" ? (
-          <section className="detected-section scan-session-section">
-            <div className="panel-heading">
-              <div>
-                <h3>Saved Scans</h3>
-              </div>
-
-              <div className="detected-count">
-                <strong>{scanSessions.length}</strong>
-                <span>{scanSessions.length === 1 ? "SCAN SESSION" : "SCAN SESSIONS"}</span>
-              </div>
-            </div>
-
-            {scanSessions.length > 0 && (
-              <div className="scan-history-action-bar">
-                <button
-                  type="button"
-                  className="history-delete-all-button"
-                  onClick={handleDeleteAllScanSessions}
-                >
-                  DELETE ALL HISTORY
-                </button>
-              </div>
-            )}
-
-            {scanSessions.length === 0 ? (
-              <div className="empty-state">
-                No saved scans yet. Completed scans will appear here.
-              </div>
-            ) : (
-              <div className="session-history-layout">
-                <div className="session-folder-list">
-                  {scanSessions.map((session) => (
-                    <article
-                      className={`session-folder-card ${
-                        selectedScanSession?.id === session.id ? "selected" : ""
-                      }`}
-                      key={session.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setSelectedSessionId(session.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          setSelectedSessionId(session.id);
-                        }
-                      }}
-                    >
-                      <div className="session-folder-main">
-                        <span className="folder-icon">▰</span>
-                        <span>
-                          <strong>{session.title}</strong>
-                          <small>
-                            {formatDateTime(session.completedAt)} · {session.config.start_frequency_mhz}–
-                            {session.config.end_frequency_mhz} MHz · {session.detectionCount} points
-                          </small>
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="session-delete-button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleDeleteScanSession(session.id, session.title);
-                        }}
-                      >
-                        DELETE
-                      </button>
-                    </article>
-                  ))}
-                </div>
-
-                <div className="session-detail-panel">
-                  {selectedScanSession && (
-                    <>
-                      <div className="session-summary-grid">
-                        <div>
-                          <span>Range</span>
-                          <strong>
-                            {selectedScanSession.config.start_frequency_mhz}–
-                            {selectedScanSession.config.end_frequency_mhz} MHz
-                          </strong>
-                        </div>
-                        <div>
-                          <span>Threshold</span>
-                          <strong>{selectedScanSession.config.threshold_db} dB</strong>
-                        </div>
-                        <div>
-                          <span>Total points</span>
-                          <strong>{selectedScanSession.detectionCount}</strong>
-                        </div>
-                        <div>
-                          <span>Completed</span>
-                          <strong>{formatDateTime(selectedScanSession.completedAt)}</strong>
-                        </div>
-                      </div>
-
-                      <HistoricalSpectrumPanel session={selectedScanSession} />
-
-                      <div className="session-card-history-panel">
-                        <div className="session-detection-heading">
-                          <div>
-                            <p className="section-kicker">DETECTED SIGNALS</p>
-                            <h4>Detected Frequencies</h4>
-                          </div>
-                          <span>{selectedScanSession.detectionCount} points</span>
-                        </div>
-
-                        <DetectionCardGrid
-                          detections={selectedScanSession.detections}
-                          sourceLabel={selectedScanSession?.title ?? "SCAN HISTORY DETAIL"}
-                          onOpen={setSelectedDetectionDetail}
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </section>
         ) : (
           <SpecificChannelPage
             apiBaseUrl={API_BASE_URL}
@@ -3196,69 +2577,6 @@ function App() {
           </section>
         </div>
       </div>
-
-      {historyDeleteDialog && (
-        <div
-          className="history-confirm-backdrop"
-          role="presentation"
-          onClick={() => {
-            if (!isDeletingHistory) {
-              setHistoryDeleteDialog(null);
-            }
-          }}
-        >
-          <section
-            className="history-confirm-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="history-confirm-title"
-            aria-describedby="history-confirm-description"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="history-confirm-content">
-              <p className="section-kicker">DELETE CONFIRMATION</p>
-
-              <h3 id="history-confirm-title">
-                {historyDeleteDialog.type === "all"
-                  ? "Delete All Scan History?"
-                  : "Delete Scan History?"}
-              </h3>
-
-              {historyDeleteDialog.type === "single" && (
-                <p className="history-confirm-name">
-                  {historyDeleteDialog.sessionTitle}
-                </p>
-              )}
-
-              <p id="history-confirm-description">
-                {historyDeleteDialog.type === "all"
-                  ? "This will permanently delete all scan history entries."
-                  : "This will permanently delete the selected scan history."}
-              </p>
-            </div>
-
-            <div className="history-confirm-actions">
-              <button
-                type="button"
-                className="history-confirm-cancel"
-                disabled={isDeletingHistory}
-                onClick={() => setHistoryDeleteDialog(null)}
-              >
-                CANCEL
-              </button>
-
-              <button
-                type="button"
-                className="history-confirm-delete"
-                disabled={isDeletingHistory}
-                onClick={confirmHistoryDeletion}
-              >
-                {isDeletingHistory ? "DELETING..." : "DELETE"}
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
 
       <SignalDetailModal
         detail={selectedDetectionDetail}
