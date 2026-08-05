@@ -159,6 +159,9 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Local diagnostics, private reference material, and retained archives
+_local_only/
+
 # Local USRP scan outputs
 signal_log.json
 scan_history/
