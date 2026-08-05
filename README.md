@@ -1,356 +1,230 @@
-# USRP B210 Spectrum Scanner
+# USRP B210 Spectrum Monitoring System
 
-A web-based real-time spectrum scanning tool for USRP B210.  
-This project uses a FastAPI backend to communicate with the USRP device and a React frontend to display spectrum data, threshold detections, and wireless technology classification results.
+## Overview
 
-## Features
+This project is a web application for monitoring radio spectrum with a USRP B210. The backend acquires IQ samples through UHD, processes the spectrum, detects threshold-exceeding frequency bins, and produces cellular-band classification candidates.
 
-- USRP B210 spectrum scanning
-- Frequency range support from 50 MHz to 6000 MHz
-- Sweep scan mode using smaller scan windows
-- Threshold-based detection
-- Detection of every FFT point above the threshold
-- 2G GSM candidate classification
-- 3G UMTS/WCDMA candidate classification
-- 4G LTE candidate classification
-- 5G NR candidate classification
-- Current Scan History
-- Signal detail modal
-- Accordion detail view for 2G, 3G, 4G, and 5G candidates
-- ARFCN, UARFCN, EARFCN, and NR-ARFCN details
-- Downlink, uplink, and TDD side information when available
+The application provides two scan workflows:
 
-## Project Structure
+- **General Scan** monitors a user-selected frequency range.
+- **Specific Scan** monitors channel targets associated with a selected Machine.
+
+Classification candidates cover GSM, UMTS, LTE, and NR frequency bands. A candidate indicates a frequency-band match; it is not proof that a particular cellular service is active.
+
+## Current features
+
+### Spectrum acquisition
+
+- USRP B210 spectrum monitoring across an approximately 50–6000 MHz supported range.
+- Autonomous, continuous rolling stepped sweep over the requested range.
+- Persistent UHD scanner worker and persistent RX streamer across sweep hops.
+- A 20 MHz sweep window for ranges below 100 MHz and a 56 MHz window for wider ranges.
+- 1,024 IQ samples and a 1,024-point FFT for each hop, with a 2 ms tuner-settle delay.
+- Hann-window FFT processing and an empirical, reference-style displayed-power conversion.
+
+### Detection and classification
+
+- Threshold-point detection: every FFT bin above the configured threshold remains independently eligible for detection.
+- No active clustering, peak grouping, peak merging, or merge-gap processing.
+- GSM, UMTS, LTE, and NR candidate classification.
+- Current-session detection history and signal details.
+
+### Scan workflows
+
+- General Scan for a user-selected frequency range.
+- Specific Scan based on the Channels stored for a selected Machine.
+- Per-channel measured power and ON/OFF status in the Specific Scan interface.
+- One active scan owner at a time, preventing General and Specific scans from using the SDR concurrently.
+
+### Transport, management, and interface
+
+- Realtime spectrum delivery over WebSocket, with REST snapshot fallback.
+- Machine CRUD, Channel CRUD, and channel lookup by supported cellular channel number.
+- Passive SDR connection status detection.
+- English React user interface with a shared Canvas-based spectrum renderer.
+
+## System architecture
 
 ```text
-USRP_Project/
-├── backend/
-│   ├── main.py
-│   ├── gsm_classifier.py
-│   ├── umts_classifier.py
-│   ├── lte_classifier.py
-│   └── nr_classifier.py
-│
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx
-│   │   └── App.css
-│   ├── package.json
-│   └── index.html
-│
-└── README.md
+USRP B210
+  → UHD scanner worker
+  → FastAPI backend
+  → committed spectrum state
+  → WebSocket stream or REST fallback
+  → React frontend
+  → shared SpectrumCanvas
 ```
 
-## Technology Stack
+The backend runs the sweep controller independently of HTTP spectrum reads. Its scanner worker stays available during a scan, and its RX streamer is reused across compatible sweep hops rather than being recreated for each hop. After each committed window, the backend publishes the latest spectrum state to connected WebSocket clients. The frontend uses REST snapshots only when the WebSocket stream is unavailable.
+
+## Technology stack
 
 ### Backend
 
 - Python
-- FastAPI
+- FastAPI and Uvicorn
 - UHD Python API
 - NumPy
-- Pydantic
-- Uvicorn
+- SQLAlchemy and PyMySQL
+- python-dotenv
 
 ### Frontend
 
 - React
 - Vite
-- JavaScript
-- CSS
+- Canvas 2D
+- WebSocket
 
-### Hardware
+### Database and hardware
 
-- USRP B210
-- RX antenna input
-- USB 3.0 connection recommended
+- MySQL or MariaDB
+- USRP B210 with the RX2 receive input
+- USB 3 connection where supported by the deployment
 
-## System Overview
-
-```text
-USRP B210
-   ↓
-UHD Python API
-   ↓
-FastAPI Backend
-   ↓
-FFT Processing
-   ↓
-Threshold Detection
-   ↓
-2G / 3G / 4G / 5G Classification
-   ↓
-React Frontend
-   ↓
-Spectrum Chart + Detail Modal
-```
-
-## Scan Concept
-
-The USRP B210 cannot scan the entire 50 MHz to 6000 MHz range in one single FFT window.  
-To solve this, the backend performs a sweep scan.
-
-Example:
+## Project structure
 
 ```text
-Requested range: 50 MHz – 6000 MHz
-Sweep window   : 56 MHz
-
-Scan flow:
-50–106 MHz
-106–162 MHz
-162–218 MHz
-...
-until 6000 MHz
+.
+├── backend/
+│   ├── main.py
+│   ├── scanner_worker.py
+│   ├── spectrum_stream.py
+│   ├── database.py
+│   ├── models.py
+│   ├── schemas.py
+│   ├── machine_routes.py
+│   ├── channel_routes.py
+│   ├── channel_lookup_routes.py
+│   └── *_classifier.py
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx
+│   │   ├── SpecificChannelPage.jsx
+│   │   ├── SpectrumCanvas.jsx
+│   │   ├── useSpectrumStream.js
+│   │   └── spectrumTransport.js
+│   └── package.json
+├── requirements.txt
+└── README.md
 ```
 
-Each sweep window is scanned one by one.  
-Every FFT point that is equal to or above the threshold is counted as a detection.
+## Requirements
 
-## Detection Concept
+- Python 3.12 or another compatible version supported by the dependencies.
+- Node.js and npm compatible with the frontend dependencies.
+- UHD installation with the UHD Python API available to the backend environment.
+- A compatible USRP B210 connected for live acquisition.
+- MySQL or MariaDB for Machine and Channel persistence.
 
-The system uses threshold point detection.
+## Installation
 
-```text
-If power_db >= threshold_db
-→ the frequency point is detected
-→ the point is classified
-→ the result is added to Current Scan History
-```
-
-This means the system does not only take the strongest peak.  
-All FFT points above the threshold are processed.
-
-## Classification
-
-Detected frequencies are checked against wireless technology frequency bands.
-
-Supported candidate classifications:
-
-- 2G GSM
-- 3G UMTS / WCDMA
-- 4G LTE
-- 5G NR
-
-The result is a candidate-based classification.  
-A frequency can match more than one technology or band depending on the frequency range.
-
-Example:
-
-```text
-Detected frequency: 792.875 MHz
-
-Possible candidates:
-- LTE Band 14 as UL
-- LTE Band 20 as DL
-```
-
-## Current Scan History
-
-During a scan, detected threshold points are displayed in Current Scan History.
-
-The history is sorted from lower frequency to higher frequency.
-
-Example:
-
-```text
-50 MHz
-...
-900 MHz
-...
-1800 MHz
-...
-3500 MHz
-...
-6000 MHz
-```
-
-## Signal Detail Modal
-
-Each detected row can be clicked to open a detail modal.
-
-The detail modal displays:
-
-- Detected frequency
-- Power
-- Threshold
-- Window range
-- FFT index
-- Window index
-- Technology candidates
-- ARFCN / UARFCN / EARFCN / NR-ARFCN
-- Frequency DL / UL information
-- Detected side such as DL, UL, or TDD
-
-The candidate details are grouped using accordion sections:
-
-- 2G
-- 3G
-- 4G
-- 5G
-
-All sections are closed by default and can be opened manually.
-
-## Backend Setup
-
-Create and activate a Python virtual environment.
+Clone the repository and enter the project directory.
 
 ```powershell
+git clone <repository-url>
 cd <project-folder>
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
 ```
 
-Install dependencies.
+Create a Python environment and install backend dependencies.
 
 ```powershell
-pip install fastapi uvicorn numpy pydantic
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
-Install UHD and make sure the UHD Python API is available in the environment.
+Install frontend dependencies.
 
-Run the backend server.
+```powershell
+cd frontend
+npm install
+```
+
+## Configuration
+
+The backend loads database configuration from the root `.env` file through `backend/database.py`. Create that file locally and keep it out of version control. The supported settings are `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD`.
+
+Equivalent database URL format:
+
+```text
+mysql+pymysql://<database-user>:<database-password>@<host>:<port>/<database-name>
+```
+
+Use database values appropriate to the local deployment. Do not place credentials, private hosts, or device identifiers in documentation or tracked configuration.
+
+## Running the application
+
+From the project root, start the FastAPI backend:
 
 ```powershell
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-Backend URL:
+The backend is then available at `http://127.0.0.1:8000`, and FastAPI interactive documentation is available at `http://127.0.0.1:8000/docs`.
 
-```text
-http://127.0.0.1:8000
-```
-
-API documentation:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-## Frontend Setup
-
-Install frontend dependencies.
+In a separate terminal, start the Vite frontend:
 
 ```powershell
-cd <project-folder>/frontend
-npm install
-```
-
-Run the frontend development server.
-
-```powershell
+cd frontend
 npm run dev
 ```
 
-Frontend URL:
+Vite serves the development interface at the local address displayed in its terminal output; the backend CORS configuration permits `http://localhost:5173` and `http://127.0.0.1:5173`.
 
-```text
-http://localhost:5173
-```
+## Main API and transport
 
-## Main API Endpoints
+Important active interfaces include:
 
-### Device Status
+- `POST /api/scan/start` — starts a General or Specific scan. The request includes a threshold, start frequency, end frequency, scan owner, and, for Specific Scan, a selected Machine ID.
+- `POST /api/scan/stop` — stops the active scan for its owner.
+- `GET /api/status` — returns scan state and rolling-sweep progress.
+- `GET /api/scan/results` — returns current-session detections, channel measurements, and spectrum preview data.
+- `GET /api/spectrum` — returns a read-only snapshot of the latest committed spectrum window; used as the frontend fallback transport.
+- `GET /api/device/status` — returns passive SDR connection and scan-ownership status.
+- `GET`, `POST /api/machines` and `GET`, `PUT`, `DELETE /api/machines/{machine_id}` — Machine CRUD.
+- `GET`, `POST /api/machines/{machine_id}/channels` and `GET`, `PUT`, `DELETE /api/channels/{channel_id}` — Channel CRUD.
+- `GET /api/channel-lookup` — resolves supported technology/profile and FCN inputs into channel candidates.
+- `WS /api/spectrum/stream` — primary realtime spectrum transport.
 
-```text
-GET /api/device
-```
+## Scan behavior
 
-Checks whether the USRP device is accessible.
+The application divides a requested range into stepped windows and continuously repeats the sweep until it is stopped. Ranges below 100 MHz use the 20 MHz policy; wider ranges use the 56 MHz policy. Each hop acquires 1,024 IQ samples, applies a Hann window, and computes a 1,024-point FFT.
 
-### Start Scan
+The displayed spectrum uses an empirical reference-style power scale. It is suitable for the application display and threshold workflow, but it is not presented as calibrated laboratory dBm.
 
-```text
-POST /api/scan/start
-```
+For each hop, every FFT bin above the threshold is independently eligible for detection and classification. General Scan reports detections across its requested range. Specific Scan uses the selected Machine's stored Channel targets and returns measured power plus ON/OFF status for those channels. Both workflows expose the latest current-session spectrum preview through the same persistent worker, streamer, and shared frontend canvas.
 
-Starts a sweep scan.
+## Limitations
 
-Example request:
+- Wide frequency ranges require a stepped sweep because instantaneous bandwidth is limited.
+- Tuning performance depends on UHD and USRP hardware behavior.
+- Displayed power is reference-style and is not guaranteed to be calibrated laboratory dBm.
+- Live acquisition requires a compatible UHD installation and connected USRP hardware.
 
-```json
-{
-  "threshold_db": 0,
-  "start_frequency_mhz": 50,
-  "end_frequency_mhz": 6000
-}
-```
+## Current development status
 
-### Stop Scan
+The following work has been implemented and validated:
 
-```text
-POST /api/scan/stop
-```
+- Autonomous rolling sweep.
+- Persistent RX streamer.
+- Faster spectrum scanning.
+- Shared Canvas renderer.
+- Realtime WebSocket transport.
+- REST fallback.
+- General and Specific spectrum status UI cleanup.
+- Obsolete Scan History and dead-code cleanup.
 
-Stops the current scan.
+## Planned work
 
-### Spectrum Data
+The following items are planned and are not currently implemented:
 
-```text
-GET /api/spectrum
-```
+- User login and authentication.
+- Improved responsive layout for Android and mobile portrait screens.
+- Mobile top-bar and navigation optimization.
 
-Reads one sweep window and returns spectrum data, peak data, and threshold detections.
+## Safety and privacy
 
-### Scan Results
-
-```text
-GET /api/scan/results
-```
-
-Returns cumulative detection results from the current scan.
-
-### Scan Status
-
-```text
-GET /api/status
-```
-
-Returns the current scan status and sweep progress.
-
-## Important Notes
-
-- The 50–6000 MHz scan is performed using sweep windows.
-- The backend does not force the USRP to read the entire range in one sample rate.
-- Detection is based on FFT points above the threshold.
-- Classification results are candidates, not final proof of the active technology.
-- The displayed DL/UL pair depends on the detected side and band type.
-- FDD bands have separate DL and UL frequencies.
-- TDD bands share the same frequency for DL and UL using time separation.
-
-## Privacy and Security Notes
-
-Do not commit sensitive data to the repository.
-
-Avoid committing:
-
-```text
-.env
-API keys
-passwords
-tokens
-device serial numbers
-personal folder paths
-personal usernames
-```
-
-Recommended `.gitignore` entries:
-
-```gitignore
-.env
-.env.local
-*.env
-.venv/
-node_modules/
-```
-
-## Future Improvements
-
-Possible next improvements:
-
-- Export scan results to CSV or JSON
-- SQLite database support
-- Technology-specific filtering
-- Better signal grouping or summary view
-- Improved scan performance for large frequency ranges
-- Optional continuous monitoring mode
+- Credentials must not be committed.
+- Personal information and local paths must not be added to public documentation.
+- Use environment variables for sensitive configuration where the application supports them.
+- Do not publish device serial numbers or private network details.
