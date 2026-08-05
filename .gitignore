@@ -182,3 +182,6 @@ pnpm-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local-only diagnostics and reference files
+_local_only/

@@ -1,24 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
+import SpecificChannelPage from "./SpecificChannelPage.jsx";
+import SpectrumCanvas from "./SpectrumCanvas.jsx";
+import useSpectrumStream from "./useSpectrumStream.js";
+import { shouldUseSpectrumRestFallback } from "./spectrumTransport.js";
+import {
+  createEmptySpectrumPreview,
+  replaceSpectrumPreview,
+} from "./generalSpectrumPreview.js";
+import { createFixedChartDbTicks, dbToChartPercent } from "./spectrumChartScale.js";
+import navGeneralIcon from "./assets/nav-general.png";
+import navSpecificIcon from "./assets/nav-specific.png";
+import signalIcon from "./assets/signal-icon.png";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
 const SPECTRUM_REFRESH_MS = 250;
-const DEVICE_REFRESH_MS = 2000;
+const ENABLE_SPECTRUM_WEBSOCKET = true;
+const DEVICE_STATUS_REFRESH_MS = 5000;
+const INITIAL_STATUS_RETRY_DELAYS_MS = [0, 1000, 2000, 4000, 8000];
 
-// Jumlah window history yang disimpan di frontend.
-// Scan 50–6000 MHz dengan window 56 MHz butuh sekitar 107 window,
-// jadi 160 masih cukup aman untuk satu sweep penuh.
-const MAX_SPECTRUM_HISTORY_WINDOWS = 160;
-
-const CHART_SVG_HEIGHT = 260;
-const CHART_TICK_STEP_DB = 10;
-const THRESHOLD_TARGET_TOP_RATIO = 1 / 3;
-
-// Batas bawah display dibuat tetap agar skala tidak bergerak
-// setiap spectrum baru diterima. Nilai spectrum di bawah -100 dB
-// akan tetap terlihat pada baseline chart.
-const CHART_REFERENCE_MIN_DB = -100;
+// Saat Vite dan FastAPI dinyalakan hampir bersamaan, frontend dapat terbuka
+// Status SDR dibaca dari cache detector USB/PnP pasif. Endpoint ini tidak
+// menjalankan UHD dan tetap aman ketika USRP tidak terhubung atau sedang scan.
 
 // Warna marker pada grafik. Urutan warna sama dengan urutan Signal 01, 02, 03, dan seterusnya.
 const DETECTION_MARKER_COLORS = [
@@ -30,21 +34,8 @@ const DETECTION_MARKER_COLORS = [
   "#ff9f68",
 ];
 
-// TEMPORARY DEBUG VISUAL.
-// 0.05 MHz = 50 kHz. Matikan dengan mengubah true menjadi false.
-const SHOW_MERGE_GAP_DEBUG = false;
-const MERGE_GAP_DEBUG_MHZ = 0.05;
-
 function clamp(value, minimum, maximum) {
   return Math.min(Math.max(value, minimum), maximum);
-}
-
-function roundDownToStep(value, step) {
-  return Math.floor(value / step) * step;
-}
-
-function roundUpToStep(value, step) {
-  return Math.ceil(value / step) * step;
 }
 
 function formatMHz(value) {
@@ -65,78 +56,6 @@ function formatDb(value) {
   }
 
   return `${Number(value).toFixed(2)} dB`;
-}
-
-function buildSpectrumSvgPath({
-  frequencyValues,
-  powerValues,
-  start,
-  end,
-  chartScale,
-}) {
-  const pointCount = Math.min(
-    frequencyValues.length,
-    powerValues.length
-  );
-
-  if (
-    pointCount === 0 ||
-    !Number.isFinite(start) ||
-    !Number.isFinite(end) ||
-    end <= start
-  ) {
-    return {
-      linePoints: "",
-      areaPoints: "",
-    };
-  }
-
-  const chartPoints = [];
-
-  for (let index = 0; index < pointCount; index += 1) {
-    const frequency = Number(frequencyValues[index]);
-    const power = Number(powerValues[index]);
-
-    if (!Number.isFinite(frequency) || !Number.isFinite(power)) {
-      continue;
-    }
-
-    const normalizedX =
-      ((frequency - start) / (end - start)) * 1000;
-
-    const normalizedY =
-      ((chartScale.maxDb - power) /
-        (chartScale.maxDb - chartScale.minDb)) *
-      CHART_SVG_HEIGHT;
-
-    chartPoints.push({
-      x: clamp(normalizedX, 0, 1000),
-      y: clamp(normalizedY, 0, CHART_SVG_HEIGHT),
-    });
-  }
-
-  if (chartPoints.length === 0) {
-    return {
-      linePoints: "",
-      areaPoints: "",
-    };
-  }
-
-  const linePoints = chartPoints
-    .map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`)
-    .join(" ");
-
-  const firstPoint = chartPoints[0];
-  const lastPoint = chartPoints[chartPoints.length - 1];
-
-  return {
-    linePoints,
-    areaPoints: [
-      `${firstPoint.x.toFixed(2)},${CHART_SVG_HEIGHT}`,
-      linePoints,
-      `${lastPoint.x.toFixed(2)},${CHART_SVG_HEIGHT}`,
-    ].join(" "),
-  };
 }
 
 function formatWindowMHz(start, end) {
@@ -218,8 +137,8 @@ function buildNrDetail(candidate) {
           ? "UL ARFCN : -"
           : `UL ARFCN : [ ${candidate.nr_arfcn_ul} ]`,
         candidate.nr_arfcn_dl === null || candidate.nr_arfcn_dl === undefined
-          ? "DL Pasangan : -"
-          : `DL Pasangan : [ ${candidate.nr_arfcn_dl} ]`,
+          ? "Paired DL: -"
+          : `Paired DL: [ ${candidate.nr_arfcn_dl} ]`,
       ];
     }
 
@@ -229,8 +148,8 @@ function buildNrDetail(candidate) {
         ? "DL ARFCN : -"
         : `DL ARFCN : [ ${candidate.nr_arfcn_dl} ]`,
       candidate.nr_arfcn_ul === null || candidate.nr_arfcn_ul === undefined
-        ? "UL Pasangan : -"
-        : `UL Pasangan : [ ${candidate.nr_arfcn_ul} ]`,
+        ? "Paired UL: -"
+        : `Paired UL: [ ${candidate.nr_arfcn_ul} ]`,
     ];
   }
 
@@ -244,18 +163,6 @@ function buildNrDetail(candidate) {
   ].filter(Boolean);
 }
 
-
-function normalizeDetailLines(detail) {
-  if (Array.isArray(detail)) {
-    return detail.filter(Boolean);
-  }
-
-  if (detail === null || detail === undefined || detail === "") {
-    return [];
-  }
-
-  return [String(detail)];
-}
 
 function formatDetailValue(value) {
   if (value === null || value === undefined || value === "") {
@@ -367,11 +274,11 @@ function buildFrequencyRows(
     }
 
     if (side === rowSide) {
-      return " (TERDETEKSI)";
+      return " (DETECTED)";
     }
 
     if ((side === "DL" || side === "UL") && side !== rowSide) {
-      return " (PASANGAN)";
+      return " (PAIRED)";
     }
 
     return "";
@@ -387,7 +294,7 @@ function buildFrequencyRows(
 
   if (rows.length === 0 && fallbackMhz !== null && fallbackMhz !== undefined) {
     rows.push({
-      label: side === "TDD" ? "FREQ (TDD)" : "FREQ (TERDETEKSI)",
+      label: side === "TDD" ? "FREQ (TDD)" : "DETECTED FREQUENCY",
       value: formatMHz(fallbackMhz),
     });
   }
@@ -411,14 +318,14 @@ function buildLteChannelRows(candidate) {
 
   if (candidate.earfcn_dl !== null && candidate.earfcn_dl !== undefined) {
     rows.push({
-      label: detectedSide === "DL" ? "DL EARFCN (TERDETEKSI)" : "DL EARFCN (PASANGAN)",
+      label: detectedSide === "DL" ? "DL EARFCN (DETECTED)" : "DL EARFCN (PAIRED)",
       value: formatDetailValue(candidate.earfcn_dl),
     });
   }
 
   if (candidate.earfcn_ul !== null && candidate.earfcn_ul !== undefined) {
     rows.push({
-      label: detectedSide === "UL" ? "UL EARFCN (TERDETEKSI)" : "UL EARFCN (PASANGAN)",
+      label: detectedSide === "UL" ? "UL EARFCN (DETECTED)" : "UL EARFCN (PAIRED)",
       value: formatDetailValue(candidate.earfcn_ul),
     });
   }
@@ -448,7 +355,7 @@ function buildNrChannelRows(candidate) {
   if (duplex === "SDL") {
     return [
       {
-        label: "DL NR-ARFCN (TERDETEKSI)",
+        label: "DL NR-ARFCN (DETECTED)",
         value: formatDetailValue(candidate.nr_arfcn_dl),
       },
     ];
@@ -457,7 +364,7 @@ function buildNrChannelRows(candidate) {
   if (duplex === "SUL") {
     return [
       {
-        label: "UL NR-ARFCN (TERDETEKSI)",
+        label: "UL NR-ARFCN (DETECTED)",
         value: formatDetailValue(candidate.nr_arfcn_ul),
       },
     ];
@@ -467,14 +374,14 @@ function buildNrChannelRows(candidate) {
 
   if (candidate.nr_arfcn_dl !== null && candidate.nr_arfcn_dl !== undefined) {
     rows.push({
-      label: detectedSide === "DL" ? "DL NR-ARFCN (TERDETEKSI)" : "DL NR-ARFCN (PASANGAN)",
+      label: detectedSide === "DL" ? "DL NR-ARFCN (DETECTED)" : "DL NR-ARFCN (PAIRED)",
       value: formatDetailValue(candidate.nr_arfcn_dl),
     });
   }
 
   if (candidate.nr_arfcn_ul !== null && candidate.nr_arfcn_ul !== undefined) {
     rows.push({
-      label: detectedSide === "UL" ? "UL NR-ARFCN (TERDETEKSI)" : "UL NR-ARFCN (PASANGAN)",
+      label: detectedSide === "UL" ? "UL NR-ARFCN (DETECTED)" : "UL NR-ARFCN (PAIRED)",
       value: formatDetailValue(candidate.nr_arfcn_ul),
     });
   }
@@ -495,7 +402,7 @@ function buildModeTitle(type, candidate = {}) {
   }
 
   if (type === "umts") {
-    return "3G UMTS / WCDMA";
+    return "3G UMTS";
   }
 
   if (type === "lte") {
@@ -588,8 +495,8 @@ function buildTechnologyCandidates(detection) {
           ? "UARFCN : -"
           : `UARFCN : [ ${candidate.uarfcn_dl} ]`,
       channelRows: [
-        { label: "UARFCN DL (TERDETEKSI)", value: formatDetailValue(candidate.uarfcn_dl) },
-        { label: "UARFCN UL (PASANGAN)", value: formatDetailValue(candidate.uarfcn_ul) },
+        { label: "DL UARFCN (DETECTED)", value: formatDetailValue(candidate.uarfcn_dl) },
+        { label: "UL UARFCN (PAIRED)", value: formatDetailValue(candidate.uarfcn_ul) },
       ],
       detectedSide: "DL",
       detectedSideLabel: formatDetectedSide("DL"),
@@ -648,13 +555,6 @@ function buildTechnologyCandidates(detection) {
 }
 
 
-const HISTORY_TECHNOLOGY_GROUPS = [
-  { key: "gsm", label: "2G" },
-  { key: "umts", label: "3G" },
-  { key: "lte", label: "4G" },
-  { key: "nr", label: "5G" },
-];
-
 function TechnologyBandCard({ candidate }) {
   return (
     <span
@@ -662,7 +562,7 @@ function TechnologyBandCard({ candidate }) {
       title={`${candidate.modeTitle} · ${candidate.bandTitle ?? candidate.name}`}
     >
       <span className="figma-band-icon" aria-hidden="true">
-        ◉
+        <img src={signalIcon} alt="" aria-hidden="true" />
       </span>
 
       <span className="figma-band-text">
@@ -749,7 +649,7 @@ function DetectionHistoryCard({ detection, index, sourceLabel, onOpen }) {
         </div>
 
         <div>
-          <span>Power dB</span>
+          <span>Power (dB)</span>
           <strong>{formatDb(detection.power_db)}</strong>
         </div>
 
@@ -808,53 +708,7 @@ function buildDetectionHistoryId(detection, fallbackIndex = 0) {
   ].join("-");
 }
 
-function mergeDetectionHistory(previousHistory, incomingDetections) {
-  const map = new Map();
-
-  previousHistory.forEach((item) => {
-    map.set(item.history_id, item);
-  });
-
-  incomingDetections.forEach((item) => {
-    map.set(item.history_id, item);
-  });
-
-  return Array.from(map.values()).sort((a, b) => {
-    const frequencyA = Number(a.frequency_mhz);
-    const frequencyB = Number(b.frequency_mhz);
-
-    if (!Number.isFinite(frequencyA) || !Number.isFinite(frequencyB)) {
-      return 0;
-    }
-
-    return frequencyA - frequencyB;
-  });
-}
-
-function formatDateTime(value) {
-  if (!value) {
-    return "-";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
-  }
-
-  return date.toLocaleString("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
-
-
-function normalizePersistentDetection(detection, index = 0) {
+function normalizeDetection(detection, index = 0) {
   return {
     ...detection,
     history_id:
@@ -868,51 +722,6 @@ function normalizePersistentDetection(detection, index = 0) {
   };
 }
 
-function normalizePersistentScanSession(session, index = 0) {
-  const detections = Array.isArray(session.detections)
-    ? session.detections.map((detection, detectionIndex) =>
-        normalizePersistentDetection(detection, detectionIndex)
-      )
-    : [];
-
-  const id =
-    session.id ??
-    session.session_id ??
-    `scan-history-${index}`;
-
-  const completedAt =
-    session.completedAt ??
-    session.completed_at ??
-    session.updated_at ??
-    session.started_at ??
-    null;
-
-  return {
-    ...session,
-    id,
-    title:
-      session.title ??
-      `Scan #${String(index + 1).padStart(3, "0")}`,
-    startedAt:
-      session.startedAt ??
-      session.started_at ??
-      completedAt,
-    completedAt,
-    config: session.config ?? {},
-    sweep: session.sweep ?? {},
-    peak: session.peak ?? null,
-    detections,
-    detectionCount:
-      Number.isFinite(Number(session.detectionCount))
-        ? Number(session.detectionCount)
-        : Number.isFinite(Number(session.detection_count))
-          ? Number(session.detection_count)
-          : detections.length,
-  };
-}
-
-
-
 const TECHNOLOGY_DETAIL_GROUPS = [
   {
     key: "gsm",
@@ -923,7 +732,7 @@ const TECHNOLOGY_DETAIL_GROUPS = [
   {
     key: "umts",
     label: "3G",
-    title: "3G UMTS / WCDMA",
+    title: "3G UMTS",
     className: "umts",
   },
   {
@@ -974,13 +783,6 @@ function SignalDetailModal({ detail, onClose }) {
       [groupKey]: !previousState[groupKey],
     }));
   }
-
-  const candidateSummary = TECHNOLOGY_DETAIL_GROUPS.map((group) => ({
-    ...group,
-    count: technologyCandidates.filter(
-      (candidate) => candidate.type === group.key
-    ).length,
-  }));
 
   if (!hasDetection) {
     return null;
@@ -1039,26 +841,11 @@ function SignalDetailModal({ detail, onClose }) {
 
         </div>
 
-        <p className="signal-detail-section-title">Technology Candidate Summary</p>
-
-        <div className="signal-detail-candidate-summary-grid">
-          {candidateSummary.map((group) => (
-            <div
-              className={`signal-detail-candidate-summary-card ${group.className}`}
-              key={group.key}
-            >
-              <span>{group.label}</span>
-              <strong>{group.count}</strong>
-              <small>{group.count === 1 ? "candidate" : "candidates"}</small>
-            </div>
-          ))}
-        </div>
-
-        <p className="signal-detail-section-title">Technology Candidate Details</p>
+        <p className="signal-detail-section-title">Match Details</p>
 
         {technologyGroups.length === 0 ? (
           <div className="signal-detail-empty">
-            No 2G/3G/4G/5G candidate match for this signal.
+            No matching technology found.
           </div>
         ) : (
           <div className="signal-detail-accordion-list">
@@ -1157,8 +944,64 @@ function SignalDetailModal({ detail, onClose }) {
   );
 }
 
+
+function ScanModeIsolationPanel({ owner, isRunning }) {
+  const ownerLabel = owner === "specific" ? "Specific" : "General";
+  const targetLabel = owner === "specific" ? "General" : "Specific";
+
+  return (
+    <section className="scan-mode-isolation-panel">
+      <div className={`scan-mode-isolation-icon ${isRunning ? "running" : "saved"}`}>
+        {isRunning ? "●" : "■"}
+      </div>
+
+      <p className="section-kicker">SEPARATE SCAN MODE</p>
+      <h3>
+        {isRunning
+          ? `${ownerLabel} Scan is running`
+          : `The latest result is from the ${ownerLabel} Scan`}
+      </h3>
+      <p>
+        ${ownerLabel} Scan data is not shown on the {targetLabel} page.
+        {isRunning
+          ? ` Return to the ${ownerLabel} page to stop the scan.`
+          : ` Run a ${targetLabel} Scan to create results for this page.`}
+      </p>
+    </section>
+  );
+}
+
+function ToastViewport({ toasts, onDismiss }) {
+  return (
+    <div className="toast-viewport" aria-live="polite" aria-atomic="true">
+      {toasts.map((toast) => (
+        <div className={`toast toast-${toast.type}`} key={toast.id} role="status">
+          <span>{toast.message}</span>
+          <button
+            type="button"
+            onClick={() => onDismiss(toast.id)}
+            aria-label="Dismiss notification"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function App() {
-  const [activeTab, setActiveTab] = useState("general");
+  const [activeTab, setActiveTab] = useState(() => {
+    const savedTab = window.sessionStorage.getItem("usrp-active-tab");
+
+    return ["general", "specific"].includes(savedTab)
+      ? savedTab
+      : "general";
+  });
+
+  useEffect(() => {
+    window.sessionStorage.setItem("usrp-active-tab", activeTab);
+  }, [activeTab]);
 
   // Nilai input yang diketik pada web.
   const [threshold, setThreshold] = useState("0");
@@ -1176,153 +1019,327 @@ function App() {
 
   const [isScanning, setIsScanning] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
+  const [scanOwner, setScanOwner] = useState(null);
+  const [scanMode, setScanMode] = useState(null);
+  const [scanSelectedMachineId, setScanSelectedMachineId] = useState(null);
+  const [scanSelectedMachineName, setScanSelectedMachineName] = useState(null);
+  const [selectedSpecificMachineId, setSelectedSpecificMachineId] = useState(null);
+  const [selectedSpecificMachineName, setSelectedSpecificMachineName] = useState(null);
 
-  const [device, setDevice] = useState({
-    status: "checking",
-    device: "USRP B210",
-    antenna: "RX2",
-  });
+  // Both owners use this bounded backend preview for the full-range graph.
+  const [spectrumPreview, setSpectrumPreview] = useState(
+    createEmptySpectrumPreview()
+  );
 
-  const [spectrum, setSpectrum] = useState({
-    frequency_mhz: [],
-    power_db: [],
-  });
-
-  // Opsi 2: history spektrum dari window sweep yang sudah discan.
-  // Data ini membuat window 56 MHz yang bergerak meninggalkan trail di chart.
-  const [spectrumHistory, setSpectrumHistory] = useState([]);
   const [sweepInfo, setSweepInfo] = useState(null);
-  const [totalDetectionCount, setTotalDetectionCount] = useState(0);
-
-  // Single scan session history:
-  // semua titik di atas threshold pada satu sweep disimpan di sini,
-  // lalu setelah sweep selesai dibuat menjadi satu folder/session.
+  // All threshold-exceeding points from the active rolling scan are retained
+  // here for the current General or Specific view.
   const [currentScanHistory, setCurrentScanHistory] = useState([]);
-  const [scanSessions, setScanSessions] = useState([]);
-  const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [selectedDetectionDetail, setSelectedDetectionDetail] = useState(null);
 
   const currentScanHistoryRef = useRef([]);
   const activeScanMetaRef = useRef(null);
-  const scanSessionSavedRef = useRef(false);
+  const lastSnapshotKeyRef = useRef(null);
+  const [spectrumStreamHealthy, setSpectrumStreamHealthy] = useState(false);
 
-  const [peak, setPeak] = useState(null);
   const [detections, setDetections] = useState([]);
-  const [debugClusters, setDebugClusters] = useState({
-    merge_gap_mhz: 0.05,
-    raw_clusters: [],
-    merged_clusters: [],
-  });
+  const [channelMeasurements, setChannelMeasurements] = useState([]);
   const [statusMessage, setStatusMessage] = useState(
-    "Masukkan konfigurasi lalu tekan START SCAN."
+    "Enter a configuration, then select START SCAN."
   );
   const [errorMessage, setErrorMessage] = useState("");
+  const [deviceStatus, setDeviceStatus] = useState({
+    connected: null,
+    status: "unknown",
+    device: "USRP B210",
+    serial: null,
+    detector: null,
+    friendly_name: null,
+    detail: "Waiting for USB detection...",
+    checked_at: null,
+    scanner_busy: false,
+  });
+  const [toasts, setToasts] = useState([]);
+  const toastIdRef = useRef(0);
+  const toastTimersRef = useRef(new Map());
+  const recentToastKeysRef = useRef(new Map());
+  const deviceConnectionRef = useRef(null);
+  const deviceStatusResolvedRef = useRef(false);
+  const deviceDisconnectDuringScanRef = useRef(false);
+  const isScanningRef = useRef(isScanning);
+  const scanCompletionToastRef = useRef(false);
+  const manualStopRequestedRef = useRef(false);
 
-  const loadPersistentScanSessions = useCallback(
-    async ({ selectLatest = false } = {}) => {
-      const response = await fetch(`${API_BASE_URL}/api/scan/history`);
-      const data = await response.json();
+  const dismissToast = useCallback((toastId) => {
+    const timerId = toastTimersRef.current.get(toastId);
+    if (timerId) {
+      window.clearTimeout(timerId);
+      toastTimersRef.current.delete(toastId);
+    }
 
-      if (!response.ok) {
-        throw new Error(data.detail || "Gagal memuat scan history.");
+    setToasts((previousToasts) =>
+      previousToasts.filter((toast) => toast.id !== toastId)
+    );
+  }, []);
+
+  const notify = useCallback(
+    (message, type = "info", key = message) => {
+      const duration = type === "error" || type === "warning" ? 6000 : 4000;
+      const now = Date.now();
+      const duplicateKey = `${type}:${key}`;
+      const lastShownAt = recentToastKeysRef.current.get(duplicateKey);
+
+      if (lastShownAt && now - lastShownAt < duration) {
+        return;
       }
 
-      const sessions = Array.isArray(data.sessions)
-        ? data.sessions.map((session, index) =>
-            normalizePersistentScanSession(session, index)
-          )
-        : [];
+      recentToastKeysRef.current.set(duplicateKey, now);
+      const toastId = ++toastIdRef.current;
 
-      setScanSessions(sessions);
+      setToasts((previousToasts) => {
+        const nextToasts = [
+          ...previousToasts,
+          { id: toastId, message, type },
+        ];
+        const removedToasts = nextToasts.slice(0, -3);
 
-      setSelectedSessionId((previousSelectedId) => {
-        if (selectLatest) {
-          return sessions[0]?.id ?? null;
-        }
+        removedToasts.forEach((toast) => {
+          const timerId = toastTimersRef.current.get(toast.id);
+          if (timerId) {
+            window.clearTimeout(timerId);
+            toastTimersRef.current.delete(toast.id);
+          }
+        });
 
-        const previousStillExists = sessions.some(
-          (session) => session.id === previousSelectedId
-        );
-
-        if (previousSelectedId && previousStillExists) {
-          return previousSelectedId;
-        }
-
-        return sessions[0]?.id ?? null;
+        return nextToasts.slice(-3);
       });
 
-      return sessions;
+      const timerId = window.setTimeout(() => dismissToast(toastId), duration);
+      toastTimersRef.current.set(toastId, timerId);
     },
-    []
+    [dismissToast]
   );
 
-  async function handleDeleteScanSession(sessionId, sessionTitle) {
-    if (!sessionId) {
-      return;
-    }
+  useEffect(() => {
+    isScanningRef.current = isScanning;
+  }, [isScanning]);
 
-    const confirmed = window.confirm(
-      `Hapus scan history "${sessionTitle ?? sessionId}"? File JSON di backend akan dihapus permanen.`
-    );
+  useEffect(() => () => {
+    toastTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    toastTimersRef.current.clear();
+  }, []);
 
-    if (!confirmed) {
-      return;
-    }
-
+  const loadDeviceStatus = useCallback(async () => {
     try {
-      setErrorMessage("");
-
       const response = await fetch(
-        `${API_BASE_URL}/api/scan/history/${encodeURIComponent(sessionId)}`,
-        { method: "DELETE" }
+        `${API_BASE_URL}/api/device/status`,
+        { cache: "no-store" }
       );
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || "Gagal menghapus scan history.");
+        throw new Error(data.detail || "Failed to read SDR status.");
       }
 
-      setSelectedDetectionDetail(null);
-      await loadPersistentScanSessions();
-      setStatusMessage(`Scan history berhasil dihapus: ${sessionTitle ?? sessionId}.`);
-    } catch (error) {
-      setErrorMessage(`Delete history error: ${error.message}`);
-    }
-  }
+      const connected =
+          data.connected === true
+            ? true
+            : data.connected === false
+              ? false
+              : null;
 
-  async function handleDeleteAllScanSessions() {
-    if (scanSessions.length === 0) {
-      return;
-    }
+      if (connected !== null) {
+        const previousConnection = deviceConnectionRef.current;
 
-    const confirmed = window.confirm(
-      `Hapus semua scan history (${scanSessions.length} session)? Semua file JSON di backend akan dihapus permanen.`
-    );
+        if (!deviceStatusResolvedRef.current) {
+          notify(
+            connected ? "Device connected." : "Device is not connected.",
+            connected ? "success" : "warning",
+            "device-initial-state"
+          );
+          deviceStatusResolvedRef.current = true;
+        } else if (previousConnection !== connected) {
+          if (connected) {
+            deviceDisconnectDuringScanRef.current = false;
+            notify("Device connected.", "success", "device-connected");
+          } else {
+            const disconnectedDuringScan = isScanningRef.current;
+            deviceDisconnectDuringScanRef.current = disconnectedDuringScan;
+            notify(
+              disconnectedDuringScan
+                ? "Device disconnected during scan. Reconnect the device."
+                : "Device disconnected.",
+              "warning",
+              "device-disconnected"
+            );
+          }
+        }
 
-    if (!confirmed) {
-      return;
-    }
+        deviceConnectionRef.current = connected;
+      }
 
-    try {
-      setErrorMessage("");
-
-      const response = await fetch(`${API_BASE_URL}/api/scan/history`, {
-        method: "DELETE",
+      setDeviceStatus({
+        connected,
+        status: data.status ?? "unknown",
+        device: data.device ?? "USRP B210",
+        serial: data.serial ?? null,
+        detector: data.detector ?? null,
+        friendly_name: data.friendly_name ?? null,
+        detail: data.detail ?? null,
+        checked_at: data.checked_at ?? null,
+        scanner_busy: Boolean(data.scanner_busy),
+        scan_owner: data.scan_owner ?? null,
       });
-      const data = await response.json();
+    } catch {
+      // Detector tidak boleh mengubah error global aplikasi. CRUD dan halaman
+      // lain tetap berjalan ketika backend detector belum tersedia.
+      setDeviceStatus((previousStatus) => ({
+        ...previousStatus,
+        connected: null,
+        status: "unknown",
+        detail: "USB status is unavailable from the backend.",
+        checked_at: null,
+      }));
+    }
+  }, [notify]);
 
-      if (!response.ok) {
-        throw new Error(data.detail || "Gagal menghapus semua scan history.");
+  const notifyScanFailure = useCallback(
+    (error) => {
+      const detail = error instanceof Error ? error.message : String(error ?? "");
+      const deviceUnavailable = /device|usrp|sdr|disconnect|not connected|unavailable/i.test(
+        detail
+      );
+
+      if (deviceUnavailable && deviceDisconnectDuringScanRef.current) {
+        return;
       }
 
-      setSelectedDetectionDetail(null);
-      setScanSessions([]);
-      setSelectedSessionId(null);
-      setStatusMessage(`Semua scan history berhasil dihapus. Total file: ${data.deleted_count ?? 0}.`);
-    } catch (error) {
-      setErrorMessage(`Delete all history error: ${error.message}`);
-    }
-  }
+      notify(
+        deviceUnavailable
+          ? "Scan failed. Reconnect the device."
+          : "Scan failed.",
+        "error",
+        "scan-failed"
+      );
+    },
+    [notify]
+  );
+
+  const applyBackendScanState = useCallback(
+    (data, { showResumeMessage = false } = {}) => {
+      const running = Boolean(data?.running);
+      const owner = data?.scan_owner ?? null;
+      const mode = data?.scan_mode ?? null;
+      const machineId = data?.selected_machine_id ?? null;
+      const machineName = data?.selected_machine_name ?? null;
+
+      setIsScanning(running);
+      setScanOwner(owner);
+      setScanMode(mode);
+      setScanSelectedMachineId(machineId);
+      setScanSelectedMachineName(machineName);
+
+      if (data?.config && typeof data.config === "object") {
+        setScanConfig(data.config);
+      }
+
+      if (data?.sweep && typeof data.sweep === "object") {
+        setSweepInfo({
+          ...data.sweep,
+          cycle_index: data.cycle_index,
+          completed_cycles: data.completed_cycles,
+          cycle_window_index: data.cycle_window_index,
+          cycle_total_windows: data.cycle_total_windows,
+          cycle_progress_percent: data.cycle_progress_percent,
+          completed: Boolean(data.completed),
+        });
+      }
+
+      if (Array.isArray(data?.channel_measurements)) {
+        setChannelMeasurements(data.channel_measurements);
+      }
+
+      if (running) {
+        activeScanMetaRef.current = {
+          id: data?.session_id ?? `scan-${Date.now()}`,
+          startedAt: data?.started_at ?? new Date().toISOString(),
+          request: {
+            scan_owner: owner,
+            selected_machine_id: machineId,
+          },
+          selectedMachineName: machineName,
+        };
+        if (showResumeMessage) {
+          const ownerLabel = owner === "specific" ? "Specific" : "General";
+          const machineLabel =
+            owner === "specific" && machineName ? ` — ${machineName}` : "";
+
+          setStatusMessage(
+            `${ownerLabel} Scan${machineLabel} is still running. Status restored from the backend.`
+          );
+        }
+      } else if (showResumeMessage && data?.last_error) {
+        setStatusMessage("The scan stopped because of a backend error.");
+      }
+
+      return {
+        running,
+        owner,
+        mode,
+        machineId,
+        machineName,
+      };
+    },
+    []
+  );
+
+  const syncScanStateFromBackend = useCallback(
+    async ({ showResumeMessage = false, restoreResults = true } = {}) => {
+      const statusResponse = await fetch(`${API_BASE_URL}/api/status`);
+      const statusData = await statusResponse.json();
+
+      if (!statusResponse.ok) {
+        throw new Error(
+          statusData.detail || "Failed to synchronize scan status."
+        );
+      }
+
+      const synchronizedState = applyBackendScanState(statusData, {
+        showResumeMessage,
+      });
+
+      if (synchronizedState.running && restoreResults) {
+        const resultsResponse = await fetch(
+          `${API_BASE_URL}/api/scan/results`
+        );
+        const resultsData = await resultsResponse.json();
+
+        if (resultsResponse.ok) {
+          const restoredDetections = Array.isArray(resultsData.detections)
+            ? resultsData.detections.map((detection, index) =>
+                normalizeDetection(detection, index)
+              )
+            : [];
+
+          currentScanHistoryRef.current = restoredDetections;
+          setCurrentScanHistory(restoredDetections);
+          setDetections(
+            Array.isArray(resultsData.last_window_detections)
+              ? resultsData.last_window_detections
+              : []
+          );
+          setChannelMeasurements(
+            Array.isArray(resultsData.channel_measurements)
+              ? resultsData.channel_measurements
+              : []
+          );
+        }
+      }
+
+      return statusData;
+    },
+    [applyBackendScanState]
+  );
 
   useEffect(() => {
     if (!selectedDetectionDetail) {
@@ -1341,57 +1358,185 @@ function App() {
   }, [selectedDetectionDetail]);
 
   useEffect(() => {
-    loadPersistentScanSessions().catch((error) => {
-      setErrorMessage(`Scan history error: ${error.message}`);
-    });
-  }, [loadPersistentScanSessions]);
+    loadDeviceStatus();
 
-  // Cek status USRP secara berkala agar indikator langsung merah
-  // ketika perangkat dicabut / backend tidak dapat mendeteksi USRP.
+    const intervalId = window.setInterval(
+      loadDeviceStatus,
+      DEVICE_STATUS_REFRESH_MS
+    );
+
+    function handleDeviceStatusFocus() {
+      loadDeviceStatus();
+    }
+
+    window.addEventListener("focus", handleDeviceStatusFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleDeviceStatusFocus);
+    };
+  }, [loadDeviceStatus]);
+
   useEffect(() => {
     let cancelled = false;
-    let intervalId;
+    let retryTimerId;
+    let attemptIndex = 0;
 
-    async function checkDevice() {
+    async function synchronizeWithRetry({ showResumeMessage = false } = {}) {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/device`);
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.detail || "USRP tidak dapat diakses.");
+        await syncScanStateFromBackend({
+          showResumeMessage,
+          restoreResults: true,
+        });
+      } catch {
+        if (cancelled) {
+          return;
         }
 
-        if (!cancelled) {
-          setDevice({
-            ...data,
-            status: "ready",
-            lastError: "",
-          });
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setDevice({
-            status: "offline",
-            device: "USRP B210",
-            antenna: "RX2",
-            lastError: error.message,
-          });
+        attemptIndex += 1;
+
+        if (attemptIndex < INITIAL_STATUS_RETRY_DELAYS_MS.length) {
+          retryTimerId = window.setTimeout(
+            () => synchronizeWithRetry({ showResumeMessage }),
+            INITIAL_STATUS_RETRY_DELAYS_MS[attemptIndex]
+          );
         }
       }
     }
 
-    checkDevice();
-    intervalId = window.setInterval(checkDevice, DEVICE_REFRESH_MS);
+    function handleWindowFocus() {
+      attemptIndex = 0;
+      synchronizeWithRetry({ showResumeMessage: true });
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        handleWindowFocus();
+      }
+    }
+
+    synchronizeWithRetry({ showResumeMessage: true });
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       cancelled = true;
-      window.clearInterval(intervalId);
+      window.clearTimeout(retryTimerId);
+      window.removeEventListener("focus", handleWindowFocus);
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
     };
-  }, []);
+  }, [syncScanStateFromBackend]);
 
-  // Ambil data spectrum baru setiap 250 ms saat scan berjalan.
+  const applySpectrumSnapshot = useCallback(async (data) => {
+    const responseSessionId = data?.session_id ?? null;
+    const activeScan = activeScanMetaRef.current;
+    const activeSessionId = activeScan?.id ?? null;
+    const expectedOwner = activeScan?.request?.scan_owner ?? null;
+    const expectedMachineId = activeScan?.request?.selected_machine_id;
+
+    if (
+      !responseSessionId ||
+      !activeSessionId ||
+      responseSessionId !== activeSessionId ||
+      (expectedOwner && data.scan_owner !== expectedOwner) ||
+      (expectedOwner === "specific" && expectedMachineId !== null && expectedMachineId !== undefined &&
+        Number(data.selected_machine_id) !== Number(expectedMachineId))
+    ) {
+      return { accepted: false, running: Boolean(data?.running) };
+    }
+
+    const currentWindow = data.current_window ?? null;
+    const sweep = data.sweep ?? null;
+    const timestamp = data.timestamp ?? new Date().toISOString();
+    const snapshotKey = [
+      responseSessionId,
+      timestamp,
+      data.cycle_index,
+      currentWindow?.window_index,
+      data.spectrum_preview?.point_count,
+      data.running,
+      data.last_error,
+    ].join("|");
+    if (lastSnapshotKeyRef.current === snapshotKey) {
+      return { accepted: true, running: Boolean(data.running), duplicate: true };
+    }
+    lastSnapshotKeyRef.current = snapshotKey;
+
+    const rollingDetections = Array.isArray(data.detections) ? data.detections : [];
+    const windowDetections = Array.isArray(data.last_window_detections)
+      ? data.last_window_detections
+      : [];
+    const nextPreview = replaceSpectrumPreview({
+      activeSessionId,
+      responseSessionId,
+      preview: data.spectrum_preview,
+    });
+    if (nextPreview) setSpectrumPreview({ ...nextPreview });
+    setScanOwner(data.scan_owner ?? null);
+    setScanMode(data.scan_mode ?? null);
+    setScanSelectedMachineId(data.selected_machine_id ?? null);
+    setScanSelectedMachineName(data.selected_machine_name ?? null);
+    setDetections(windowDetections);
+    setChannelMeasurements(Array.isArray(data.channel_measurements) ? data.channel_measurements : []);
+    if (data.config) setScanConfig(data.config);
+    setSweepInfo({
+      ...sweep,
+      cycle_index: data.cycle_index,
+      completed_cycles: data.completed_cycles,
+      cycle_window_index: data.cycle_window_index,
+      cycle_total_windows: data.cycle_total_windows,
+      cycle_progress_percent: data.cycle_progress_percent,
+    });
+    const normalizedDetections = rollingDetections.map((detection, detectionIndex) => ({
+      ...detection,
+      history_id: buildDetectionHistoryId(detection, detectionIndex),
+      captured_at: timestamp,
+      window_label: formatWindowMHz(detection.window_start_mhz, detection.window_end_mhz),
+    }));
+    currentScanHistoryRef.current = normalizedDetections;
+    setCurrentScanHistory(normalizedDetections);
+    setErrorMessage("");
+
+    if (!data.running) {
+      setIsScanning(false);
+      setStatusMessage(data.completed ? "Scan completed." : "Scan stopped.");
+      if (data.completed && !scanCompletionToastRef.current) {
+        scanCompletionToastRef.current = true;
+        notify("Scan completed.", "success", "scan-completed");
+      } else if (!data.completed && data.last_error && !manualStopRequestedRef.current) {
+        notifyScanFailure(new Error(data.last_error));
+      }
+      return { accepted: true, running: false };
+    }
+
+    if (currentWindow && sweep) {
+      setStatusMessage(
+        `Scanning ${formatWindowMHz(currentWindow.start_frequency_mhz, currentWindow.end_frequency_mhz)} Â· Window ${sweep.scanned_windows}/${sweep.total_windows} Â· ${sweep.progress_percent}%`
+      );
+    } else {
+      setStatusMessage(`Spectrum updated: ${data.timestamp || "real time"}`);
+    }
+    return { accepted: true, running: true };
+  }, [notify, notifyScanFailure]);
+
+  useSpectrumStream({
+    enabled: ENABLE_SPECTRUM_WEBSOCKET && isScanning,
+    apiBaseUrl: API_BASE_URL,
+    activeScanMetaRef,
+    onSnapshot: applySpectrumSnapshot,
+    onHealthChange: setSpectrumStreamHealthy,
+    onRejected: () => {},
+  });
+
+  // REST remains the Stage 1 fallback while the WebSocket is unavailable.
   useEffect(() => {
-    if (!isScanning) {
+    if (!isScanning || !shouldUseSpectrumRestFallback(
+      ENABLE_SPECTRUM_WEBSOCKET,
+      spectrumStreamHealthy
+    )) {
       return undefined;
     }
 
@@ -1404,196 +1549,63 @@ function App() {
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.detail || "Gagal mengambil spectrum.");
+          throw new Error(data.detail || "Failed to retrieve spectrum data.");
         }
 
         if (cancelled) {
           return;
         }
 
-        const spectrumData = data.spectrum ?? {
-          frequency_mhz: [],
-          power_db: [],
-        };
-        const currentWindow = data.current_window ?? null;
-        const sweep = data.sweep ?? null;
-        const frequencyValues = spectrumData.frequency_mhz ?? [];
-        const powerValues = spectrumData.power_db ?? [];
-        const timestamp = data.timestamp ?? new Date().toISOString();
-        const windowDetections = Array.isArray(data.detections)
-          ? data.detections
-          : [];
-        const windowIndex = Number(
-          currentWindow?.window_index ?? sweep?.scanned_windows ?? 0
-        );
-
-        setSpectrum(spectrumData);
-        setPeak(data.peak);
-        setDetections(windowDetections);
-        setDebugClusters(
-          data.debug_clusters ?? {
-            merge_gap_mhz: 0.05,
-            raw_clusters: [],
-            merged_clusters: [],
-          }
-        );
-        setScanConfig(data.config);
-        setSweepInfo(sweep);
-        setTotalDetectionCount(
-          Number.isFinite(Number(data.detection_count))
-            ? Number(data.detection_count)
-            : windowDetections.length
-        );
-
-        if (windowDetections.length > 0) {
-          const normalizedDetections = windowDetections.map(
-            (detection, detectionIndex) => ({
-              ...detection,
-              history_id: buildDetectionHistoryId(
-                detection,
-                detectionIndex
-              ),
-              captured_at: timestamp,
-              window_label: currentWindow
-                ? formatWindowMHz(
-                    currentWindow.start_frequency_mhz,
-                    currentWindow.end_frequency_mhz
-                  )
-                : "-",
-            })
-          );
-
-          const nextScanHistory = mergeDetectionHistory(
-            currentScanHistoryRef.current,
-            normalizedDetections
-          );
-
-          currentScanHistoryRef.current = nextScanHistory;
-          setCurrentScanHistory(nextScanHistory);
+        const applied = await applySpectrumSnapshot(data);
+        if (!applied.accepted || !applied.running) {
+          return;
         }
-
-        if (
-          currentWindow &&
-          frequencyValues.length > 0 &&
-          powerValues.length > 0
-        ) {
-          const segmentId = [
-            windowIndex,
-            currentWindow.start_frequency_mhz,
-            currentWindow.end_frequency_mhz,
-          ].join("-");
-
-          const historySegment = {
-            id: segmentId,
-            windowIndex,
-            startFrequencyMhz: Number(currentWindow.start_frequency_mhz),
-            endFrequencyMhz: Number(currentWindow.end_frequency_mhz),
-            timestamp,
-            frequency_mhz: frequencyValues,
-            power_db: powerValues,
-          };
-
-          setSpectrumHistory((previousHistory) => {
-            const withoutDuplicate = previousHistory.filter(
-              (segment) => segment.id !== segmentId
-            );
-
-            const nextHistory = [
-              ...withoutDuplicate,
-              historySegment,
-            ].sort((a, b) => a.windowIndex - b.windowIndex);
-
-            if (nextHistory.length > MAX_SPECTRUM_HISTORY_WINDOWS) {
-              return nextHistory.slice(
-                nextHistory.length - MAX_SPECTRUM_HISTORY_WINDOWS
-              );
-            }
-
-            return nextHistory;
-          });
+        if (!cancelled) {
+          timeoutId = window.setTimeout(pollSpectrum, SPECTRUM_REFRESH_MS);
         }
+        return;
 
-        setErrorMessage("");
-
-        if (!data.running) {
-          setIsScanning(false);
-
-          if (data.completed && !scanSessionSavedRef.current) {
-            try {
-              await loadPersistentScanSessions({ selectLatest: true });
-            } catch (historyError) {
-              const historyForSession = currentScanHistoryRef.current;
-              const sessionId =
-                data.session_id ??
-                activeScanMetaRef.current?.id ??
-                `scan-${Date.now()}`;
-              const completedAt = data.completed_at ?? timestamp;
-
-              const fallbackSession = {
-                id: sessionId,
-                title: `Scan ${formatDateTime(completedAt)}`,
-                startedAt:
-                  activeScanMetaRef.current?.startedAt ?? completedAt,
-                completedAt,
-                config: data.config,
-                sweep,
-                peak: data.peak,
-                detections: historyForSession,
-                detectionCount: historyForSession.length,
-              };
-
-              setSelectedSessionId(fallbackSession.id);
-              setScanSessions((previousSessions) => [
-                fallbackSession,
-                ...previousSessions.filter(
-                  (session) => session.id !== fallbackSession.id
-                ),
-              ]);
-
-              setErrorMessage(
-                `Scan history error: ${historyError.message}`
-              );
-            }
-
-            scanSessionSavedRef.current = true;
-          }
-
-          setStatusMessage(
-            data.completed
-              ? `Sweep selesai. Hasil scan disimpan ke JSON Scan History. Total titik di atas threshold: ${
-                  currentScanHistoryRef.current.length
-                }.`
-              : "Scan dihentikan."
-          );
+      } catch (error) {
+        if (cancelled) {
           return;
         }
 
-        if (currentWindow && sweep) {
-          setStatusMessage(
-            `Scanning ${formatWindowMHz(
-              currentWindow.start_frequency_mhz,
-              currentWindow.end_frequency_mhz
-            )} · Window ${sweep.scanned_windows}/${sweep.total_windows} · ${
-              sweep.progress_percent
-            }%`
-          );
-        } else {
-          setStatusMessage(
-            `Spectrum diperbarui: ${data.timestamp || "realtime"}`
-          );
-        }
-      } catch (error) {
-        if (!cancelled) {
+        try {
+          const synchronizedStatus = await syncScanStateFromBackend({
+            showResumeMessage: false,
+            restoreResults: true,
+          });
+
+          if (cancelled) {
+            return;
+          }
+
+          if (synchronizedStatus.running) {
+            setErrorMessage(
+              `Spectrum data could not be loaded: ${error.message}. Retrying...`
+            );
+            timeoutId = window.setTimeout(pollSpectrum, 1000);
+            return;
+          }
+
           setErrorMessage(`Spectrum error: ${error.message}`);
           setIsScanning(false);
+          if (!manualStopRequestedRef.current) {
+            notifyScanFailure(error);
+          }
+          return;
+        } catch (statusError) {
+          setErrorMessage(
+            `Spectrum error: ${error.message}. Backend status could not be checked: ${statusError.message}`
+          );
+          setIsScanning(false);
+          if (!manualStopRequestedRef.current) {
+            notifyScanFailure(error);
+          }
+          return;
         }
-
-        return;
       }
 
-      if (!cancelled) {
-        timeoutId = window.setTimeout(pollSpectrum, SPECTRUM_REFRESH_MS);
-      }
     }
 
     pollSpectrum();
@@ -1602,7 +1614,14 @@ function App() {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [isScanning, loadPersistentScanSessions]);
+  }, [
+    applySpectrumSnapshot,
+    isScanning,
+    notify,
+    notifyScanFailure,
+    spectrumStreamHealthy,
+    syncScanStateFromBackend,
+  ]);
 
   // Buat label sumbu X berdasarkan konfigurasi scan asli.
   // Sepuluh interval memberi label setiap 0.2 MHz saat lebar scan 2 MHz.
@@ -1629,130 +1648,17 @@ function App() {
     });
   }, [scanConfig]);
 
-  // Skala Y hanya dihitung ulang saat threshold scan berubah.
-  // Spectrum baru setiap 500 ms tidak boleh mengubah skala.
-  // Dengan batas bawah tetap -100 dB, threshold berada tepat
-  // sekitar 1/3 dari atas chart.
-  const chartScale = useMemo(() => {
-    const thresholdValue = Number(scanConfig.threshold_db);
-    const safeThreshold = Number.isFinite(thresholdValue)
-      ? thresholdValue
-      : 0;
+  // The fixed reference-power range remains stable across polling updates.
+  const chartDbTicks = useMemo(createFixedChartDbTicks, []);
 
-    const minDb = CHART_REFERENCE_MIN_DB;
-    const maxDb =
-      (safeThreshold - THRESHOLD_TARGET_TOP_RATIO * minDb) /
-      (1 - THRESHOLD_TARGET_TOP_RATIO);
-
-    return { minDb, maxDb };
-  }, [scanConfig.threshold_db]);
-
-  // Label sumbu Y mengikuti skala threshold yang stabil.
-  const chartDbTicks = useMemo(() => {
-    const thresholdValue = Number(scanConfig.threshold_db);
-    const safeThreshold = Number.isFinite(thresholdValue)
-      ? thresholdValue
-      : 0;
-
-    const firstTick = Math.ceil(chartScale.minDb / 50) * 50;
-    const lastTick = Math.floor(chartScale.maxDb / 50) * 50;
-
-    const values = [];
-
-    for (let value = lastTick; value >= firstTick; value -= 50) {
-      values.push(value);
-    }
-
-    const thresholdAlreadyExists = values.some(
-      (value) => Math.abs(value - safeThreshold) < 0.001
-    );
-
-    if (
-      !thresholdAlreadyExists &&
-      safeThreshold >= chartScale.minDb &&
-      safeThreshold <= chartScale.maxDb
-    ) {
-      values.push(safeThreshold);
-    }
-
-    return values
-      .sort((a, b) => b - a)
-      .map((value) => ({
-        value: Number(value.toFixed(1)),
-        position:
-          ((chartScale.maxDb - value) /
-            (chartScale.maxDb - chartScale.minDb)) *
-          100,
-        isThreshold: Math.abs(value - safeThreshold) < 0.001,
-      }));
-  }, [chartScale, scanConfig.threshold_db]);
-
-  // Ubah pasangan frequency_mhz + power_db dari backend menjadi titik SVG.
-  // Posisi X memakai frekuensi asli pada full range scan, bukan nomor/index data.
+  // Both full-range graphs use the session-validated backend preview.
   const spectrumChart = useMemo(() => {
-    const start = Number(scanConfig.start_frequency_mhz);
-    const end = Number(scanConfig.end_frequency_mhz);
+    return {
+      frequencyValues: spectrumPreview.frequency_mhz,
+      powerValues: spectrumPreview.power_db,
+    };
+  }, [spectrumPreview]);
 
-    return buildSpectrumSvgPath({
-      frequencyValues: spectrum.frequency_mhz ?? [],
-      powerValues: spectrum.power_db ?? [],
-      start,
-      end,
-      chartScale,
-    });
-  }, [chartScale, scanConfig, spectrum]);
-
-  // Opsi 2: ubah seluruh history window sweep menjadi polyline SVG.
-  // Segment lama akan digambar lebih redup, sedangkan window aktif tetap memakai
-  // spectrumChart utama yang lebih terang.
-  const spectrumHistoryCharts = useMemo(() => {
-    const start = Number(scanConfig.start_frequency_mhz);
-    const end = Number(scanConfig.end_frequency_mhz);
-
-    if (
-      !Array.isArray(spectrumHistory) ||
-      spectrumHistory.length === 0 ||
-      !Number.isFinite(start) ||
-      !Number.isFinite(end) ||
-      end <= start
-    ) {
-      return [];
-    }
-
-    return spectrumHistory
-      .map((segment) => {
-        const path = buildSpectrumSvgPath({
-          frequencyValues: segment.frequency_mhz ?? [],
-          powerValues: segment.power_db ?? [],
-          start,
-          end,
-          chartScale,
-        });
-
-        if (!path.linePoints) {
-          return null;
-        }
-
-        return {
-          ...segment,
-          ...path,
-        };
-      })
-      .filter(Boolean);
-  }, [chartScale, scanConfig, spectrumHistory]);
-
-
-  // Posisi garis threshold pada grafik.
-  const thresholdTop = useMemo(() => {
-    const value = Number(scanConfig.threshold_db);
-
-    const position =
-      ((chartScale.maxDb - value) /
-        (chartScale.maxDb - chartScale.minDb)) *
-      100;
-
-    return clamp(position, 0, 100);
-  }, [chartScale, scanConfig.threshold_db]);
 
   // Satu marker dibuat untuk setiap detection akhir dari backend.
   // Marker ini menunjukkan peak yang dipakai untuk klasifikasi band,
@@ -1786,10 +1692,7 @@ function App() {
           return null;
         }
 
-        const verticalPosition =
-          ((chartScale.maxDb - power) /
-            (chartScale.maxDb - chartScale.minDb)) *
-          100;
+        const verticalPosition = dbToChartPercent(power);
 
         return {
           id: `${frequency}-${index}`,
@@ -1804,115 +1707,93 @@ function App() {
         };
       })
       .filter(Boolean);
-  }, [chartScale, detections, scanConfig]);
-
-  // TEMPORARY DEBUG VISUAL.
-  // Menampilkan area cluster akhir aktual dari backend.
-  // Area ini menunjukkan bagian threshold yang sudah digabung
-  // dan menghasilkan satu detection/card.
-  const clusterAreas = useMemo(() => {
-    const start = Number(scanConfig.start_frequency_mhz);
-    const end = Number(scanConfig.end_frequency_mhz);
-    const scanWidthMhz = end - start;
-
-    if (
-      !Number.isFinite(scanWidthMhz) ||
-      scanWidthMhz <= 0 ||
-      !Array.isArray(debugClusters.merged_clusters)
-    ) {
-      return [];
-    }
-
-    return debugClusters.merged_clusters
-      .map((cluster, index) => {
-        const clusterStart = Number(cluster.start_mhz);
-        const clusterEnd = Number(cluster.end_mhz);
-
-        if (
-          !Number.isFinite(clusterStart) ||
-          !Number.isFinite(clusterEnd)
-        ) {
-          return null;
-        }
-
-        const left =
-          ((clusterStart - start) / scanWidthMhz) * 100;
-
-        const right =
-          ((clusterEnd - start) / scanWidthMhz) * 100;
-
-        const width = Math.max(right - left, 0.35);
-
-        return {
-          id: `cluster-${cluster.id ?? index}`,
-          label: `C${index + 1}`,
-          left: clamp(left, 0, 100),
-          width: clamp(width, 0.35, 100),
-          color:
-            DETECTION_MARKER_COLORS[
-              index % DETECTION_MARKER_COLORS.length
-            ],
-          widthKHz: Number(cluster.width_khz),
-        };
-      })
-      .filter(Boolean);
-  }, [debugClusters, scanConfig]);
-
-  // TEMPORARY DEBUG VISUAL.
-  // Menampilkan lebar 50 kHz pada grafik agar mudah melihat
-  // seberapa dekat dua cluster sebelum digabung.
-  const mergeGapDebugRulers = useMemo(() => {
-    const start = Number(scanConfig.start_frequency_mhz);
-    const end = Number(scanConfig.end_frequency_mhz);
-    const scanWidthMhz = end - start;
-
-    if (
-      !SHOW_MERGE_GAP_DEBUG ||
-      !Number.isFinite(scanWidthMhz) ||
-      scanWidthMhz <= 0
-    ) {
-      return [];
-    }
-
-    const widthPercent =
-      (MERGE_GAP_DEBUG_MHZ / scanWidthMhz) * 100;
-
-    return detectionMarkers.map((marker, index) => {
-      const useLeftSide = marker.x + widthPercent > 100;
-      const left = useLeftSide
-        ? marker.x - widthPercent
-        : marker.x;
-
-      return {
-        id: `merge-gap-${marker.id}`,
-        left: clamp(left, 0, 100),
-        width: clamp(widthPercent, 0, 100),
-        color: marker.color,
-        rowOffsetPx: 10 + (index % 4) * 15,
-        direction: useLeftSide ? "left" : "right",
-      };
-    });
-  }, [detectionMarkers, scanConfig]);
+  }, [detections, scanConfig]);
 
   async function handleScan() {
+    const requestedOwner =
+      activeTab === "specific"
+        ? "specific"
+        : activeTab === "general"
+          ? "general"
+          : null;
+
+    if (!requestedOwner) {
+      setErrorMessage(
+        "A scan can only be started from the General or Specific page."
+      );
+      return;
+    }
+
+    if (
+      isScanning &&
+      scanOwner &&
+      scanOwner !== requestedOwner
+    ) {
+      setErrorMessage(
+        `The scanner is in use by the ${
+          scanOwner === "general" ? "General" : "Specific"
+        } Scan. Return to that page to stop it.`
+      );
+      return;
+    }
+
+    if (
+      requestedOwner === "specific" &&
+      !selectedSpecificMachineId &&
+      !isScanning
+    ) {
+      setErrorMessage(
+        "Select a Machine on the Specific page before starting a Specific Scan."
+      );
+      return;
+    }
+
     setErrorMessage("");
     setIsBusy(true);
 
     try {
-      // Jika sedang scan, tombol menjadi Stop Scan.
       if (isScanning) {
+        manualStopRequestedRef.current = true;
         const response = await fetch(`${API_BASE_URL}/api/scan/stop`, {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            scan_owner: requestedOwner,
+          }),
         });
 
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.detail || "Gagal menghentikan scan.");
+          if (response.status === 409) {
+            await syncScanStateFromBackend({
+              showResumeMessage: true,
+              restoreResults: true,
+            });
+            setErrorMessage(
+              data.detail || "Scanner ownership status has been synchronized."
+            );
+            return;
+          }
+
+          throw new Error(data.detail || "Failed to stop the scan.");
         }
 
         setIsScanning(false);
-        setStatusMessage("Scan USRP dihentikan.");
+        setScanOwner(data.scan_owner ?? scanOwner);
+        setScanMode(data.scan_mode ?? scanMode);
+        setScanSelectedMachineId(
+          data.selected_machine_id ?? scanSelectedMachineId
+        );
+        setScanSelectedMachineName(
+          data.selected_machine_name ?? scanSelectedMachineName
+        );
+        setStatusMessage(
+          `${requestedOwner === "general" ? "General" : "Specific"} Scan stopped.`
+        );
+        notify("Scan stopped.", "info", "scan-stopped");
         return;
       }
 
@@ -1920,6 +1801,11 @@ function App() {
         threshold_db: Number(threshold),
         start_frequency_mhz: Number(startFrequency),
         end_frequency_mhz: Number(endFrequency),
+        scan_owner: requestedOwner,
+        selected_machine_id:
+          requestedOwner === "specific"
+            ? Number(selectedSpecificMachineId)
+            : null,
       };
 
       if (
@@ -1927,7 +1813,7 @@ function App() {
         !Number.isFinite(requestBody.start_frequency_mhz) ||
         !Number.isFinite(requestBody.end_frequency_mhz)
       ) {
-        throw new Error("Semua konfigurasi harus berupa angka.");
+        throw new Error("All configuration values must be numbers.");
       }
 
       const response = await fetch(`${API_BASE_URL}/api/scan/start`, {
@@ -1941,37 +1827,68 @@ function App() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || "Gagal memulai scan.");
+        if (response.status === 409) {
+          await syncScanStateFromBackend({
+            showResumeMessage: true,
+            restoreResults: true,
+          });
+          setErrorMessage(
+            data.detail || "The scanner is in use by an active scan."
+          );
+          return;
+        }
+
+        throw new Error(data.detail || "Failed to start the scan.");
       }
 
+      setScanOwner(data.scan_owner ?? requestedOwner);
+      setScanMode(data.scan_mode ?? "range_sweep");
+      setScanSelectedMachineId(data.selected_machine_id ?? null);
+      setScanSelectedMachineName(data.selected_machine_name ?? null);
       setScanConfig(data.config);
-      setSpectrum({
-        frequency_mhz: [],
-        power_db: [],
-      });
-      setSpectrumHistory([]);
+      setSpectrumPreview(
+        createEmptySpectrumPreview(data.session_id ?? null)
+      );
       setCurrentScanHistory([]);
       currentScanHistoryRef.current = [];
       activeScanMetaRef.current = {
-        id: `scan-${Date.now()}`,
+        id: data.session_id ?? `scan-${Date.now()}`,
         startedAt: new Date().toISOString(),
         request: requestBody,
+        selectedMachineName:
+          requestedOwner === "specific"
+            ? data.selected_machine_name ?? selectedSpecificMachineName
+            : null,
       };
-      scanSessionSavedRef.current = false;
-      setSweepInfo(data.sweep ?? null);
-      setTotalDetectionCount(0);
-      setPeak(null);
+      scanCompletionToastRef.current = false;
+      manualStopRequestedRef.current = false;
+      deviceDisconnectDuringScanRef.current = false;
+      setSweepInfo(data.sweep ? {
+        ...data.sweep,
+        cycle_index: data.cycle_index,
+        completed_cycles: data.completed_cycles,
+        cycle_window_index: data.cycle_window_index,
+        cycle_total_windows: data.cycle_total_windows,
+        cycle_progress_percent: data.cycle_progress_percent,
+      } : null);
       setDetections([]);
-      setDebugClusters({
-        merge_gap_mhz: 0.05,
-        raw_clusters: [],
-        merged_clusters: [],
-      });
+      setChannelMeasurements([]);
       setIsScanning(true);
-      setStatusMessage("Scan USRP dimulai. Menunggu data spectrum...");
+      setStatusMessage(
+        requestedOwner === "specific"
+          ? `Specific Scan for ${
+              data.selected_machine_name ?? selectedSpecificMachineName ?? "the selected Machine"
+            } started. Waiting for spectrum data...`
+          : "General Scan started. Waiting for spectrum data..."
+      );
+      notify("Scan started.", "success", "scan-started");
     } catch (error) {
       setErrorMessage(error.message);
-      setStatusMessage("Scan belum dimulai.");
+      setStatusMessage("Scan has not started.");
+      manualStopRequestedRef.current = false;
+      if (error.message !== "All configuration values must be numbers.") {
+        notifyScanFailure(error);
+      }
     } finally {
       setIsBusy(false);
     }
@@ -1984,36 +1901,121 @@ function App() {
     [currentScanHistory]
   );
 
-  const selectedScanSession = useMemo(() => {
-    if (scanSessions.length === 0) {
-      return null;
-    }
-
-    return (
-      scanSessions.find((session) => session.id === selectedSessionId) ??
-      scanSessions[0]
-    );
-  }, [scanSessions, selectedSessionId]);
-
   const detectedCount = currentScanHistorySorted.length;
-  const isDeviceReady = device.status === "ready";
+
+  const isSweepCompleted =
+    !isScanning &&
+    Boolean(sweepInfo) &&
+    Number(sweepInfo?.progress_percent ?? 0) >= 100;
+  const hasMeaningfulSweepInfo = Boolean(
+    sweepInfo &&
+      (Number(sweepInfo.scanned_windows ?? 0) > 0 ||
+        Number(sweepInfo.progress_percent ?? 0) > 0 ||
+        Number(sweepInfo.completed_cycles ?? 0) > 0)
+  );
+
+  const sidebarScanStatus = errorMessage
+    ? "FAILED"
+    : isScanning
+      ? "SCANNING"
+      : isSweepCompleted
+        ? "COMPLETED"
+        : "READY";
+
+  const sidebarScanStatusClass = errorMessage
+    ? "status-failed"
+    : isScanning
+      ? "status-running"
+      : isSweepCompleted
+        ? "status-completed"
+        : "status-idle";
+
+  const currentPageScanOwner =
+    activeTab === "general"
+      ? "general"
+      : activeTab === "specific"
+        ? "specific"
+        : null;
+  const scannerOwnedByOtherPage = Boolean(
+    isScanning &&
+    currentPageScanOwner &&
+    scanOwner &&
+    scanOwner !== currentPageScanOwner
+  );
+  const scanOwnerLabel =
+    scanOwner === "specific"
+      ? "Specific"
+      : scanOwner === "general"
+        ? "General"
+        : null;
+  const deviceBadgeLabel = "SDR 1";
+  const deviceBadgeStatus =
+    deviceStatus.scanner_busy
+      ? "SCANNING"
+      : deviceStatus.connected === true
+        ? "CONNECTED"
+        : deviceStatus.connected === false
+          ? "DISCONNECTED"
+          : "RECONNECTING";
+  const deviceBadgeState = deviceBadgeStatus.toLowerCase();
+  const deviceBadgeStatusLabel =
+    `${deviceBadgeStatus.slice(0, 1)}${deviceBadgeStatus.slice(1).toLowerCase()}`;
 
   return (
-    <main className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-mark">◢</span>
-
-          <div>
-            <p className="brand-small">USRP B210</p>
-            <h1>TOOLS SCANNER</h1>
-          </div>
+    <main className={`app-shell active-${activeTab}`}>
+      <header className="app-header">
+        <div className="app-header-brand">
+          <strong>TOOLS SCANNER</strong>
         </div>
 
-        <div className="sidebar-divider" />
+        <nav className="tabs app-tabs" aria-label="Main navigation">
+          <button
+            type="button"
+            className={activeTab === "general" ? "tab active-tab" : "tab"}
+            onClick={() => setActiveTab("general")}
+          >
+            <img className="top-tab-icon" src={navGeneralIcon} alt="" />
+            General
+          </button>
+
+          <button
+            type="button"
+            className={activeTab === "specific" ? "tab active-tab" : "tab"}
+            onClick={() => setActiveTab("specific")}
+          >
+            <img className="top-tab-icon" src={navSpecificIcon} alt="" />
+            Specific
+          </button>
+        </nav>
+
+        <div
+          className={`sdr-badge sdr-${deviceBadgeState}`}
+          title={deviceBadgeStatusLabel}
+          aria-label={`${deviceBadgeLabel} — ${deviceBadgeStatusLabel}`}
+          aria-live="polite"
+        >
+          <strong className="sdr-badge-label">{deviceBadgeLabel}</strong>
+        </div>
+      </header>
+
+      <div className="scanner-shell">
+        <div className="scanner-grid">
+          <aside className="sidebar">
+        <div className="sidebar-nav-card selected">
+          <span>
+            {activeTab === "specific"
+              ? <img className="sidebar-nav-icon" src={navSpecificIcon} alt="" />
+              : <img className="sidebar-nav-icon" src={navGeneralIcon} alt="" />}
+          </span>
+          <strong>
+            {activeTab === "specific"
+              ? "Specific"
+              : "General"}
+          </strong>
+        </div>
 
         <section className="settings-section">
-          <h2>SCAN SETTINGS</h2>
+          <h2>Scan Settings</h2>
 
           <label htmlFor="threshold">Threshold</label>
           <div className="input-unit">
@@ -2050,24 +2052,45 @@ function App() {
 
           <button
             type="button"
-            className={`scan-button ${isScanning ? "scan-active" : ""}`}
+            className={`scan-button ${
+              isScanning && !scannerOwnedByOtherPage ? "scan-active" : ""
+            } ${scannerOwnedByOtherPage ? "scan-locked" : ""}`}
             onClick={handleScan}
-            disabled={isBusy}
+            disabled={
+              isBusy ||
+              scannerOwnedByOtherPage
+            }
           >
-            <span className="scan-icon">{isScanning ? "■" : "▶"}</span>
+            <span className="scan-icon">
+              {scannerOwnedByOtherPage
+                ? "⌁"
+                : isScanning
+                  ? "■"
+                  : "▶"}
+            </span>
             {isBusy
               ? "PROCESSING..."
-              : isScanning
-                ? "STOP SCAN"
-                : "START SCAN"}
+              : scannerOwnedByOtherPage
+                  ? `${scanOwnerLabel?.toUpperCase()} SCAN ACTIVE`
+                  : isScanning
+                    ? `STOP ${currentPageScanOwner?.toUpperCase()} SCAN`
+                    : `START ${currentPageScanOwner?.toUpperCase()} SCAN`}
           </button>
+        </section>
+
+        <section className="sidebar-detected-counter">
+          <h2>Detected Frequencies</h2>
+          <strong>{detectedCount}</strong>
+          <span>
+            {detectedCount === 1 ? "threshold point" : "threshold points"}
+          </span>
         </section>
 
         <section className="sidebar-status">
           <p>SCAN STATUS</p>
 
-          <strong className={isScanning ? "status-running" : "status-idle"}>
-            {isScanning ? "RUNNING" : "STANDBY"}
+          <strong className={sidebarScanStatusClass}>
+            {sidebarScanStatus}
           </strong>
 
           <span>
@@ -2075,155 +2098,55 @@ function App() {
             {scanConfig.end_frequency_mhz} MHz
           </span>
 
-          {sweepInfo && (
+          {isScanning && sweepInfo && (
             <span className="sidebar-sweep-detail">
-              Sweep: {sweepInfo.scanned_windows}/{sweepInfo.total_windows} ·{" "}
-              {sweepInfo.progress_percent}%
+              Progress: {sweepInfo.scanned_windows}/
+              {sweepInfo.total_windows} · {sweepInfo.progress_percent}%
             </span>
+          )}
+
+          {isSweepCompleted && !errorMessage && (
+            <span className="sidebar-scan-saved">Scan completed.</span>
           )}
         </section>
-        <section className="sidebar-live-peak">
-        <div className="sidebar-peak-heading">
-          <span>LIVE PEAK SIGNAL</span>
 
-          {peak && (
-            <span
-              className={
-                peak.above_threshold
-                  ? "sidebar-peak-state warning"
-                  : "sidebar-peak-state normal"
-              }
-            >
-              {peak.above_threshold ? "WARNING" : "NORMAL"}
-            </span>
-          )}
-        </div>
-
-        {peak ? (
-          <>
-            <h3>USRP B210 · RX2</h3>
-
-            <div className="sidebar-peak-detail">
-              <span>PEAK FREQUENCY</span>
-              <strong>{formatMHz(peak.frequency_mhz)}</strong>
-            </div>
-
-            <div className="sidebar-peak-detail">
-              <span>PEAK POWER</span>
-              <strong>{formatDb(peak.power_db)}</strong>
-            </div>
-
-            <div className="sidebar-peak-detail">
-              <span>THRESHOLD</span>
-              <strong>{scanConfig.threshold_db} dB</strong>
-            </div>
-          </>
-        ) : (
-          <p className="sidebar-empty-peak">
-            Belum ada peak signal.
-          </p>
+        {errorMessage && (
+          <p className="sidebar-error-message">{errorMessage}</p>
         )}
-      </section>
+          </aside>
 
-      <p className="sidebar-live-message">{statusMessage}</p>
-
-      {errorMessage && (
-        <p className="sidebar-error-message">{errorMessage}</p>
-      )}
-      </aside>
-
-      <section className="dashboard">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">REALTIME SPECTRUM MONITORING</p>
-            <h2>Frequency Scanner Dashboard</h2>
-          </div>
-
-          <div className={`connection-status ${isDeviceReady ? "online" : "offline"}`}>
-            <span
-              className={
-                isDeviceReady
-                  ? "status-dot"
-                  : "status-dot status-dot-offline"
-              }
-            />
-
-            <span className="connection-text">
-              <strong>{isDeviceReady ? "USRP CONNECTED" : "USRP OFFLINE"}</strong>
-              <small>
-                {isDeviceReady
-                  ? `${device.device} · ${device.antenna}`
-                  : device.lastError ?? "USRP tidak terdeteksi"}
-              </small>
-            </span>
-          </div>
-        </header>
-
-        <nav className="tabs">
-          <button
-            type="button"
-            className={activeTab === "general" ? "tab active-tab" : "tab"}
-            onClick={() => setActiveTab("general")}
-          >
-            General
-          </button>
-
-          <button
-            type="button"
-            className={activeTab === "history" ? "tab active-tab" : "tab"}
-            onClick={() => setActiveTab("history")}
-          >
-            Scan History
-            <span className="tab-badge">{scanSessions.length}</span>
-          </button>
-        </nav>
-
+          <section className="dashboard">
         {activeTab === "general" ? (
-          <>
-            <section className="spectrum-panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="section-kicker">LIVE VIEW</p>
-                  <h3>Realtime Spectrum</h3>
-                </div>
-
-                <div className="legend">
-                  <span>
-                    <i className="legend-line spectrum-line" />
-                    Spectrum
-                  </span>
-
-                  <span>
-                    <i className="legend-line threshold-line" />
-                    Threshold {scanConfig.threshold_db} dB
-                  </span>
-
-                  <span>
-                    <i className="legend-detection-marker" />
-                    Threshold Point
-                  </span>
-
-                  <span>
-                    <i className="legend-line history-line" />
-                    Spectrum History
-                  </span>
-
-                  {SHOW_MERGE_GAP_DEBUG && (
-                    <span>
-                      <i className="legend-merge-gap" />
-                      50 kHz Debug
-                    </span>
-                  )}
+          scanOwner === "specific" ? (
+            <ScanModeIsolationPanel
+              owner="specific"
+              isRunning={isScanning}
+            />
+          ) : (
+            <>
+            <section className="spectrum-panel general-spectrum-panel">
+              <div className="spectrum-panel-header">
+                <h3 className="spectrum-panel-title">Realtime Spectrum</h3>
+                <div
+                  className={`spectrum-panel-status ${
+                    isScanning ? "is-scanning" : ""
+                  }`}
+                >
+                  {isScanning && <i aria-hidden="true" />}
+                  {isScanning ? "SCANNING" : "READY"}
                 </div>
               </div>
 
-              {sweepInfo && (
-                <div className="sweep-progress-card">
+              {hasMeaningfulSweepInfo && (
+                <div className="sweep-progress-card general-spectrum-sweep">
                   <span>
                     Sweep window: {sweepInfo.scanned_windows}/
                     {sweepInfo.total_windows}
                   </span>
                   <span>Progress: {sweepInfo.progress_percent}%</span>
+                  {Number(sweepInfo.completed_cycles ?? 0) > 0 && (
+                    <span>Completed cycles: {sweepInfo.completed_cycles}</span>
+                  )}
                   {sweepInfo.last_window_start_mhz !== null &&
                     sweepInfo.last_window_end_mhz !== null && (
                       <span>
@@ -2267,78 +2190,15 @@ function App() {
                     />
                   ))}
 
-                  <div
-                    className="threshold-visual"
-                    style={{ top: `${thresholdTop}%` }}
-                  >
-                    <span>Threshold {scanConfig.threshold_db} dB</span>
-                  </div>
-
-                  {spectrumChart.linePoints || spectrumHistoryCharts.length > 0 ? (
+                  {spectrumPreview.frequency_mhz.length > 0 ? (
                     <>
-                  {spectrumHistoryCharts.length > 1 && (
-                    <svg
-                      className="spectrum-history-svg"
-                      viewBox={`0 0 1000 ${CHART_SVG_HEIGHT}`}
-                      preserveAspectRatio="none"
-                      aria-label="USRP sweep spectrum history"
-                    >
-                      {spectrumHistoryCharts.slice(0, -1).map((segment) => (
-                        <polyline
-                          key={segment.id}
-                          points={segment.linePoints}
-                          className="spectrum-history-line"
-                          fill="none"
-                          vectorEffect="non-scaling-stroke"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          shapeRendering="geometricPrecision"
-                        />
-                      ))}
-                    </svg>
-                  )}
-
-                      <svg
-                        className="spectrum-svg"
-                        viewBox={`0 0 1000 ${CHART_SVG_HEIGHT}`}
-                        preserveAspectRatio="none"
-                        aria-label="USRP realtime spectrum"
-                      >
-                        <polygon
-                          points={spectrumChart.areaPoints}
-                          className="spectrum-area"
-                        />
-
-                        <polyline
-                          points={spectrumChart.linePoints}
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.35"
-                          vectorEffect="non-scaling-stroke"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          shapeRendering="geometricPrecision"
-                        />
-                      </svg>
-
-                      {clusterAreas.map((cluster) => (
-                        <div
-                          className="cluster-area"
-                          key={cluster.id}
-                          style={{
-                            left: `${cluster.left}%`,
-                            width: `${cluster.width}%`,
-                            "--cluster-color": cluster.color,
-                          }}
-                        >
-                          <span>
-                            {cluster.label}
-                            {Number.isFinite(cluster.widthKHz)
-                              ? ` · ${cluster.widthKHz.toFixed(1)} kHz`
-                              : ""}
-                          </span>
-                        </div>
-                      ))}
+                      <SpectrumCanvas
+                        frequencyValues={spectrumPreview.frequency_mhz}
+                        powerValues={spectrumPreview.power_db}
+                        startFrequencyMHz={scanConfig.start_frequency_mhz}
+                        endFrequencyMHz={scanConfig.end_frequency_mhz}
+                        thresholdDb={scanConfig.threshold_db}
+                      />
 
                       {detectionMarkers.map((marker) => (
                         <div
@@ -2366,27 +2226,12 @@ function App() {
                           </span>
                         </div>
                       ))}
-
-                      {mergeGapDebugRulers.map((ruler) => (
-                        <div
-                          className={`merge-gap-debug-ruler ${ruler.direction}`}
-                          key={ruler.id}
-                          style={{
-                            left: `${ruler.left}%`,
-                            width: `${ruler.width}%`,
-                            bottom: `${ruler.rowOffsetPx}px`,
-                            "--marker-color": ruler.color,
-                          }}
-                        >
-                          <span>50 kHz</span>
-                        </div>
-                      ))}
                     </>
                   ) : (
                     <div className="chart-placeholder">
                       {isScanning
-                        ? "Menerima IQ sample dari USRP..."
-                        : "Tekan START SCAN untuk melihat spectrum."}
+                        ? "Receiving signal data..."
+                        : "Select START SCAN to view the spectrum."}
                     </div>
                   )}
                 </div>
@@ -2413,11 +2258,11 @@ function App() {
               </div>
             </section>
 
-            <section className="detected-section classification-section">
+            <section className="detected-section classification-section general-detected-panel">
               <div className="panel-heading">
                 <div>
-                  <p className="section-kicker">CURRENT SCAN</p>
-                  <h3>Current Scan History</h3>
+                  <p className="section-kicker">DETECTED SIGNALS</p>
+                  <h3>Detected Frequencies</h3>
                 </div>
 
                 <div className="detected-count">
@@ -2432,22 +2277,13 @@ function App() {
 
               <div className="scan-history-toolbar">
                 <span>Sorted by frequency: 50 MHz → 6000 MHz</span>
-                <span>
-                  Backend total: {totalDetectionCount} threshold point
-                  {totalDetectionCount === 1 ? "" : "s"}
-                </span>
-                {sweepInfo && (
-                  <span>
-                    Window {sweepInfo.scanned_windows}/{sweepInfo.total_windows}
-                  </span>
-                )}
               </div>
 
               {currentScanHistorySorted.length === 0 ? (
                 <div className="empty-state">
                   {isScanning
-                    ? "Belum ada titik yang melewati threshold pada scan ini."
-                    : "Belum ada history scan. Tekan START SCAN untuk memulai single sweep."}
+                    ? "No signals above threshold yet."
+                    : "Start a scan to see results."}
                 </div>
               ) : (
                 <DetectionCardGrid
@@ -2464,136 +2300,47 @@ function App() {
               )}
             </section>
           </>
-        ) : activeTab === "history" ? (
-          <section className="detected-section scan-session-section">
-            <div className="panel-heading">
-              <div>
-                <p className="section-kicker">JSON SESSION STORAGE</p>
-                <h3>Scan History Folder</h3>
-              </div>
-
-              <div className="detected-count">
-                <strong>{scanSessions.length}</strong>
-                <span>{scanSessions.length === 1 ? "SCAN SESSION" : "SCAN SESSIONS"}</span>
-              </div>
-            </div>
-
-            {scanSessions.length > 0 && (
-              <div className="scan-history-action-bar">
-                <span>History tersimpan di backend/scan_history sebagai file JSON.</span>
-                <button
-                  type="button"
-                  className="history-delete-all-button"
-                  onClick={handleDeleteAllScanSessions}
-                >
-                  DELETE ALL HISTORY
-                </button>
-              </div>
-            )}
-
-            {scanSessions.length === 0 ? (
-              <div className="empty-state">
-                Belum ada folder scan tersimpan. Jalankan satu sweep sampai selesai,
-                lalu hasilnya otomatis disimpan ke JSON dan muncul di halaman ini.
-              </div>
-            ) : (
-              <div className="session-history-layout">
-                <div className="session-folder-list">
-                  {scanSessions.map((session) => (
-                    <article
-                      className={`session-folder-card ${
-                        selectedScanSession?.id === session.id ? "selected" : ""
-                      }`}
-                      key={session.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setSelectedSessionId(session.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          setSelectedSessionId(session.id);
-                        }
-                      }}
-                    >
-                      <div className="session-folder-main">
-                        <span className="folder-icon">▰</span>
-                        <span>
-                          <strong>{session.title}</strong>
-                          <small>
-                            {session.config.start_frequency_mhz}–
-                            {session.config.end_frequency_mhz} MHz · {session.detectionCount} points
-                          </small>
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="session-delete-button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleDeleteScanSession(session.id, session.title);
-                        }}
-                      >
-                        DELETE
-                      </button>
-                    </article>
-                  ))}
-                </div>
-
-                <div className="session-detail-panel">
-                  {selectedScanSession && (
-                    <>
-                      <div className="session-summary-grid">
-                        <div>
-                          <span>Range</span>
-                          <strong>
-                            {selectedScanSession.config.start_frequency_mhz}–
-                            {selectedScanSession.config.end_frequency_mhz} MHz
-                          </strong>
-                        </div>
-                        <div>
-                          <span>Threshold</span>
-                          <strong>{selectedScanSession.config.threshold_db} dB</strong>
-                        </div>
-                        <div>
-                          <span>Total points</span>
-                          <strong>{selectedScanSession.detectionCount}</strong>
-                        </div>
-                        <div>
-                          <span>Completed</span>
-                          <strong>{formatDateTime(selectedScanSession.completedAt)}</strong>
-                        </div>
-                      </div>
-
-                      <div className="session-card-history-panel">
-                        <DetectionCardGrid
-                          detections={selectedScanSession.detections}
-                          sourceLabel={selectedScanSession?.title ?? "SCAN HISTORY DETAIL"}
-                          onOpen={setSelectedDetectionDetail}
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </section>
+          )
         ) : (
-          <section className="specific-panel">
-            <p className="section-kicker">COMING SOON</p>
-            <h3>Specific Channel Scanner</h3>
-            <p>
-              Halaman Specific akan dibuat setelah spectrum USRP stabil tampil
-              di halaman General.
-            </p>
-          </section>
+          <SpecificChannelPage
+            apiBaseUrl={API_BASE_URL}
+            scanConfig={scanConfig}
+            isScanning={isScanning}
+            scanOwner={scanOwner}
+            scanSelectedMachineId={scanSelectedMachineId}
+            scanSelectedMachineName={scanSelectedMachineName}
+            scannerLocked={scanOwner === "general"}
+            spectrumChart={
+              scanOwner === "specific"
+                ? spectrumChart
+                : { linePoints: "", areaPoints: "" }
+            }
+            frequencyTicks={frequencyTicks}
+            chartDbTicks={chartDbTicks}
+            scanDetections={
+              scanOwner === "specific" ? currentScanHistorySorted : []
+            }
+            channelMeasurements={
+              scanOwner === "specific" ? channelMeasurements : []
+            }
+            sweepInfo={scanOwner === "specific" ? sweepInfo : null}
+            onSelectedMachineChange={(machine) => {
+              setSelectedSpecificMachineId(machine?.id ?? null);
+              setSelectedSpecificMachineName(machine?.name ?? null);
+            }}
+            onNotify={notify}
+          />
         )}
-      </section>
+          </section>
+        </div>
+      </div>
 
       <SignalDetailModal
         detail={selectedDetectionDetail}
         onClose={() => setSelectedDetectionDetail(null)}
       />
+
+      <ToastViewport toasts={toasts} onDismiss={dismissToast} />
     </main>
   );
 }
