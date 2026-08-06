@@ -4326,3 +4326,193 @@ body {
     width: calc(100vw - 20px);
   }
 }
+
+/* =========================================================
+   MOBILE PORTRAIT CONTENT FLOW
+   Keeps the desktop shell intact while allowing General Scan
+   controls, spectrum, status, and results to follow page order.
+   ========================================================= */
+@media (max-width: 620px) {
+  .scanner-shell {
+    padding-right: 7px;
+    padding-left: 7px;
+  }
+
+  .scanner-grid {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .sidebar,
+  .dashboard {
+    display: contents;
+  }
+
+  .sidebar-nav-card {
+    display: none;
+  }
+
+  .settings-section {
+    order: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 11px 10px 12px;
+  }
+
+  .settings-section h2 {
+    margin-bottom: 9px;
+    padding-bottom: 8px;
+  }
+
+  .settings-section label {
+    margin-top: 8px;
+  }
+
+  .scan-button {
+    margin-top: 12px;
+  }
+
+  .app-shell.active-general .general-spectrum-panel {
+    order: 2;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    padding: 10px;
+  }
+
+  .app-shell.active-general .general-spectrum-panel .spectrum-panel-header {
+    order: 1;
+  }
+
+  .app-shell.active-general .general-spectrum-panel .spectrum-chart {
+    order: 2;
+  }
+
+  .app-shell.active-general .general-spectrum-panel .general-spectrum-sweep {
+    order: 3;
+    margin-top: 8px;
+  }
+
+  .app-shell.active-general .sidebar-detected-counter,
+  .app-shell.active-general .sidebar-status,
+  .app-shell.active-general .sidebar-error-message {
+    order: 3;
+  }
+
+  .sidebar-detected-counter {
+    min-height: 0;
+    margin: 0;
+    padding: 9px 10px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .sidebar-detected-counter h2 {
+    width: auto;
+    margin: 0;
+    padding: 0;
+    font-size: 0.7rem;
+    text-align: left;
+  }
+
+  .sidebar-detected-counter strong {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+
+  .sidebar-detected-counter span {
+    margin: 0;
+    font-size: 0.54rem;
+  }
+
+  .sidebar-status,
+  .sidebar-error-message {
+    min-width: 0;
+    margin: 0;
+    padding: 9px 10px;
+  }
+
+  .app-shell.active-general .general-detected-panel {
+    order: 4;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 11px 10px;
+  }
+
+  .general-detected-panel .panel-heading {
+    align-items: center;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .general-detected-panel .detected-count {
+    flex: 0 0 auto;
+    gap: 6px;
+  }
+
+  .general-detected-panel .detected-count strong {
+    font-size: 1rem;
+  }
+
+  .general-detected-panel .detected-count span {
+    max-width: 92px;
+    font-size: 0.5rem;
+    line-height: 1.2;
+  }
+
+  .general-detected-panel .figma-signal-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+    max-height: none;
+    padding-right: 2px;
+    overflow: visible;
+  }
+
+  .app-shell.active-specific .sidebar-detected-counter {
+    display: none;
+  }
+
+  .app-shell.active-specific .sidebar-status,
+  .app-shell.active-specific .sidebar-error-message {
+    order: 2;
+  }
+
+  .app-shell.active-specific .specific-workspace {
+    order: 3;
+    min-width: 0;
+  }
+
+  .general-spectrum-panel .spectrum-chart,
+  .specific-spectrum-chart {
+    width: 100%;
+    min-width: 0;
+    height: clamp(210px, 62vw, 250px);
+  }
+
+  .general-spectrum-panel .chart-plot,
+  .specific-spectrum-chart .chart-plot {
+    right: 6px;
+    left: 38px;
+  }
+
+  .general-spectrum-panel .chart-y-axis,
+  .specific-spectrum-chart .chart-y-axis {
+    width: 36px;
+  }
+
+  .general-spectrum-panel .chart-y-axis span,
+  .specific-spectrum-chart .chart-y-axis span {
+    right: 5px;
+    font-size: 0.52rem;
+  }
+
+  .general-spectrum-panel .chart-x-axis,
+  .specific-spectrum-chart .chart-x-axis {
+    right: 6px;
+    left: 38px;
+    font-size: 0.52rem;
+  }
+}
