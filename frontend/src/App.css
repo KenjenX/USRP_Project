@@ -3019,12 +3019,18 @@ body {
   }
 
   .app-header-brand {
-    padding: 0 4px;
+    padding: 0 2px;
+    overflow: hidden;
   }
 
   .app-header-brand strong {
-    font-size: 0.64rem;
-    letter-spacing: 0.045em;
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 0.56rem;
+    line-height: 1;
+    letter-spacing: 0.015em;
+    white-space: nowrap;
   }
 
   .app-tabs {
