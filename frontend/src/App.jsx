@@ -1960,6 +1960,14 @@ function App() {
   const deviceBadgeState = deviceBadgeStatus.toLowerCase();
   const deviceBadgeStatusLabel =
     `${deviceBadgeStatus.slice(0, 1)}${deviceBadgeStatus.slice(1).toLowerCase()}`;
+  const deviceBadgeCompactStatusLabel =
+    deviceBadgeStatus === "CONNECTED"
+      ? "ON"
+      : deviceBadgeStatus === "SCANNING"
+        ? "SCAN"
+        : deviceBadgeStatus === "DISCONNECTED"
+          ? "OFF"
+          : "WAIT";
 
   return (
     <main className={`app-shell active-${activeTab}`}>
@@ -1995,6 +2003,9 @@ function App() {
           aria-live="polite"
         >
           <strong className="sdr-badge-label">{deviceBadgeLabel}</strong>
+          <span className="sdr-badge-status" aria-hidden="true">
+            {deviceBadgeCompactStatusLabel}
+          </span>
         </div>
       </header>
 
