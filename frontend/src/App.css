@@ -2111,7 +2111,7 @@ body {
   min-height: 0;
   overflow: visible;
   display: grid;
-  grid-template-columns: 366px minmax(0, 1fr) 118px;
+  grid-template-columns: 366px minmax(0, 1fr) auto;
   align-items: stretch;
   min-width: 0;
 
@@ -2302,6 +2302,56 @@ body {
   color: #ffffff;
   background: rgba(0, 0, 0, 0.22);
   font-size: 0.58rem;
+}
+
+.app-header-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-right: 12px;
+}
+
+.logout-button {
+  display: inline-flex;
+  min-width: 72px;
+  height: 34px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 1px solid rgba(111, 143, 190, 0.58);
+  border-radius: 0;
+  color: rgba(238, 244, 255, 0.86);
+  background: #172b47;
+  font-family: var(--font-heading);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.logout-button:hover:not(:disabled) {
+  color: #ffffff;
+  background: #233f66;
+}
+
+.logout-button:focus-visible {
+  outline: 2px solid #7eadef;
+  outline-offset: 2px;
+}
+
+.logout-button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.logout-button-icon {
+  display: none;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .sdr-badge {
@@ -2814,7 +2864,7 @@ body {
 
 @media (max-width: 1080px) {
   .app-header {
-    grid-template-columns: 300px minmax(0, 1fr) 112px;
+    grid-template-columns: 300px minmax(0, 1fr) auto;
   }
 
   .app-header-brand {
@@ -2856,6 +2906,26 @@ body {
     min-height: 60px;
     padding: 0 8px;
     overflow: hidden;
+  }
+
+  .app-header-actions {
+    gap: 4px;
+    padding-right: 0;
+  }
+
+  .logout-button {
+    width: 30px;
+    min-width: 30px;
+    height: 32px;
+    padding: 0;
+  }
+
+  .logout-button-label {
+    display: none;
+  }
+
+  .logout-button-icon {
+    display: inline;
   }
 
   .app-header-brand {
@@ -3055,6 +3125,16 @@ body {
     padding: 0 5px;
     gap: 3px;
     font-size: 0.65rem;
+  }
+
+  .app-header-actions {
+    gap: 2px;
+  }
+
+  .logout-button {
+    width: 28px;
+    min-width: 28px;
+    height: 30px;
   }
 
   .sdr-badge-status {

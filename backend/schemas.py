@@ -109,3 +109,15 @@ class ChannelResponse(BaseModel):
 
     created_at: datetime
     updated_at: datetime
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class UserIdentityResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str

@@ -16,7 +16,8 @@ export function shouldAcceptSpectrumSnapshot(snapshot, activeScanMeta) {
 }
 
 export function createSpectrumStreamUrl(apiBaseUrl) {
-  const url = new URL(apiBaseUrl);
+  const browserOrigin = typeof window === "undefined" ? null : window.location.origin;
+  const url = new URL(apiBaseUrl || browserOrigin);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   url.pathname = "/api/spectrum/stream";
   url.search = "";

@@ -1,4 +1,5 @@
 """No-hardware lifecycle regression tests for the autonomous sweep controller."""
+import asyncio
 import os
 import unittest
 from copy import deepcopy
@@ -149,7 +150,7 @@ class LifecycleTests(unittest.TestCase):
         main.scanner_manager = DummyManager(raises=True)
         with patch.object(main, "stop_usb_detector"), patch.object(main, "_join_controller") as join, \
              patch.object(main, "discard_benchmark_session") as discard:
-            main.app_shutdown()
+            asyncio.run(main.app_shutdown())
         join.assert_called_once_with("s1")
         discard.assert_called_once_with("s1", "application_shutdown")
 
@@ -310,7 +311,10 @@ class LifecycleTests(unittest.TestCase):
         self.assertFalse(hasattr(main, "save_scan_session_payload"))
         self.assertFalse(hasattr(main, "save_completed_session_if_needed_locked"))
         self.assertFalse(
-            any(route.path.startswith("/api/scan/history") for route in main.app.routes)
+            any(
+                getattr(route, "path", "").startswith("/api/scan/history")
+                for route in main.app.routes
+            )
         )
 
     def test_stop_immediately_before_commit_discards_result_and_aborts_once(self):

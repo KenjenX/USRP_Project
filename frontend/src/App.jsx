@@ -13,7 +13,7 @@ import navGeneralIcon from "./assets/nav-general.png";
 import navSpecificIcon from "./assets/nav-specific.png";
 import signalIcon from "./assets/signal-icon.png";
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = "";
 
 const SPECTRUM_REFRESH_MS = 250;
 const ENABLE_SPECTRUM_WEBSOCKET = true;
@@ -990,7 +990,7 @@ function ToastViewport({ toasts, onDismiss }) {
   );
 }
 
-function App() {
+function App({ isLoggingOut = false, onLogout }) {
   const [activeTab, setActiveTab] = useState(() => {
     const savedTab = window.sessionStorage.getItem("usrp-active-tab");
 
@@ -1996,16 +1996,32 @@ function App() {
           </button>
         </nav>
 
-        <div
-          className={`sdr-badge sdr-${deviceBadgeState}`}
-          title={deviceBadgeStatusLabel}
-          aria-label={`${deviceBadgeLabel} — ${deviceBadgeStatusLabel}`}
-          aria-live="polite"
-        >
-          <strong className="sdr-badge-label">{deviceBadgeLabel}</strong>
-          <span className="sdr-badge-status" aria-hidden="true">
-            {deviceBadgeCompactStatusLabel}
-          </span>
+        <div className="app-header-actions">
+          <div
+            className={`sdr-badge sdr-${deviceBadgeState}`}
+            title={deviceBadgeStatusLabel}
+            aria-label={`${deviceBadgeLabel} — ${deviceBadgeStatusLabel}`}
+            aria-live="polite"
+          >
+            <strong className="sdr-badge-label">{deviceBadgeLabel}</strong>
+            <span className="sdr-badge-status" aria-hidden="true">
+              {deviceBadgeCompactStatusLabel}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className="logout-button"
+            onClick={onLogout}
+            disabled={isLoggingOut}
+            aria-label="Log out"
+            title="Log out"
+          >
+            <span className="logout-button-label">
+              {isLoggingOut ? "WAIT" : "LOGOUT"}
+            </span>
+            <span className="logout-button-icon" aria-hidden="true">↪</span>
+          </button>
         </div>
       </header>
 

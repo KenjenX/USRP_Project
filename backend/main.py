@@ -17,6 +17,12 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconn
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from backend.auth_middleware import (
+    AuthenticationRequiredMiddleware,
+    EnvironmentSessionMiddleware,
+)
+from backend.auth_routes import router as auth_router
+from backend.auth_session import authenticate_websocket
 from backend.gsm_classifier import classify_gsm
 from backend.umts_classifier import classify_umts
 from backend.lte_classifier import classify_lte
@@ -85,19 +91,21 @@ SCAN_MODE_RANGE_SWEEP = "range_sweep"
 
 app = FastAPI(title="USRP B210 Spectrum API")
 
+app.add_middleware(AuthenticationRequiredMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ],
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 app.include_router(machine_router)
 app.include_router(channel_lookup_router)
 app.include_router(channel_router)
+app.include_router(auth_router)
 
 
 BENCHMARK_SCHEMA_VERSION = 1
@@ -528,6 +536,7 @@ class BenchmarkHttpMiddleware:
 
 
 app.add_middleware(BenchmarkHttpMiddleware)
+app.add_middleware(EnvironmentSessionMiddleware)
 
 
 class ScanRequest(BaseModel):
@@ -2563,6 +2572,10 @@ def get_spectrum(request: Request):
 
 @app.websocket("/api/spectrum/stream")
 async def spectrum_stream(websocket: WebSocket):
+    authenticated_user = await authenticate_websocket(websocket)
+    if authenticated_user is None:
+        return
+
     await websocket.accept()
     client_id = await spectrum_stream_manager.register(
         websocket,
