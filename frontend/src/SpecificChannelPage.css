@@ -1366,3 +1366,213 @@
     text-align: left;
   }
 }
+
+/* =========================================================
+   MOBILE PORTRAIT CONTENT FLOW
+   Desktop keeps the table and spectrum-first composition.
+   Mobile exposes controls before the spectrum and renders each
+   Machine row as a readable action card.
+   ========================================================= */
+@media (max-width: 620px) {
+  .specific-figma-workspace {
+    gap: 8px;
+  }
+
+  .specific-figma-content {
+    display: contents;
+  }
+
+  .specific-figma-toolbar {
+    order: 1;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 9px;
+    border-radius: var(--radius-panel);
+    background: #0a1f3b;
+    box-shadow: 0 5px 14px rgba(4, 13, 30, 0.25);
+  }
+
+  .specific-toolbar-button,
+  .specific-toolbar-count,
+  .specific-selected-machine-chip,
+  .specific-search-box {
+    min-width: 0;
+    width: 100%;
+    min-height: 40px;
+  }
+
+  .specific-editor-panel,
+  .specific-selected-candidate {
+    order: 2;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .specific-machine-scan-notice,
+  .specific-scan-isolation-notice,
+  .specific-feedback {
+    order: 3;
+    margin: 0;
+  }
+
+  .specific-spectrum-panel {
+    order: 4;
+    width: 100%;
+    min-width: 0;
+    padding: 10px;
+  }
+
+  .specific-spectrum-chart {
+    width: 100%;
+    min-width: 0;
+    height: clamp(210px, 62vw, 250px);
+  }
+
+  .specific-spectrum-chart .chart-plot {
+    right: 6px;
+    left: 38px;
+  }
+
+  .specific-spectrum-chart .chart-y-axis {
+    width: 36px;
+  }
+
+  .specific-spectrum-chart .chart-y-axis span {
+    right: 5px;
+    font-size: 0.52rem;
+  }
+
+  .specific-spectrum-chart .chart-x-axis {
+    right: 6px;
+    left: 38px;
+    font-size: 0.52rem;
+  }
+
+  .specific-channel-monitor-summary {
+    order: 5;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .specific-machine-table-shell,
+  .specific-saved-channel-grid.figma-channel-grid,
+  .specific-channel-empty,
+  .specific-table-empty {
+    order: 6;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .specific-machine-table-shell {
+    margin: 0;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .specific-figma-content.machine-view .specific-machine-table-shell {
+    order: 2;
+  }
+
+  .specific-machine-table-head {
+    display: none;
+  }
+
+  .specific-machine-table-body {
+    display: grid;
+    max-height: none;
+    gap: 8px;
+    overflow: visible;
+  }
+
+  .specific-machine-table-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "number name count"
+      "description description description"
+      "actions actions actions";
+    min-width: 0;
+    min-height: 0;
+    gap: 8px 10px;
+    padding: 11px;
+    border: 1px solid rgba(69, 111, 176, 0.48);
+    border-radius: var(--radius-panel);
+    background: #0f294d;
+  }
+
+  .specific-machine-table-row:nth-child(even) {
+    background: #0d2546;
+  }
+
+  .machine-row-number {
+    grid-area: number;
+  }
+
+  .machine-row-name {
+    grid-area: name;
+  }
+
+  .machine-row-description {
+    grid-area: description;
+  }
+
+  .machine-row-count {
+    grid-area: count;
+  }
+
+  .machine-row-actions {
+    grid-area: actions;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    padding-top: 2px;
+  }
+
+  .machine-row-name strong,
+  .machine-row-description {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .machine-row-actions button {
+    min-height: 38px;
+  }
+
+  .specific-form-actions button,
+  .specific-channel-form-buttons button,
+  .specific-saved-channel-card .specific-card-actions button,
+  .specific-candidate-option > .specific-primary-button {
+    min-height: 40px;
+  }
+
+  .specific-saved-channel-grid.figma-channel-grid {
+    grid-template-columns: minmax(0, 1fr);
+    max-height: none;
+    padding-right: 2px;
+    overflow: visible;
+  }
+
+  .specific-saved-channel-card > header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .figma-channel-identity {
+    flex: 1 1 160px;
+  }
+
+  .figma-channel-identity strong,
+  .figma-channel-identity small {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .figma-channel-state {
+    min-width: 0;
+    max-width: 100%;
+  }
+}

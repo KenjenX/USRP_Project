@@ -2338,6 +2338,10 @@ body {
   white-space: nowrap;
 }
 
+.sdr-badge-status {
+  display: none;
+}
+
 .sdr-badge[title]:hover {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
@@ -2846,15 +2850,29 @@ body {
   .app-header {
     position: sticky;
     top: 0;
-    display: flex;
-    min-height: 66px;
-    padding: 0 10px;
+    display: grid;
+    grid-template-columns: minmax(96px, 0.65fr) minmax(0, 1.55fr) auto;
+    gap: 4px;
+    min-height: 60px;
+    padding: 0 8px;
+    overflow: hidden;
   }
 
   .app-header-brand {
-    min-width: 190px;
+    width: 100%;
+    min-width: 0;
+    height: 60px;
+    margin: 0;
     clip-path: none;
     padding: 0 10px;
+  }
+
+  .app-header-brand::before {
+    top: 3px;
+    right: 0;
+    bottom: 3px;
+    left: 0;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 100%, 0 100%);
   }
 
   .app-header-brand::after {
@@ -2862,19 +2880,44 @@ body {
   }
 
   .app-tabs {
-    flex: 1;
-    overflow-x: auto;
-    justify-content: flex-start;
+    --tab-diagonal-run: 12px;
+    width: 100%;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: hidden;
+    padding: 0;
   }
 
-  .app-tabs .tab {
-    min-width: 128px;
+  .app-tabs .tab,
+  .app-tabs .tab:nth-child(2) {
+    width: 100%;
+    min-width: 0;
     margin-left: 0;
-    clip-path: none;
+    padding: 0 10px;
+    gap: 7px;
+    clip-path: polygon(
+      var(--tab-diagonal-run) 0,
+      100% 0,
+      calc(100% - var(--tab-diagonal-run)) 100%,
+      0 100%
+    );
   }
 
   .sdr-badge {
-    display: none;
+    display: flex;
+    height: 32px;
+    padding: 0 7px;
+    gap: 5px;
+    font-size: 0.72rem;
+  }
+
+  .sdr-badge-status {
+    display: inline;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 0.52rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
   }
 
   .scanner-shell {
@@ -2923,21 +2966,28 @@ body {
 
 @media (max-width: 620px) {
   .app-header-brand {
-    min-width: 160px;
+    min-width: 0;
+    padding: 0 5px;
   }
 
   .app-header-brand strong {
-    font-size: 0.82rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
   }
 
-  .app-tabs .tab {
-    min-width: 108px;
-    padding: 0 10px;
-    font-size: 0.7rem;
+  .app-tabs .tab,
+  .app-tabs .tab:nth-child(2) {
+    min-width: 0;
+    padding: 0 6px;
+    gap: 5px;
+    font-size: 0.67rem;
   }
 
   .top-tab-icon {
-    display: none;
+    display: block;
+    width: 15px;
+    height: 15px;
+    flex-basis: 15px;
   }
 
   .dashboard {
@@ -2958,6 +3008,57 @@ body {
 
   .general-detected-panel .figma-signal-card-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .app-header {
+    grid-template-columns: minmax(92px, 0.62fr) minmax(0, 1.5fr) auto;
+    gap: 2px;
+    padding: 0 5px;
+  }
+
+  .app-header-brand {
+    padding: 0 2px;
+    overflow: hidden;
+  }
+
+  .app-header-brand strong {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 0.56rem;
+    line-height: 1;
+    letter-spacing: 0.015em;
+    white-space: nowrap;
+  }
+
+  .app-tabs {
+    --tab-diagonal-run: 9px;
+  }
+
+  .app-tabs .tab,
+  .app-tabs .tab:nth-child(2) {
+    padding: 0 3px;
+    gap: 4px;
+    font-size: 0.62rem;
+  }
+
+  .top-tab-icon {
+    width: 14px;
+    height: 14px;
+    flex-basis: 14px;
+  }
+
+  .sdr-badge {
+    height: 30px;
+    padding: 0 5px;
+    gap: 3px;
+    font-size: 0.65rem;
+  }
+
+  .sdr-badge-status {
+    font-size: 0.47rem;
   }
 }
 
@@ -4223,5 +4324,195 @@ body {
     bottom: 10px;
     right: 10px;
     width: calc(100vw - 20px);
+  }
+}
+
+/* =========================================================
+   MOBILE PORTRAIT CONTENT FLOW
+   Keeps the desktop shell intact while allowing General Scan
+   controls, spectrum, status, and results to follow page order.
+   ========================================================= */
+@media (max-width: 620px) {
+  .scanner-shell {
+    padding-right: 7px;
+    padding-left: 7px;
+  }
+
+  .scanner-grid {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .sidebar,
+  .dashboard {
+    display: contents;
+  }
+
+  .sidebar-nav-card {
+    display: none;
+  }
+
+  .settings-section {
+    order: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 11px 10px 12px;
+  }
+
+  .settings-section h2 {
+    margin-bottom: 9px;
+    padding-bottom: 8px;
+  }
+
+  .settings-section label {
+    margin-top: 8px;
+  }
+
+  .scan-button {
+    margin-top: 12px;
+  }
+
+  .app-shell.active-general .general-spectrum-panel {
+    order: 2;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    padding: 10px;
+  }
+
+  .app-shell.active-general .general-spectrum-panel .spectrum-panel-header {
+    order: 1;
+  }
+
+  .app-shell.active-general .general-spectrum-panel .spectrum-chart {
+    order: 2;
+  }
+
+  .app-shell.active-general .general-spectrum-panel .general-spectrum-sweep {
+    order: 3;
+    margin-top: 8px;
+  }
+
+  .app-shell.active-general .sidebar-detected-counter,
+  .app-shell.active-general .sidebar-status,
+  .app-shell.active-general .sidebar-error-message {
+    order: 3;
+  }
+
+  .sidebar-detected-counter {
+    min-height: 0;
+    margin: 0;
+    padding: 9px 10px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .sidebar-detected-counter h2 {
+    width: auto;
+    margin: 0;
+    padding: 0;
+    font-size: 0.7rem;
+    text-align: left;
+  }
+
+  .sidebar-detected-counter strong {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+
+  .sidebar-detected-counter span {
+    margin: 0;
+    font-size: 0.54rem;
+  }
+
+  .sidebar-status,
+  .sidebar-error-message {
+    min-width: 0;
+    margin: 0;
+    padding: 9px 10px;
+  }
+
+  .app-shell.active-general .general-detected-panel {
+    order: 4;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 11px 10px;
+  }
+
+  .general-detected-panel .panel-heading {
+    align-items: center;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .general-detected-panel .detected-count {
+    flex: 0 0 auto;
+    gap: 6px;
+  }
+
+  .general-detected-panel .detected-count strong {
+    font-size: 1rem;
+  }
+
+  .general-detected-panel .detected-count span {
+    max-width: 92px;
+    font-size: 0.5rem;
+    line-height: 1.2;
+  }
+
+  .general-detected-panel .figma-signal-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+    max-height: none;
+    padding-right: 2px;
+    overflow: visible;
+  }
+
+  .app-shell.active-specific .sidebar-detected-counter {
+    display: none;
+  }
+
+  .app-shell.active-specific .sidebar-status,
+  .app-shell.active-specific .sidebar-error-message {
+    order: 2;
+  }
+
+  .app-shell.active-specific .specific-workspace {
+    order: 3;
+    min-width: 0;
+  }
+
+  .general-spectrum-panel .spectrum-chart,
+  .specific-spectrum-chart {
+    width: 100%;
+    min-width: 0;
+    height: clamp(210px, 62vw, 250px);
+  }
+
+  .general-spectrum-panel .chart-plot,
+  .specific-spectrum-chart .chart-plot {
+    right: 6px;
+    left: 38px;
+  }
+
+  .general-spectrum-panel .chart-y-axis,
+  .specific-spectrum-chart .chart-y-axis {
+    width: 36px;
+  }
+
+  .general-spectrum-panel .chart-y-axis span,
+  .specific-spectrum-chart .chart-y-axis span {
+    right: 5px;
+    font-size: 0.52rem;
+  }
+
+  .general-spectrum-panel .chart-x-axis,
+  .specific-spectrum-chart .chart-x-axis {
+    right: 6px;
+    left: 38px;
+    font-size: 0.52rem;
   }
 }
