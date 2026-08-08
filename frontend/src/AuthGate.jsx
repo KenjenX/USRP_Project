@@ -5,6 +5,7 @@ import LoginPage from "./LoginPage.jsx";
 const AUTH_ME_URL = "/api/auth/me";
 const AUTH_LOGIN_URL = "/api/auth/login";
 const AUTH_LOGOUT_URL = "/api/auth/logout";
+const SCAN_STOP_URL = "/api/scan/stop";
 
 export default function AuthGate() {
   const [authState, setAuthState] = useState("checking");
@@ -74,21 +75,49 @@ export default function AuthGate() {
     }
   }, []);
 
-  const handleLogout = useCallback(async () => {
+  const handleLogout = useCallback(async ({
+    isScanning = false,
+    scanOwner = null,
+    onError,
+  } = {}) => {
     setIsLoggingOut(true);
 
     try {
+      if (isScanning) {
+        if (scanOwner !== "general" && scanOwner !== "specific") {
+          throw new Error("The active scan owner could not be determined.");
+        }
+
+        const stopResponse = await fetch(SCAN_STOP_URL, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ scan_owner: scanOwner }),
+        });
+        const stopData = await stopResponse.json();
+
+        if (!stopResponse.ok) {
+          throw new Error(stopData.detail || "Failed to stop the active scan.");
+        }
+      }
+
       const response = await fetch(AUTH_LOGOUT_URL, {
         method: "POST",
         credentials: "same-origin",
       });
 
-      if (!response.ok) return;
+      if (!response.ok) {
+        throw new Error("Failed to log out.");
+      }
 
       setLoginError("");
       setAuthState("unauthenticated");
-    } catch {
-      return;
+      return true;
+    } catch (error) {
+      onError?.(error.message);
+      return false;
     } finally {
       setIsLoggingOut(false);
     }

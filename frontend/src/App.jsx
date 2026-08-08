@@ -1968,6 +1968,15 @@ function App({ isLoggingOut = false, onLogout }) {
         : deviceBadgeStatus === "DISCONNECTED"
           ? "OFF"
           : "WAIT";
+  const handleLogout = useCallback(() => {
+    onLogout({
+      isScanning,
+      scanOwner,
+      onError: (message) => {
+        notify(message, "error", "logout-failed");
+      },
+    });
+  }, [isScanning, notify, onLogout, scanOwner]);
 
   return (
     <main className={`app-shell active-${activeTab}`}>
@@ -2012,7 +2021,7 @@ function App({ isLoggingOut = false, onLogout }) {
           <button
             type="button"
             className="logout-button"
-            onClick={onLogout}
+            onClick={handleLogout}
             disabled={isLoggingOut}
             aria-label="Log out"
             title="Log out"
