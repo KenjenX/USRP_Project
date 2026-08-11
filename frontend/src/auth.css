@@ -86,6 +86,62 @@
   opacity: 0.65;
 }
 
+.login-password-field {
+  position: relative;
+  min-width: 0;
+}
+
+.login-password-field input {
+  padding-right: 52px;
+}
+
+.login-password-field input::-ms-reveal,
+.login-password-field input::-ms-clear {
+  display: none;
+}
+
+.login-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  color: #9bbbe6;
+  background: transparent;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.login-password-toggle:hover:not(:disabled) {
+  color: #ffffff;
+  background: rgba(126, 173, 239, 0.12);
+}
+
+.login-password-toggle:focus-visible {
+  outline: 2px solid #7eadef;
+  outline-offset: -2px;
+}
+
+.login-password-toggle:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.login-password-toggle svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .login-error {
   min-height: 21px;
   margin-top: 7px;

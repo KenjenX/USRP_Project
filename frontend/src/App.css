@@ -4464,14 +4464,22 @@ body {
   padding: 18px;
 }
 
-.change-password-form label {
+.change-password-field {
   display: grid;
   min-width: 0;
   gap: 7px;
+}
+
+.change-password-form label {
   color: #c2c6cc;
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.03em;
+}
+
+.change-password-input-wrap {
+  position: relative;
+  min-width: 0;
 }
 
 .change-password-form input {
@@ -4479,7 +4487,7 @@ body {
   min-width: 0;
   height: 40px;
   box-sizing: border-box;
-  padding: 0 11px;
+  padding: 0 48px 0 11px;
   border: 1px solid #344976;
   border-radius: var(--radius-control);
   color: #ffffff;
@@ -4489,10 +4497,57 @@ body {
   letter-spacing: normal;
 }
 
+.change-password-form input::-ms-reveal,
+.change-password-form input::-ms-clear {
+  display: none;
+}
+
 .change-password-form input:focus {
   border-color: #3a68b7;
   outline: 2px solid rgba(58, 104, 183, 0.35);
   outline-offset: 1px;
+}
+
+.change-password-visibility-toggle {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  color: #9fb9dc;
+  background: transparent;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.change-password-visibility-toggle:hover:not(:disabled) {
+  color: #ffffff;
+  background: rgba(58, 104, 183, 0.2);
+}
+
+.change-password-visibility-toggle:focus-visible {
+  outline: 2px solid #7eadef;
+  outline-offset: -2px;
+}
+
+.change-password-visibility-toggle:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.change-password-visibility-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .change-password-actions {

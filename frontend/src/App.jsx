@@ -997,6 +997,25 @@ function ToastViewport({ toasts, onDismiss }) {
   );
 }
 
+function PasswordVisibilityIcon({ isVisible }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      {isVisible ? (
+        <>
+          <path d="m3 3 18 18" />
+          <path d="M10.6 6.2A10.7 10.7 0 0 1 12 6c6 0 9.5 6 9.5 6a16.7 16.7 0 0 1-3 3.7M6.2 6.2C3.8 7.8 2.5 12 2.5 12s3.5 6 9.5 6a9.9 9.9 0 0 0 3.1-.5" />
+          <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+        </>
+      ) : (
+        <>
+          <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+          <circle cx="12" cy="12" r="3" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 function ChangePasswordDialog({
   currentPassword,
   newPassword,
@@ -1008,6 +1027,10 @@ function ChangePasswordDialog({
   onClose,
   onSubmit,
 }) {
+  const [isCurrentPasswordVisible, setIsCurrentPasswordVisible] = useState(false);
+  const [isNewPasswordVisible, setIsNewPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
+
   useEffect(() => {
     function handleKeyDown(event) {
       if (event.key === "Escape" && !isPending) {
@@ -1044,42 +1067,102 @@ function ChangePasswordDialog({
         </header>
 
         <form className="change-password-form" onSubmit={onSubmit}>
-          <label htmlFor="current-password">
-            Current Password
-            <input
-              id="current-password"
-              type="password"
-              autoComplete="current-password"
-              value={currentPassword}
-              onChange={onCurrentPasswordChange}
-              disabled={isPending}
-              autoFocus
-            />
-          </label>
+          <div className="change-password-field">
+            <label htmlFor="current-password">Current Password</label>
+            <div className="change-password-input-wrap">
+              <input
+                id="current-password"
+                type={isCurrentPasswordVisible ? "text" : "password"}
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={onCurrentPasswordChange}
+                disabled={isPending}
+                autoFocus
+              />
+              <button
+                type="button"
+                className="change-password-visibility-toggle"
+                onClick={() => setIsCurrentPasswordVisible((visible) => !visible)}
+                disabled={isPending}
+                aria-label={
+                  isCurrentPasswordVisible
+                    ? "Hide current password"
+                    : "Show current password"
+                }
+                title={
+                  isCurrentPasswordVisible
+                    ? "Hide current password"
+                    : "Show current password"
+                }
+              >
+                <PasswordVisibilityIcon isVisible={isCurrentPasswordVisible} />
+              </button>
+            </div>
+          </div>
 
-          <label htmlFor="new-password">
-            New Password
-            <input
-              id="new-password"
-              type="password"
-              autoComplete="new-password"
-              value={newPassword}
-              onChange={onNewPasswordChange}
-              disabled={isPending}
-            />
-          </label>
+          <div className="change-password-field">
+            <label htmlFor="new-password">New Password</label>
+            <div className="change-password-input-wrap">
+              <input
+                id="new-password"
+                type={isNewPasswordVisible ? "text" : "password"}
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={onNewPasswordChange}
+                disabled={isPending}
+              />
+              <button
+                type="button"
+                className="change-password-visibility-toggle"
+                onClick={() => setIsNewPasswordVisible((visible) => !visible)}
+                disabled={isPending}
+                aria-label={
+                  isNewPasswordVisible
+                    ? "Hide new password"
+                    : "Show new password"
+                }
+                title={
+                  isNewPasswordVisible
+                    ? "Hide new password"
+                    : "Show new password"
+                }
+              >
+                <PasswordVisibilityIcon isVisible={isNewPasswordVisible} />
+              </button>
+            </div>
+          </div>
 
-          <label htmlFor="confirm-new-password">
-            Confirm New Password
-            <input
-              id="confirm-new-password"
-              type="password"
-              autoComplete="new-password"
-              value={confirmNewPassword}
-              onChange={onConfirmNewPasswordChange}
-              disabled={isPending}
-            />
-          </label>
+          <div className="change-password-field">
+            <label htmlFor="confirm-new-password">Confirm New Password</label>
+            <div className="change-password-input-wrap">
+              <input
+                id="confirm-new-password"
+                type={isConfirmPasswordVisible ? "text" : "password"}
+                autoComplete="new-password"
+                value={confirmNewPassword}
+                onChange={onConfirmNewPasswordChange}
+                disabled={isPending}
+              />
+              <button
+                type="button"
+                className="change-password-visibility-toggle"
+                onClick={() => setIsConfirmPasswordVisible((visible) => !visible)}
+                disabled={isPending}
+                aria-label={
+                  isConfirmPasswordVisible
+                    ? "Hide confirm new password"
+                    : "Show confirm new password"
+                }
+                title={
+                  isConfirmPasswordVisible
+                    ? "Hide confirm new password"
+                    : "Show confirm new password"
+                }
+              >
+                <PasswordVisibilityIcon isVisible={isConfirmPasswordVisible} />
+              </button>
+            </div>
+          </div>
 
           <div className="change-password-actions">
             <button
