@@ -35,7 +35,7 @@ def get_machine_or_404(machine_id: int, db: Session) -> Machine:
 def get_machines(db: Session = Depends(get_db)):
     return (
         db.query(Machine)
-        .order_by(Machine.id.desc())
+        .order_by(Machine.id.asc())
         .all()
     )
 
