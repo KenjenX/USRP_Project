@@ -1628,10 +1628,7 @@ function SpecificChannelPage({
                         {machineChannelCounts[machine.id] ?? 0}
                       </strong>
 
-                      <span
-                        className="machine-row-actions"
-                        onClick={(event) => event.stopPropagation()}
-                      >
+                      <span className="machine-row-actions">
                         <button
                           type="button"
                           className="select"
@@ -1641,7 +1638,8 @@ function SpecificChannelPage({
                             scanSelectedMachineId !== null &&
                             Number(machine.id) !== Number(scanSelectedMachineId)
                           }
-                          onClick={() => {
+                          onClick={(event) => {
+                            event.stopPropagation();
                             setHighlightedMachineId(machine.id);
                             selectMachine(machine);
                           }}
@@ -1650,7 +1648,10 @@ function SpecificChannelPage({
                         </button>
                         <button
                           type="button"
-                          onClick={() => startEditMachine(machine)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            startEditMachine(machine);
+                          }}
                         >
                           EDIT
                         </button>
@@ -1658,7 +1659,10 @@ function SpecificChannelPage({
                           type="button"
                           className="danger"
                           disabled={busyAction === `delete-machine-${machine.id}`}
-                          onClick={() => handleDeleteMachine(machine)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDeleteMachine(machine);
+                          }}
                         >
                           DELETE
                         </button>
