@@ -4333,10 +4333,10 @@ body {
   top: calc(var(--layout-header-height) + 18px);
   right: 18px;
   display: grid;
-  width: min(360px, calc(100vw - 32px));
+  width: min(400px, calc(100vw - 32px));
   max-height: calc(100vh - var(--layout-header-height) - 36px);
   max-height: calc(100dvh - var(--layout-header-height) - 36px);
-  gap: 8px;
+  gap: 10px;
   overflow-y: auto;
   overscroll-behavior: contain;
   pointer-events: none;
@@ -4344,10 +4344,11 @@ body {
 
 .toast {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 11px 12px;
+  min-height: 64px;
+  padding: 14px;
   min-width: 0;
   border: 1px solid #3a68b7;
   border-left: 4px solid #3a68b7;
@@ -4358,13 +4359,32 @@ body {
     0 16px 38px rgba(1, 8, 20, 0.68),
     0 0 0 1px rgba(58, 104, 183, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.45;
+  animation: toast-enter 190ms cubic-bezier(0.2, 0.75, 0.3, 1) both;
   pointer-events: auto;
 }
 
+.toast::before {
+  content: "i";
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border: 1px solid rgba(58, 104, 183, 0.72);
+  border-radius: 50%;
+  color: #3a68b7;
+  background: rgba(58, 104, 183, 0.16);
+  font-family: var(--font-heading);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .toast span {
+  flex: 1 1 auto;
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -4372,6 +4392,13 @@ body {
 .toast-success {
   border-color: #3a68b7;
   border-left-color: #00d52c;
+}
+
+.toast-success::before {
+  content: "✓";
+  border-color: rgba(0, 213, 44, 0.68);
+  color: #00d52c;
+  background: rgba(0, 213, 44, 0.12);
 }
 
 .toast-info {
@@ -4385,10 +4412,24 @@ body {
   color: var(--text-secondary);
 }
 
+.toast-warning::before {
+  content: "!";
+  border-color: #37517f;
+  color: #c2c6cc;
+  background: rgba(194, 198, 204, 0.08);
+}
+
 .toast-error {
   border-color: var(--state-error);
   border-left-color: var(--state-error);
   background: var(--state-error-dark);
+}
+
+.toast-error::before {
+  content: "×";
+  border-color: rgba(239, 0, 0, 0.68);
+  color: #ef0000;
+  background: rgba(239, 0, 0, 0.12);
 }
 
 .toast button {
@@ -4411,6 +4452,24 @@ body {
 .toast button:focus-visible {
   outline: 2px solid var(--text-primary);
   outline-offset: 2px;
+}
+
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
 }
 
 @media (max-width: 520px) {
