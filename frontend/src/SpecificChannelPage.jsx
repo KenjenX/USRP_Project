@@ -630,6 +630,7 @@ function SpecificChannelPage({
 }) {
   const [machines, setMachines] = useState([]);
   const [selectedMachineId, setSelectedMachineId] = useState(null);
+  const [highlightedMachineId, setHighlightedMachineId] = useState(null);
   const [channels, setChannels] = useState([]);
 
   const [machineForm, setMachineForm] = useState({
@@ -661,6 +662,8 @@ function SpecificChannelPage({
   const [machineSearch, setMachineSearch] = useState("");
   const [channelSearch, setChannelSearch] = useState("");
   const [machineChannelCounts, setMachineChannelCounts] = useState({});
+
+  const displayedHighlightId = highlightedMachineId ?? selectedMachineId;
 
   const selectedMachine = useMemo(
     () =>
@@ -1087,6 +1090,10 @@ function SpecificChannelPage({
         resetChannelForm();
         setWorkspaceView("machines");
       }
+
+      setHighlightedMachineId((previousMachineId) =>
+        previousMachineId === machine.id ? null : previousMachineId
+      );
 
       await loadMachines();
       onNotify?.("Machine deleted.", "success", "machine-deleted");
@@ -1591,9 +1598,20 @@ function SpecificChannelPage({
                   filteredMachines.map((machine, index) => (
                     <article
                       className={`specific-machine-table-row ${
-                        selectedMachineId === machine.id ? "selected" : ""
+                        displayedHighlightId === machine.id ? "selected" : ""
                       }`}
                       key={machine.id}
+                      tabIndex={0}
+                      onClick={() => setHighlightedMachineId(machine.id)}
+                      onKeyDown={(event) => {
+                        if (
+                          event.target === event.currentTarget &&
+                          (event.key === "Enter" || event.key === " ")
+                        ) {
+                          event.preventDefault();
+                          setHighlightedMachineId(machine.id);
+                        }
+                      }}
                     >
                       <span className="machine-row-number">{index + 1}</span>
 
@@ -1610,7 +1628,10 @@ function SpecificChannelPage({
                         {machineChannelCounts[machine.id] ?? 0}
                       </strong>
 
-                      <span className="machine-row-actions">
+                      <span
+                        className="machine-row-actions"
+                        onClick={(event) => event.stopPropagation()}
+                      >
                         <button
                           type="button"
                           className="select"
@@ -1620,7 +1641,10 @@ function SpecificChannelPage({
                             scanSelectedMachineId !== null &&
                             Number(machine.id) !== Number(scanSelectedMachineId)
                           }
-                          onClick={() => selectMachine(machine)}
+                          onClick={() => {
+                            setHighlightedMachineId(machine.id);
+                            selectMachine(machine);
+                          }}
                         >
                           SELECT
                         </button>
