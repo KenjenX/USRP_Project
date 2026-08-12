@@ -122,32 +122,60 @@ UHD runs outside the web server process. This keeps native hardware interaction 
 - `machines`: named monitored equipment records
 - `channels`: cellular channel targets belonging to a Machine
 
-## USRP Hardware and Scanner Configuration
+## USRP Hardware and Current Scanner Configuration
 
 A UHD-compatible USRP B210 is required for live acquisition. The B210 provides two RX channels. This project uses the `RX2` receive input and 35 dB RX gain as its established RF configuration.
 
-Before live acquisition, configure the backend USRP values in `backend/main.py`:
+Before live acquisition, configure the USRP values in `backend/main.py`:
 
 ```python
-USRP_SERIAL = ""
+USRP_SERIAL = "SET_DEVICE_SERIAL"
 CHANNEL = 0
 RX_ANTENNA = "RX2"
 GAIN_DB = 35
 ```
 
-Set `USRP_SERIAL` to the serial number reported by `uhd_find_devices`.
+`USRP_SERIAL = "SET_DEVICE_SERIAL"` is a placeholder for a new installation and must be replaced with the serial number of the B210 connected to the system.
 
-`CHANNEL` defaults to `0` and may be changed to `1` according to the RX channel being used on the connected B210. The scanner uses one selected RX channel at a time.
+`CHANNEL` defaults to `0` and may be changed to `1` when the other RX channel is used. The scanner uses one selected RX channel at a time.
 
 `RX_ANTENNA = "RX2"` and `GAIN_DB = 35` are the project's fixed RF operating configuration and normally do not need to be changed.
 
-Generic UHD discovery and inspection commands include:
+### Finding the USRP Serial on Windows
 
-```powershell
-uhd_find_devices
-uhd_usrp_probe
-uhd_usrp_probe --args="serial=<device-serial>"
+If UHD commands are not available globally from PowerShell or Command Prompt, open Command Prompt and change to the UHD binary directory:
+
+```cmd
+cd /d "C:\Program Files\UHD\bin"
 ```
+
+Detect connected UHD devices:
+
+```cmd
+uhd_find_devices.exe
+```
+
+Find the USRP B210 entry and note the value shown after:
+
+```text
+serial: <device-serial>
+```
+
+Replace the placeholder in `backend/main.py`:
+
+```python
+USRP_SERIAL = "<device-serial>"
+```
+
+Restart the backend after changing the serial.
+
+To inspect the connected B210 in more detail, run:
+
+```cmd
+uhd_usrp_probe.exe --args="serial=<device-serial>"
+```
+
+The probe can be used to verify that the B210 is recognized by UHD and to inspect its available RX channels and hardware capabilities.
 
 ## Project Structure
 

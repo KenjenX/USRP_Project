@@ -45,7 +45,7 @@ from backend.spectrum_stream import SpectrumStreamManager
 # USRP CONFIGURATION
 # =========================
 # Set this to the serial number shown by `uhd_find_devices`.
-USRP_SERIAL = ""
+USRP_SERIAL = "SET_DEVICE_SERIAL"
 # Select the RX channel used by the connected B210.
 # Valid values: 0 or 1.
 CHANNEL = 0
