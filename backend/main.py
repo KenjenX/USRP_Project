@@ -39,13 +39,21 @@ from backend.scanner_worker import (
 )
 from backend.spectrum_stream import SpectrumStreamManager
 
+
+
 # =========================
-# KONFIGURASI USRP
+# USRP CONFIGURATION
 # =========================
-USRP_SERIAL = "8004374"
+# Set this to the serial number shown by `uhd_find_devices`.
+USRP_SERIAL = ""
+# Select the RX channel used by the connected B210.
+# Valid values: 0 or 1.
 CHANNEL = 0
+# Project RF configuration.
 RX_ANTENNA = "RX2"
 GAIN_DB = 35
+
+
 
 # Jumlah sample FFT per window sweep.
 # Semakin besar nilainya, resolusi frekuensi semakin detail,

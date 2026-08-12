@@ -2,149 +2,216 @@
 
 ## Overview
 
-This project is a web-based spectrum monitoring system built for the USRP B210. The backend acquires IQ samples through UHD, processes them with FFT, detects frequency bins above a configurable threshold, and maps detected frequencies to GSM, UMTS, LTE, and NR band candidates.
+This project is a responsive web application for monitoring the 50–6000 MHz spectrum with a USRP B210. It provides General and Specific scan modes, an autonomous rolling sweep, threshold-point detection, GSM/UMTS/LTE/NR candidate classification, Machine and Channel management, and authenticated local administrator access.
 
-The application provides two scan modes:
+Cellular classification is frequency and channel-plan candidate matching. It does not demodulate cellular protocols, decode network traffic, or prove that a cellular service is active. Spectrum power uses the project's empirical reference display scale for visualization and threshold comparison; values are not calibrated laboratory dBm.
 
-- **General Scan** monitors a user-defined frequency range.
-- **Specific Scan** monitors the channel targets stored for a selected Machine.
+## Features
 
-A classification candidate indicates that a detected frequency matches a known cellular band or channel range. It does not confirm that a particular cellular service is active.
+### Spectrum acquisition and processing
 
-## Main Features
+- 50–6000 MHz monitoring range.
+- Autonomous continuous stepped sweep until Stop is requested.
+- Isolated UHD worker process with persistent device, RX streamer, metadata, and receive-buffer resources.
+- 20 MHz acquisition/hop policy for requested spans below 100 MHz.
+- 56 MHz acquisition/hop policy for spans of 100 MHz or wider.
+- 1,024 complex IQ samples and a 1,024-point FFT per hop.
+- Symmetric Hann window and FFT frequency shift.
+- 2 ms settling delay after each center-frequency change.
+- Latest committed spectrum snapshots delivered independently of acquisition.
 
-### Spectrum acquisition
+### Threshold detection and classification
 
-- Frequency scanning from 50 MHz to 6000 MHz.
-- Continuous rolling stepped sweep until the active scan is stopped.
-- Separate UHD worker process for SDR access.
-- RX streamer reuse across compatible sweep hops during a scan.
-- 20 MHz sweep policy for spans below 100 MHz.
-- 56 MHz sweep policy for wider spans.
-- 1,024 IQ samples and a 1,024-point FFT per hop.
-- Hann-window FFT processing.
-- 2 ms tuner-settle delay after each frequency change.
+Every FFT bin whose power passes the configured threshold is an independent detection candidate. Neighboring threshold-passing bins are not clustered or deduplicated. There is no merge-gap grouping, signal clustering, or one-peak-per-signal reduction.
 
-### Detection and classification
+Each eligible bin is matched against frequency/channel definitions for:
 
-- Configurable threshold in the displayed power scale.
-- Every FFT bin above the threshold remains independently eligible for detection.
-- No active clustering, peak grouping, peak merging, or merge-gap processing.
-- GSM, UMTS, LTE, and NR frequency-band classification.
-- Current-session detection history and spectrum details.
+- GSM / 2G
+- UMTS / 3G
+- LTE / 4G
+- NR / 5G
 
-### Scan modes
+### General Scan
 
-- General Scan for a user-defined frequency range.
-- Specific Scan for channel targets associated with a selected Machine.
-- Per-channel measured power and ON/OFF status in Specific Scan.
-- Isolation between General and Specific results.
-- One active scan owner at a time to prevent concurrent SDR access.
+- Operator-selected start and end frequencies.
+- Configurable display-scale threshold.
+- Autonomous rolling sweep with start and stop controls.
+- Realtime shared-Canvas spectrum view.
+- Detection count, current-session detection list, candidate classification, sweep progress, completed cycles, and last-window state.
+- WebSocket spectrum updates with REST snapshot fallback.
 
-### Data management and interface
+### Specific Scan
 
-- Machine CRUD.
-- Channel CRUD.
-- Channel lookup using supported technology, profile, and channel-number inputs.
-- Passive USRP connection-status detection.
-- Realtime spectrum transport over WebSocket.
-- REST spectrum snapshot fallback when the WebSocket connection is unavailable.
-- Shared Canvas-based spectrum renderer for General and Specific Scan.
+- Selects a stored Machine and uses its associated Channels as scan targets.
+- Handles available downlink (DL) and uplink (UL) target frequencies.
+- Measures each target from the nearest FFT bin, including targets below the threshold.
+- Reports measured power and `ON`, `OFF`, or `NOT SCANNED` state.
+- Keeps Specific results isolated from General results and from other Machines.
+- Enforces one General or Specific scan owner at a time.
 
-## System Architecture
+### Data management
+
+- Machine create, read, update, and delete operations.
+- Channel create, read, update, and delete operations.
+- Channel lookup by supported technology/profile and FCN.
+- One-to-many Machine-to-Channel relationship with cascading Channel deletion.
+- MySQL/MariaDB-compatible persistence through SQLAlchemy and PyMySQL.
+
+### Authentication and interface
+
+- Local/internal administrator login, session check, password change, and logout.
+- Argon2 password hashing.
+- Signed HttpOnly session cookie.
+- Protected application API routes and authenticated spectrum WebSocket.
+- Safe logout that stops an active General or Specific scan before clearing the session.
+- Independent password visibility controls for login and each Change Password field.
+- Responsive desktop, tablet, and mobile web layouts, including compact navigation, scan panels, Machine cards, Login, and Change Password views.
+
+## Architecture
 
 ```text
-USRP B210
-  -> UHD worker process
-  -> FastAPI scan controller and committed spectrum state
-  -> WebSocket stream or REST snapshot fallback
-  -> React frontend
-  -> shared SpectrumCanvas renderer
+Browser
+  -> authentication gate and signed session
+  -> React General / Specific scan interface
+  -> FastAPI backend
+  -> autonomous scan controller
+  -> isolated persistent UHD worker
+  -> USRP B210
+  -> IQ samples
+  -> Hann window + 1,024-point FFT + frequency shift
+  -> reference display-power processing
+  -> independent threshold-point detection and candidate classification
+  -> committed backend scan state
+  -> authenticated WebSocket or REST snapshot
+  -> React state
+  -> shared Canvas 2D spectrum renderer
 ```
 
-The backend controls the rolling sweep independently of frontend polling. During an active scan, the UHD worker remains available across sweep hops and reuses the RX streamer while the sample-rate configuration remains compatible.
+The frontend does not drive acquisition by polling. FastAPI owns the scan lifecycle and commits state after completed acquisition windows. A bounded WebSocket fan-out sends each client the latest available snapshot; REST remains a read-only fallback.
 
-After each completed window, the backend commits the latest spectrum state. Connected clients receive that state through WebSocket, while REST snapshots remain available as a fallback transport.
+UHD runs outside the web server process. This keeps native hardware interaction separated from FastAPI, permits device and streamer reuse throughout a scan, and allows the parent process to handle worker failure or hardware disconnect cleanup without running UHD directly in the API process.
 
 ## Technology Stack
 
 ### Backend
 
 - Python
-- FastAPI
-- Uvicorn
+- FastAPI and Uvicorn
 - UHD Python API
-- NumPy
-- Pydantic
-- SQLAlchemy
-- PyMySQL
+- NumPy and Pydantic
+- SQLAlchemy and PyMySQL
 - python-dotenv
+- pwdlib with Argon2
+- itsdangerous and Starlette session support
+- WebSockets
+- Python multiprocessing and threading primitives
 
 ### Frontend
 
-- React
-- React DOM
+- React and React DOM
 - Vite
-- CSS
+- Native Fetch and WebSocket APIs
 - Canvas 2D
-- WebSocket
+- Responsive CSS
+- Chakra Petch and Jost fonts
 
-### Database and hardware
+### Database
 
-- MySQL-compatible database through PyMySQL
-- USRP B210
-- RX channel 0
-- RX2 antenna input
-- USB 3 connection recommended for deployment
+- MySQL/MariaDB-compatible database
+- `users`: local administrator identities and password hashes
+- `machines`: named monitored equipment records
+- `channels`: cellular channel targets belonging to a Machine
+
+## USRP Hardware and Scanner Configuration
+
+A UHD-compatible USRP B210 is required for live acquisition. The B210 provides two RX channels. This project uses the `RX2` receive input and 35 dB RX gain as its established RF configuration.
+
+Before live acquisition, configure the backend USRP values in `backend/main.py`:
+
+```python
+USRP_SERIAL = ""
+CHANNEL = 0
+RX_ANTENNA = "RX2"
+GAIN_DB = 35
+```
+
+Set `USRP_SERIAL` to the serial number reported by `uhd_find_devices`.
+
+`CHANNEL` defaults to `0` and may be changed to `1` according to the RX channel being used on the connected B210. The scanner uses one selected RX channel at a time.
+
+`RX_ANTENNA = "RX2"` and `GAIN_DB = 35` are the project's fixed RF operating configuration and normally do not need to be changed.
+
+Generic UHD discovery and inspection commands include:
+
+```powershell
+uhd_find_devices
+uhd_usrp_probe
+uhd_usrp_probe --args="serial=<device-serial>"
+```
 
 ## Project Structure
 
 ```text
 .
-├── backend/
-│   ├── main.py
-│   ├── scanner_worker.py
-│   ├── spectrum_stream.py
-│   ├── database.py
-│   ├── models.py
-│   ├── schemas.py
-│   ├── machine_routes.py
-│   ├── channel_routes.py
-│   ├── channel_lookup_routes.py
-│   └── *_classifier.py
-├── frontend/
-│   ├── src/
-│   │   ├── main.jsx
-│   │   ├── App.jsx
-│   │   ├── SpecificChannelPage.jsx
-│   │   ├── SpectrumCanvas.jsx
-│   │   ├── useSpectrumStream.js
-│   │   └── spectrumTransport.js
-│   ├── test/
-│   └── package.json
-├── tests/
-├── requirements.txt
-└── README.md
+|-- backend/
+|   |-- main.py
+|   |-- scanner_worker.py
+|   |-- spectrum_stream.py
+|   |-- database.py
+|   |-- models.py
+|   |-- schemas.py
+|   |-- auth_security.py
+|   |-- auth_session.py
+|   |-- auth_middleware.py
+|   |-- auth_routes.py
+|   |-- bootstrap_admin.py
+|   |-- migrations/
+|   |   `-- 20260807_create_users.sql
+|   |-- machine_routes.py
+|   |-- channel_routes.py
+|   |-- channel_lookup.py
+|   |-- channel_lookup_routes.py
+|   |-- gsm_classifier.py
+|   |-- umts_classifier.py
+|   |-- lte_classifier.py
+|   `-- nr_classifier.py
+|-- frontend/
+|   |-- src/
+|   |   |-- main.jsx
+|   |   |-- AuthGate.jsx
+|   |   |-- LoginPage.jsx
+|   |   |-- App.jsx
+|   |   |-- SpecificChannelPage.jsx
+|   |   |-- SpectrumCanvas.jsx
+|   |   |-- useSpectrumStream.js
+|   |   `-- spectrumTransport.js
+|   |-- test/
+|   `-- package.json
+|-- tests/
+|-- requirements.txt
+`-- README.md
 ```
+
+Generated dependencies, build output, caches, virtual environments, and local data are omitted.
 
 ## Requirements
 
-- Python and the packages listed in `requirements.txt`.
+- Python and the packages in `requirements.txt`.
 - Node.js and npm.
-- UHD with the UHD Python API available in the backend environment.
+- UHD and its Python API available to the backend environment.
 - A connected USRP B210 for live spectrum acquisition.
-- A MySQL-compatible database accessible through PyMySQL.
+- An accessible MySQL/MariaDB-compatible database.
 
 ## Installation
 
-Clone the repository and enter the project directory:
+Clone the repository using a non-identifying repository URL:
 
 ```powershell
 git clone <repository-url>
 cd <project-folder>
 ```
 
-Create and activate a Python virtual environment:
+Create the backend environment and install dependencies:
 
 ```powershell
 python -m venv .venv
@@ -152,7 +219,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Install the frontend dependencies:
+Install frontend dependencies:
 
 ```powershell
 cd frontend
@@ -161,11 +228,9 @@ npm install
 
 ## Database Configuration
 
-The backend reads database settings from a root `.env` file through `backend/database.py`.
+`backend/database.py` loads a project-root `.env` file and reads the following settings:
 
-Create the file locally with the following variables:
-
-```text
+```dotenv
 DB_HOST=<database-host>
 DB_PORT=<database-port>
 DB_NAME=<database-name>
@@ -173,147 +238,149 @@ DB_USER=<database-user>
 DB_PASSWORD=<database-password>
 ```
 
-Equivalent connection format:
+Equivalent connection-string form:
 
 ```text
 mysql+pymysql://<database-user>:<database-password>@<database-host>:<database-port>/<database-name>
 ```
 
-Keep the `.env` file local and do not commit database credentials.
+Keep `.env` private and outside version control. Normal application startup does not create tables or run complete database migrations; provision the `users`, `machines`, and `channels` tables before use.
 
-The application does not currently provide an automatic database migration workflow at startup. Required tables must already be available before using Machine and Channel features.
+## Authentication Configuration
 
-## Running the Application
+The backend requires a session-signing secret in the project-root `.env` file:
 
-Start the backend from the project root:
+```dotenv
+SESSION_SECRET=<session-secret>
+```
+
+Keep this value private and never commit it. The implementation requires at least 32 characters and at least 8 distinct characters.
+
+Apply the tracked users-table migration through the database administration workflow:
+
+```text
+backend/migrations/20260807_create_users.sql
+```
+
+Then create the local administrator interactively from the project root:
 
 ```powershell
-python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+python -m backend.bootstrap_admin
 ```
 
-The backend is available at:
+The command prompts locally for an administrator username, password, and confirmation. Credentials are not repository configuration.
 
-```text
-http://127.0.0.1:8000
+## Local Development
+
+Start FastAPI from the project root:
+
+```powershell
+python -m uvicorn backend.main:app --host localhost --port 8000
 ```
 
-FastAPI interactive documentation is available at:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-Start the frontend in a separate terminal:
+Start Vite in another terminal:
 
 ```powershell
 cd frontend
 npm run dev
 ```
 
-The development frontend normally runs on port `5173`. The backend allows the following local origins:
+Vite normally serves the development frontend on port `5173`. Frontend code uses relative `/api` requests. During development, Vite proxies both HTTP and WebSocket `/api` traffic to FastAPI on port `8000`. These commands describe the local development workflow.
 
-```text
-http://localhost:5173
-http://127.0.0.1:5173
-```
+## Authentication Flow
 
-## Main API and Transport
+- `POST /api/auth/login` verifies the local administrator credentials and creates a signed session.
+- `GET /api/auth/me` checks the current session and returns the authenticated identity.
+- `POST /api/auth/change-password` requires authentication and verifies the current password. The new password must be 8–128 characters and differ from the current password. It is stored using Argon2, and the current session remains active after success.
+- `POST /api/auth/logout` clears the session. The frontend first stops an active scan using its current General/Specific owner.
+- Application API access requires a valid session, and unauthenticated spectrum WebSocket connections are rejected.
 
-| Method | Interface | Purpose |
-|---|---|---|
-| `GET` | `/` | Basic API and device information |
-| `GET` | `/api/device/status` | Passive SDR connection status |
-| `GET` | `/api/device` | Compatibility alias for device status |
-| `GET` | `/api/status` | Scan state and rolling-sweep progress |
-| `POST` | `/api/scan/start` | Start a General or Specific Scan |
-| `POST` | `/api/scan/stop` | Stop the active scan for its owner |
-| `GET` | `/api/scan/results` | Current-session detections, channel measurements, and preview data |
-| `GET` | `/api/spectrum` | Latest committed spectrum snapshot |
-| `WS` | `/api/spectrum/stream` | Primary realtime spectrum transport |
-| `GET`, `POST` | `/api/machines` | List or create Machines |
-| `GET`, `PUT`, `DELETE` | `/api/machines/{machine_id}` | Read, update, or delete a Machine |
-| `GET`, `POST` | `/api/machines/{machine_id}/channels` | List or create Channels for a Machine |
-| `GET`, `PUT`, `DELETE` | `/api/channels/{channel_id}` | Read, update, or delete a Channel |
-| `GET` | `/api/channel-lookup` | Resolve supported channel candidates |
+The current implementation intentionally does not include registration, OAuth, JWT, role-based access control, email recovery, or password-reset workflows.
+
+## API and Transport
+
+| Group | Method | Path | Purpose |
+|---|---|---|---|
+| Authentication | `POST` | `/api/auth/login` | Verify credentials and create a session |
+| Authentication | `GET` | `/api/auth/me` | Check the current session |
+| Authentication | `POST` | `/api/auth/change-password` | Replace the authenticated administrator password |
+| Authentication | `POST` | `/api/auth/logout` | Clear the current session |
+| Device | `GET` | `/api/device/status` | Read passive SDR connection state |
+| Device | `GET` | `/api/device` | Compatibility alias for device status |
+| Scanner | `GET` | `/api/status` | Read scanner, progress, and cycle state |
+| Scanner | `POST` | `/api/scan/start` | Start a General or Specific rolling scan |
+| Scanner | `POST` | `/api/scan/stop` | Stop the active scan for its owner |
+| Scanner | `GET` | `/api/scan/results` | Read current-session detections, measurements, and preview |
+| Spectrum | `GET` | `/api/spectrum` | Read the latest committed spectrum snapshot |
+| Spectrum | `WS` | `/api/spectrum/stream` | Receive authenticated realtime spectrum snapshots |
+| Machines | `GET`, `POST` | `/api/machines` | List or create Machines |
+| Machines | `GET`, `PUT`, `DELETE` | `/api/machines/{machine_id}` | Read, update, or delete a Machine |
+| Channels | `GET`, `POST` | `/api/machines/{machine_id}/channels` | List or create Channels for a Machine |
+| Channels | `GET`, `PUT`, `DELETE` | `/api/channels/{channel_id}` | Read, update, or delete a Channel |
+| Lookup | `GET` | `/api/channel-lookup` | Resolve supported technology/profile and FCN candidates |
+
+The WebSocket stream uses bounded per-client queues and replaces stale queued frames with the latest committed snapshot. Client-side session, scan-owner, and selected-Machine checks reject mismatched snapshots. If the WebSocket is unavailable or unhealthy, the frontend polls the read-only spectrum endpoint instead.
 
 ## Scan Behavior
 
-The backend divides the requested frequency range into stepped windows and repeats the sweep until the scan is stopped.
+The backend validates the requested range, derives ordered hop centers, and advances through them in an autonomous controller thread. A completed pass increments the cycle count and immediately begins another pass until Stop or a lifecycle/acquisition error.
 
-- Spans below 100 MHz use the 20 MHz sweep policy.
-- Wider spans use the 56 MHz sweep policy.
-- Each hop acquires 1,024 IQ samples.
-- A Hann window is applied before the 1,024-point FFT.
-- The tuner waits 2 ms after changing center frequency.
-- The FFT output is shifted into frequency order before display and detection.
+- Spans below 100 MHz use the 20 MHz policy.
+- Spans of 100 MHz or wider use the 56 MHz policy.
+- Each hop acquires 1,024 IQ samples after a 2 ms tuner settle.
+- A symmetric Hann window is applied before the FFT.
+- FFT output is shifted into frequency order and cropped to the requested range.
+- FFT magnitude-squared power is converted to the project's empirical reference display scale.
 
-The displayed power uses an empirical reference-style conversion intended for visualization and threshold-based monitoring. It must not be interpreted as calibrated laboratory dBm.
+Every threshold-passing FFT bin remains independently eligible for detection and classification, including adjacent bins. No clustering, merge-gap processing, or peak-only grouping is active.
 
-Every FFT bin above the configured threshold remains independently eligible for detection and classification.
+For Specific Scan, the backend snapshots the selected Machine's stored DL/UL targets when the scan starts. Each target is measured from the nearest in-range FFT bin. Measurement remains available below the threshold so the UI can derive `ON`/`OFF`; targets not yet covered remain `NOT SCANNED`.
 
-### General Scan
+## Responsive Web Interface
 
-General Scan accepts a user-defined frequency range and reports detections across that range.
+Responsive behavior is implemented in the React/CSS frontend. Layouts adapt across desktop, tablet, and narrow mobile portrait widths, including approximately 360–412 px. The application provides compact mobile header/navigation behavior, responsive General and Specific scan views, mobile Machine cards/action controls, and responsive Login and Change Password interfaces. This is a responsive website, not a native mobile application.
 
-### Specific Scan
+## Test Inventory
 
-Specific Scan uses the Channels stored for the selected Machine as measurement targets. It reports measured power and ON/OFF status for each target while keeping the result isolated from General Scan data and from other Machines.
+The tracked source contains **86 statically visible test cases across 10 files**:
 
-## Automated Tests
+| Area | File | Cases |
+|---|---|---:|
+| Authentication | `backend/test_authentication.py` | 17 |
+| Spectrum stream manager | `backend/test_spectrum_stream.py` | 5 |
+| Spectrum WebSocket endpoint | `backend/test_spectrum_stream_endpoint.py` | 1 |
+| Autonomous lifecycle | `tests/test_autonomous_lifecycle.py` | 23 |
+| Reference fast scan | `tests/test_reference_fast_scan.py` | 9 |
+| Reference power scale | `tests/test_reference_power_scale.py` | 7 |
+| General spectrum preview | `frontend/test/generalSpectrumPreview.test.mjs` | 9 |
+| Spectrum Canvas layout | `frontend/test/spectrumCanvasLayout.test.mjs` | 7 |
+| Spectrum chart scale | `frontend/test/spectrumChartScale.test.mjs` | 4 |
+| Spectrum transport | `frontend/test/spectrumTransport.test.mjs` | 4 |
 
-Python regression tests include:
+This inventory comprises 62 Python `unittest` cases and 24 frontend Node `node:test` cases. It describes test coverage present in source and is not a claim that the suite was executed for this documentation update.
 
-```text
-backend/test_spectrum_stream.py
-backend/test_spectrum_stream_endpoint.py
-tests/test_autonomous_lifecycle.py
-tests/test_reference_fast_scan.py
-tests/test_reference_power_scale.py
-```
+## Limitations
 
-Frontend regression tests include:
-
-```text
-frontend/test/generalSpectrumPreview.test.mjs
-frontend/test/spectrumCanvasLayout.test.mjs
-frontend/test/spectrumChartScale.test.mjs
-frontend/test/spectrumTransport.test.mjs
-```
-
-The Python tests use `unittest` and mocking so that most regression checks do not require connected SDR hardware. The frontend tests use Node's built-in `node:test` module.
-
-## Technical Limitations
-
-- The full 50–6000 MHz range cannot be captured instantaneously and must be scanned in stepped windows.
-- Scan startup depends on the passive USB detector reporting that the USRP is connected.
+- The system is designed around a UHD-compatible USRP B210.
+- The complete 50–6000 MHz range cannot be captured simultaneously and is scanned in steps.
+- Displayed power is a reference visualization scale, not calibrated RF dBm.
+- Cellular results are frequency/channel candidates, not decoded protocols or confirmed services.
 - Only one General or Specific scan owner can use the SDR at a time.
-- Sweep and tuning performance depend on UHD, USB throughput, and USRP hardware behavior.
-- Displayed power is an empirical visualization scale, not calibrated laboratory dBm.
-- The frontend API address currently targets the local backend at `127.0.0.1:8000`.
-- User authentication is not implemented.
-- Automatic database migration is not currently performed at application startup.
+- Sweep behavior depends on UHD, USB transport, host performance, physical RF connections, and backend-defined hardware settings.
+- Authentication is intentionally a local/internal administrator model without recovery or multi-role administration.
+- Database provisioning and migrations are not automatically completed at normal startup.
 
-## Current Development Status
+## Project Status
 
-Implemented and validated features include:
+The web implementation is functionally complete and includes:
 
-- General and Specific Scan.
-- Autonomous continuous rolling sweep.
-- Separate UHD worker process.
-- Persistent RX streamer across compatible sweep hops.
-- Hann-window FFT processing.
-- Threshold-point detection without clustering.
-- GSM, UMTS, LTE, and NR classification.
-- Machine and Channel management.
-- Per-channel measurement and status reporting.
-- Realtime WebSocket spectrum transport.
-- REST fallback transport.
-- Shared Canvas spectrum renderer.
-- Passive USRP connection detection.
-- Automated backend and frontend regression tests.
-
-## Planned Work
-
-- User login and authentication.
-- Improved responsive layout for Android and mobile portrait screens.
-- Mobile top-bar and navigation optimization.
+- General and Specific scanning.
+- Autonomous rolling sweep and passive device detection.
+- Isolated UHD worker with persistent acquisition resources.
+- Hann-window FFT and reference display-power processing.
+- Independent threshold-point detection and GSM/UMTS/LTE/NR candidate classification.
+- Machine/Channel CRUD, lookup, and Specific target measurements.
+- Authenticated WebSocket transport with REST fallback.
+- Shared Canvas spectrum renderer and responsive web UI.
+- Administrator authentication, Change Password, password visibility controls, and safe logout.
+- Backend and frontend automated test suites.
