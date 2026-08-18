@@ -60,7 +60,7 @@ Each eligible bin is matched against frequency/channel definitions for:
 ### Authentication and interface
 
 - Local/internal administrator login, session check, password change, and logout.
-- Argon2 password hashing.
+- Plaintext administrator password stored in the local `users.password` column and managed through MySQL/MariaDB.
 - Signed HttpOnly session cookie.
 - Protected application API routes and authenticated spectrum WebSocket.
 - Safe logout that stops an active General or Specific scan before clearing the session.
@@ -101,7 +101,6 @@ UHD runs outside the web server process. This keeps native hardware interaction 
 - NumPy and Pydantic
 - SQLAlchemy and PyMySQL
 - python-dotenv
-- pwdlib with Argon2
 - itsdangerous and Starlette session support
 - WebSockets
 - Python multiprocessing and threading primitives
@@ -118,7 +117,7 @@ UHD runs outside the web server process. This keeps native hardware interaction 
 ### Database
 
 - MySQL/MariaDB-compatible database
-- `users`: local administrator identities and password hashes
+- `users`: local administrator identities and plaintext passwords
 - `machines`: named monitored equipment records
 - `channels`: cellular channel targets belonging to a Machine
 
@@ -188,7 +187,6 @@ The probe can be used to verify that the B210 is recognized by UHD and to inspec
 |   |-- database.py
 |   |-- models.py
 |   |-- schemas.py
-|   |-- auth_security.py
 |   |-- auth_session.py
 |   |-- auth_middleware.py
 |   |-- auth_routes.py
@@ -296,7 +294,7 @@ Then create the local administrator interactively from the project root:
 python -m backend.bootstrap_admin
 ```
 
-The command prompts locally for an administrator username, password, and confirmation. Credentials are not repository configuration.
+The command prompts locally for an administrator username, password, and confirmation, then stores the password directly in `users.password`. After provisioning, edit that field in MySQL/phpMyAdmin to change the administrator password. Credentials are not repository configuration.
 
 ## Local Development
 
@@ -317,9 +315,9 @@ Vite normally serves the development frontend on port `5173`. Frontend code uses
 
 ## Authentication Flow
 
-- `POST /api/auth/login` verifies the local administrator credentials and creates a signed session.
+- `POST /api/auth/login` compares the submitted password directly with `users.password` and creates a signed session when it matches.
 - `GET /api/auth/me` checks the current session and returns the authenticated identity.
-- `POST /api/auth/change-password` requires authentication and verifies the current password. The new password must be 8–128 characters and differ from the current password. It is stored using Argon2, and the current session remains active after success.
+- `POST /api/auth/change-password` requires authentication, verifies the current plaintext password, and stores a valid replacement directly in `users.password`. The current session remains active after success.
 - `POST /api/auth/logout` clears the session. The frontend first stops an active scan using its current General/Specific owner.
 - Application API access requires a valid session, and unauthenticated spectrum WebSocket connections are rejected.
 
@@ -370,11 +368,11 @@ Responsive behavior is implemented in the React/CSS frontend. Layouts adapt acro
 
 ## Test Inventory
 
-The tracked source contains **86 statically visible test cases across 10 files**:
+The tracked source contains **83 statically visible test cases across 10 files**:
 
 | Area | File | Cases |
 |---|---|---:|
-| Authentication | `backend/test_authentication.py` | 17 |
+| Authentication | `backend/test_authentication.py` | 14 |
 | Spectrum stream manager | `backend/test_spectrum_stream.py` | 5 |
 | Spectrum WebSocket endpoint | `backend/test_spectrum_stream_endpoint.py` | 1 |
 | Autonomous lifecycle | `tests/test_autonomous_lifecycle.py` | 23 |
@@ -385,7 +383,7 @@ The tracked source contains **86 statically visible test cases across 10 files**
 | Spectrum chart scale | `frontend/test/spectrumChartScale.test.mjs` | 4 |
 | Spectrum transport | `frontend/test/spectrumTransport.test.mjs` | 4 |
 
-This inventory comprises 62 Python `unittest` cases and 24 frontend Node `node:test` cases. It describes test coverage present in source and is not a claim that the suite was executed for this documentation update.
+This inventory comprises 59 Python `unittest` cases and 24 frontend Node `node:test` cases. It describes test coverage present in source and is not a claim that the suite was executed for this documentation update.
 
 ## Limitations
 
@@ -395,7 +393,7 @@ This inventory comprises 62 Python `unittest` cases and 24 frontend Node `node:t
 - Cellular results are frequency/channel candidates, not decoded protocols or confirmed services.
 - Only one General or Specific scan owner can use the SDR at a time.
 - Sweep behavior depends on UHD, USB transport, host performance, physical RF connections, and backend-defined hardware settings.
-- Authentication is intentionally a local/internal administrator model without recovery or multi-role administration.
+- Authentication is intentionally a local/internal administrator model without application-based recovery or multi-role administration; direct editing of `users.password` remains the recovery path.
 - Database provisioning and migrations are not automatically completed at normal startup.
 
 ## Project Status

@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from backend.auth_security import hash_password, verify_password
 from backend.auth_session import get_session_user
 from backend.database import get_db
 from backend.models import User
@@ -42,7 +41,7 @@ def login(
 
     user = db.query(User).filter(User.username == username).first()
 
-    if user is None or not verify_password(payload.password, user.password_hash):
+    if user is None or payload.password != user.password:
         raise invalid_credentials_error()
 
     request.session.clear()
@@ -86,7 +85,7 @@ def change_password(
             detail="Not authenticated",
         )
 
-    if not verify_password(payload.current_password, user.password_hash):
+    if payload.current_password != user.password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect",
@@ -110,7 +109,7 @@ def change_password(
             detail="New password must be different from the current password",
         )
 
-    user.password_hash = hash_password(payload.new_password)
+    user.password = payload.new_password
 
     try:
         db.commit()
