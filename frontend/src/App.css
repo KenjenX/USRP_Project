@@ -2354,6 +2354,47 @@ body {
   line-height: 1;
 }
 
+.change-password-button {
+  display: inline-flex;
+  min-width: 88px;
+  height: 34px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 1px solid rgba(111, 143, 190, 0.58);
+  border-radius: 0;
+  color: rgba(238, 244, 255, 0.86);
+  background: #172b47;
+  font-family: var(--font-heading);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.change-password-button:hover {
+  color: #ffffff;
+  background: #233f66;
+}
+
+.change-password-button:focus-visible {
+  outline: 2px solid #7eadef;
+  outline-offset: 2px;
+}
+
+.change-password-button-icon {
+  display: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .sdr-badge {
   display: flex;
   width: fit-content;
@@ -2920,6 +2961,21 @@ body {
     padding: 0;
   }
 
+  .change-password-button {
+    width: 30px;
+    min-width: 30px;
+    height: 32px;
+    padding: 0;
+  }
+
+  .change-password-button-label {
+    display: none;
+  }
+
+  .change-password-button-icon {
+    display: block;
+  }
+
   .logout-button-label {
     display: none;
   }
@@ -3132,6 +3188,12 @@ body {
   }
 
   .logout-button {
+    width: 28px;
+    min-width: 28px;
+    height: 30px;
+  }
+
+  .change-password-button {
     width: 28px;
     min-width: 28px;
     height: 30px;
@@ -4325,6 +4387,245 @@ body {
   color: #b9d9f2;
   font-size: 0.62rem;
   font-weight: 800;
+}
+
+.change-password-backdrop {
+  position: fixed;
+  z-index: 900;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 18px;
+  overflow-y: auto;
+  background: rgba(3, 11, 24, 0.76);
+  backdrop-filter: blur(2px);
+}
+
+.change-password-dialog {
+  width: min(450px, calc(100vw - 36px));
+  max-height: calc(100vh - 36px);
+  max-height: calc(100dvh - 36px);
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #344976;
+  border-radius: var(--radius-panel);
+  color: #c2c6cc;
+  background: #0f2447;
+  box-shadow: 0 20px 48px rgba(1, 8, 20, 0.62);
+}
+
+.change-password-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid #344976;
+  background: #10264a;
+}
+
+.change-password-header .section-kicker {
+  margin: 0 0 4px;
+  color: #9fb2ce;
+}
+
+.change-password-header h2 {
+  margin: 0;
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+}
+
+.change-password-close {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #344976;
+  border-radius: var(--radius-control);
+  color: #ffffff;
+  background: #1d3058;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.change-password-close:hover:not(:disabled) {
+  background: #344976;
+}
+
+.change-password-form {
+  display: grid;
+  gap: 15px;
+  padding: 18px;
+}
+
+.change-password-field {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.change-password-form label {
+  color: #c2c6cc;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.change-password-input-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.change-password-form input {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  box-sizing: border-box;
+  padding: 0 48px 0 11px;
+  border: 1px solid #344976;
+  border-radius: var(--radius-control);
+  color: #ffffff;
+  background: #1d3058;
+  font: inherit;
+  font-size: 0.78rem;
+  letter-spacing: normal;
+}
+
+.change-password-form input::-ms-reveal,
+.change-password-form input::-ms-clear {
+  display: none;
+}
+
+.change-password-form input:focus {
+  border-color: #3a68b7;
+  outline: 2px solid rgba(58, 104, 183, 0.35);
+  outline-offset: 1px;
+}
+
+.change-password-visibility-toggle {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  color: #9fb9dc;
+  background: transparent;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.change-password-visibility-toggle:hover:not(:disabled) {
+  color: #ffffff;
+  background: rgba(58, 104, 183, 0.2);
+}
+
+.change-password-visibility-toggle:focus-visible {
+  outline: 2px solid #7eadef;
+  outline-offset: -2px;
+}
+
+.change-password-visibility-toggle:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.change-password-visibility-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.change-password-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 5px;
+}
+
+.change-password-actions button {
+  min-width: 120px;
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: var(--radius-control);
+  color: #ffffff;
+  font-family: var(--font-content);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.change-password-actions button:focus-visible,
+.change-password-close:focus-visible {
+  outline: 2px solid #7eadef;
+  outline-offset: 2px;
+}
+
+.change-password-actions button:disabled,
+.change-password-close:disabled,
+.change-password-form input:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.change-password-cancel {
+  border: 1px solid #344976;
+  background: #1d3058;
+}
+
+.change-password-cancel:hover:not(:disabled) {
+  background: #344976;
+}
+
+.change-password-submit {
+  border: 1px solid #3a68b7;
+  background: #14367e;
+}
+
+.change-password-submit:hover:not(:disabled) {
+  background: #214991;
+}
+
+@media (max-width: 520px) {
+  .change-password-backdrop {
+    padding: 10px;
+  }
+
+  .change-password-dialog {
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
+  }
+
+  .change-password-header,
+  .change-password-form {
+    padding-right: 15px;
+    padding-left: 15px;
+  }
+}
+
+@media (max-width: 390px), (max-height: 520px) {
+  .change-password-actions {
+    flex-direction: column-reverse;
+  }
+
+  .change-password-actions button {
+    width: 100%;
+  }
 }
 
 .toast-viewport {

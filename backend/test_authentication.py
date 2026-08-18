@@ -173,6 +173,129 @@ class AuthenticationTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["username"], "admin")
 
+    def test_change_password_requires_authenticated_session(self):
+        with TestClient(self.app) as client:
+            response = client.post(
+                "/api/auth/change-password",
+                json={
+                    "current_password": TEST_ADMIN_PASSWORD,
+                    "new_password": "replacement-password",
+                },
+            )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["detail"], "Not authenticated")
+
+    def test_change_password_rejects_wrong_current_password_without_update(self):
+        with TestClient(self.app) as client:
+            self.login(client)
+            response = client.post(
+                "/api/auth/change-password",
+                json={
+                    "current_password": "incorrect-current-password",
+                    "new_password": "replacement-password",
+                },
+            )
+
+        db = self.testing_session_local()
+        try:
+            stored_password = (
+                db.query(User).filter(User.username == "admin").one().password
+            )
+        finally:
+            db.close()
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "Current password is incorrect")
+        self.assertEqual(stored_password, TEST_ADMIN_PASSWORD)
+
+    def test_change_password_stores_plaintext_updates_login_and_preserves_session(self):
+        new_password = "replacement-password"
+
+        with TestClient(self.app) as client:
+            self.assertEqual(self.login(client).status_code, 200)
+            response = client.post(
+                "/api/auth/change-password",
+                json={
+                    "current_password": TEST_ADMIN_PASSWORD,
+                    "new_password": new_password,
+                },
+            )
+            me_response = client.get("/api/auth/me")
+
+        db = self.testing_session_local()
+        try:
+            stored_password = (
+                db.query(User).filter(User.username == "admin").one().password
+            )
+        finally:
+            db.close()
+
+        with TestClient(self.app) as client:
+            old_login_response = self.login(client)
+            new_login_response = self.login(client, new_password)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"message": "Password changed successfully"})
+        self.assertEqual(me_response.status_code, 200)
+        self.assertEqual(me_response.json()["username"], "admin")
+        self.assertEqual(stored_password, new_password)
+        self.assertEqual(old_login_response.status_code, 401)
+        self.assertEqual(new_login_response.status_code, 200)
+        self.assertNotIn(TEST_ADMIN_PASSWORD, response.text)
+        self.assertNotIn(new_password, response.text)
+
+    def test_change_password_rejects_too_short_new_password(self):
+        with TestClient(self.app) as client:
+            self.login(client)
+            response = client.post(
+                "/api/auth/change-password",
+                json={
+                    "current_password": TEST_ADMIN_PASSWORD,
+                    "new_password": "short",
+                },
+            )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(
+            response.json()["detail"],
+            "New password must be at least 8 characters",
+        )
+
+    def test_change_password_rejects_too_long_new_password(self):
+        with TestClient(self.app) as client:
+            self.login(client)
+            response = client.post(
+                "/api/auth/change-password",
+                json={
+                    "current_password": TEST_ADMIN_PASSWORD,
+                    "new_password": "n" * 129,
+                },
+            )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(
+            response.json()["detail"],
+            "New password must not exceed 128 characters",
+        )
+
+    def test_change_password_rejects_current_password_reuse(self):
+        with TestClient(self.app) as client:
+            self.login(client)
+            response = client.post(
+                "/api/auth/change-password",
+                json={
+                    "current_password": TEST_ADMIN_PASSWORD,
+                    "new_password": TEST_ADMIN_PASSWORD,
+                },
+            )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(
+            response.json()["detail"],
+            "New password must be different from the current password",
+        )
+
     def test_logout_clears_session(self):
         with TestClient(self.app) as client:
             client.post(

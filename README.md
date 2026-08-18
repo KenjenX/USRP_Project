@@ -59,13 +59,13 @@ Each eligible bin is matched against frequency/channel definitions for:
 
 ### Authentication and interface
 
-- Local/internal administrator login, session check, and logout.
+- Local/internal administrator login, session check, password change, and logout.
 - Plaintext administrator password stored in the local `users.password` column and managed through MySQL/MariaDB.
 - Signed HttpOnly session cookie.
 - Protected application API routes and authenticated spectrum WebSocket.
 - Safe logout that stops an active General or Specific scan before clearing the session.
-- Password visibility control for login.
-- Responsive desktop, tablet, and mobile web layouts, including compact navigation, scan panels, Machine cards, and Login.
+- Independent password visibility controls for login and each Change Password field.
+- Responsive desktop, tablet, and mobile web layouts, including compact navigation, scan panels, Machine cards, Login, and Change Password views.
 
 ## Architecture
 
@@ -117,7 +117,7 @@ UHD runs outside the web server process. This keeps native hardware interaction 
 ### Database
 
 - MySQL/MariaDB-compatible database
-- `users`: local administrator identities and password hashes
+- `users`: local administrator identities and plaintext passwords
 - `machines`: named monitored equipment records
 - `channels`: cellular channel targets belonging to a Machine
 
@@ -317,6 +317,7 @@ Vite normally serves the development frontend on port `5173`. Frontend code uses
 
 - `POST /api/auth/login` compares the submitted password directly with `users.password` and creates a signed session when it matches.
 - `GET /api/auth/me` checks the current session and returns the authenticated identity.
+- `POST /api/auth/change-password` requires authentication, verifies the current plaintext password, and stores a valid replacement directly in `users.password`. The current session remains active after success.
 - `POST /api/auth/logout` clears the session. The frontend first stops an active scan using its current General/Specific owner.
 - Application API access requires a valid session, and unauthenticated spectrum WebSocket connections are rejected.
 
@@ -328,6 +329,7 @@ The current implementation intentionally does not include registration, OAuth, J
 |---|---|---|---|
 | Authentication | `POST` | `/api/auth/login` | Verify credentials and create a session |
 | Authentication | `GET` | `/api/auth/me` | Check the current session |
+| Authentication | `POST` | `/api/auth/change-password` | Replace the authenticated administrator password |
 | Authentication | `POST` | `/api/auth/logout` | Clear the current session |
 | Device | `GET` | `/api/device/status` | Read passive SDR connection state |
 | Device | `GET` | `/api/device` | Compatibility alias for device status |
@@ -362,15 +364,15 @@ For Specific Scan, the backend snapshots the selected Machine's stored DL/UL tar
 
 ## Responsive Web Interface
 
-Responsive behavior is implemented in the React/CSS frontend. Layouts adapt across desktop, tablet, and narrow mobile portrait widths, including approximately 360–412 px. The application provides compact mobile header/navigation behavior, responsive General and Specific scan views, mobile Machine cards/action controls, and a responsive Login interface. This is a responsive website, not a native mobile application.
+Responsive behavior is implemented in the React/CSS frontend. Layouts adapt across desktop, tablet, and narrow mobile portrait widths, including approximately 360–412 px. The application provides compact mobile header/navigation behavior, responsive General and Specific scan views, mobile Machine cards/action controls, and responsive Login and Change Password interfaces. This is a responsive website, not a native mobile application.
 
 ## Test Inventory
 
-The tracked source contains **77 statically visible test cases across 10 files**:
+The tracked source contains **83 statically visible test cases across 10 files**:
 
 | Area | File | Cases |
 |---|---|---:|
-| Authentication | `backend/test_authentication.py` | 8 |
+| Authentication | `backend/test_authentication.py` | 14 |
 | Spectrum stream manager | `backend/test_spectrum_stream.py` | 5 |
 | Spectrum WebSocket endpoint | `backend/test_spectrum_stream_endpoint.py` | 1 |
 | Autonomous lifecycle | `tests/test_autonomous_lifecycle.py` | 23 |
@@ -381,7 +383,7 @@ The tracked source contains **77 statically visible test cases across 10 files**
 | Spectrum chart scale | `frontend/test/spectrumChartScale.test.mjs` | 4 |
 | Spectrum transport | `frontend/test/spectrumTransport.test.mjs` | 4 |
 
-This inventory comprises 62 Python `unittest` cases and 24 frontend Node `node:test` cases. It describes test coverage present in source and is not a claim that the suite was executed for this documentation update.
+This inventory comprises 59 Python `unittest` cases and 24 frontend Node `node:test` cases. It describes test coverage present in source and is not a claim that the suite was executed for this documentation update.
 
 ## Limitations
 
@@ -391,7 +393,7 @@ This inventory comprises 62 Python `unittest` cases and 24 frontend Node `node:t
 - Cellular results are frequency/channel candidates, not decoded protocols or confirmed services.
 - Only one General or Specific scan owner can use the SDR at a time.
 - Sweep behavior depends on UHD, USB transport, host performance, physical RF connections, and backend-defined hardware settings.
-- Authentication is intentionally a local/internal administrator model without recovery or multi-role administration.
+- Authentication is intentionally a local/internal administrator model without application-based recovery or multi-role administration; direct editing of `users.password` remains the recovery path.
 - Database provisioning and migrations are not automatically completed at normal startup.
 
 ## Project Status
@@ -406,5 +408,5 @@ The web implementation is functionally complete and includes:
 - Machine/Channel CRUD, lookup, and Specific target measurements.
 - Authenticated WebSocket transport with REST fallback.
 - Shared Canvas spectrum renderer and responsive web UI.
-- Administrator authentication, login password visibility, and safe logout.
+- Administrator authentication, Change Password, password visibility controls, and safe logout.
 - Backend and frontend automated test suites.
