@@ -4,7 +4,6 @@ import sys
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
-from backend.auth_security import hash_password
 from backend.database import SessionLocal, engine
 from backend.models import User
 
@@ -46,7 +45,7 @@ def main() -> int:
 
         user = User(
             username=username,
-            password_hash=hash_password(password),
+            password=password,
         )
         db.add(user)
         db.commit()

@@ -14,13 +14,6 @@ import navSpecificIcon from "./assets/nav-specific.png";
 import signalIcon from "./assets/signal-icon.png";
 
 const API_BASE_URL = "";
-const CHANGE_PASSWORD_ENDPOINT = `${API_BASE_URL}/api/auth/change-password`;
-const SAFE_CHANGE_PASSWORD_ERRORS = new Set([
-  "Current password is incorrect",
-  "New password must be at least 8 characters",
-  "New password must not exceed 128 characters",
-  "New password must be different from the current password",
-]);
 
 const SPECTRUM_REFRESH_MS = 250;
 const ENABLE_SPECTRUM_WEBSOCKET = true;
@@ -997,196 +990,6 @@ function ToastViewport({ toasts, onDismiss }) {
   );
 }
 
-function PasswordVisibilityIcon({ isVisible }) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      {isVisible ? (
-        <>
-          <path d="m3 3 18 18" />
-          <path d="M10.6 6.2A10.7 10.7 0 0 1 12 6c6 0 9.5 6 9.5 6a16.7 16.7 0 0 1-3 3.7M6.2 6.2C3.8 7.8 2.5 12 2.5 12s3.5 6 9.5 6a9.9 9.9 0 0 0 3.1-.5" />
-          <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
-        </>
-      ) : (
-        <>
-          <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
-          <circle cx="12" cy="12" r="3" />
-        </>
-      )}
-    </svg>
-  );
-}
-
-function ChangePasswordDialog({
-  currentPassword,
-  newPassword,
-  confirmNewPassword,
-  isPending,
-  onCurrentPasswordChange,
-  onNewPasswordChange,
-  onConfirmNewPasswordChange,
-  onClose,
-  onSubmit,
-}) {
-  const [isCurrentPasswordVisible, setIsCurrentPasswordVisible] = useState(false);
-  const [isNewPasswordVisible, setIsNewPasswordVisible] = useState(false);
-  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
-
-  useEffect(() => {
-    function handleKeyDown(event) {
-      if (event.key === "Escape" && !isPending) {
-        onClose();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPending, onClose]);
-
-  return (
-    <div className="change-password-backdrop">
-      <section
-        className="change-password-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="change-password-title"
-      >
-        <header className="change-password-header">
-          <div>
-            <p className="section-kicker">ACCOUNT SECURITY</p>
-            <h2 id="change-password-title">Change Password</h2>
-          </div>
-          <button
-            type="button"
-            className="change-password-close"
-            onClick={onClose}
-            disabled={isPending}
-            aria-label="Close change password dialog"
-          >
-            ×
-          </button>
-        </header>
-
-        <form className="change-password-form" onSubmit={onSubmit}>
-          <div className="change-password-field">
-            <label htmlFor="current-password">Current Password</label>
-            <div className="change-password-input-wrap">
-              <input
-                id="current-password"
-                type={isCurrentPasswordVisible ? "text" : "password"}
-                autoComplete="current-password"
-                value={currentPassword}
-                onChange={onCurrentPasswordChange}
-                disabled={isPending}
-                autoFocus
-              />
-              <button
-                type="button"
-                className="change-password-visibility-toggle"
-                onClick={() => setIsCurrentPasswordVisible((visible) => !visible)}
-                disabled={isPending}
-                aria-label={
-                  isCurrentPasswordVisible
-                    ? "Hide current password"
-                    : "Show current password"
-                }
-                title={
-                  isCurrentPasswordVisible
-                    ? "Hide current password"
-                    : "Show current password"
-                }
-              >
-                <PasswordVisibilityIcon isVisible={isCurrentPasswordVisible} />
-              </button>
-            </div>
-          </div>
-
-          <div className="change-password-field">
-            <label htmlFor="new-password">New Password</label>
-            <div className="change-password-input-wrap">
-              <input
-                id="new-password"
-                type={isNewPasswordVisible ? "text" : "password"}
-                autoComplete="new-password"
-                value={newPassword}
-                onChange={onNewPasswordChange}
-                disabled={isPending}
-              />
-              <button
-                type="button"
-                className="change-password-visibility-toggle"
-                onClick={() => setIsNewPasswordVisible((visible) => !visible)}
-                disabled={isPending}
-                aria-label={
-                  isNewPasswordVisible
-                    ? "Hide new password"
-                    : "Show new password"
-                }
-                title={
-                  isNewPasswordVisible
-                    ? "Hide new password"
-                    : "Show new password"
-                }
-              >
-                <PasswordVisibilityIcon isVisible={isNewPasswordVisible} />
-              </button>
-            </div>
-          </div>
-
-          <div className="change-password-field">
-            <label htmlFor="confirm-new-password">Confirm New Password</label>
-            <div className="change-password-input-wrap">
-              <input
-                id="confirm-new-password"
-                type={isConfirmPasswordVisible ? "text" : "password"}
-                autoComplete="new-password"
-                value={confirmNewPassword}
-                onChange={onConfirmNewPasswordChange}
-                disabled={isPending}
-              />
-              <button
-                type="button"
-                className="change-password-visibility-toggle"
-                onClick={() => setIsConfirmPasswordVisible((visible) => !visible)}
-                disabled={isPending}
-                aria-label={
-                  isConfirmPasswordVisible
-                    ? "Hide confirm new password"
-                    : "Show confirm new password"
-                }
-                title={
-                  isConfirmPasswordVisible
-                    ? "Hide confirm new password"
-                    : "Show confirm new password"
-                }
-              >
-                <PasswordVisibilityIcon isVisible={isConfirmPasswordVisible} />
-              </button>
-            </div>
-          </div>
-
-          <div className="change-password-actions">
-            <button
-              type="button"
-              className="change-password-cancel"
-              onClick={onClose}
-              disabled={isPending}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="change-password-submit"
-              disabled={isPending}
-            >
-              {isPending ? "Changing..." : "Change Password"}
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
-  );
-}
-
 function App({ isLoggingOut = false, onLogout }) {
   const [activeTab, setActiveTab] = useState(() => {
     const savedTab = window.sessionStorage.getItem("usrp-active-tab");
@@ -1257,11 +1060,6 @@ function App({ isLoggingOut = false, onLogout }) {
     scanner_busy: false,
   });
   const [toasts, setToasts] = useState([]);
-  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const toastIdRef = useRef(0);
   const toastTimersRef = useRef(new Map());
   const recentToastKeysRef = useRef(new Map());
@@ -1321,125 +1119,6 @@ function App({ isLoggingOut = false, onLogout }) {
     },
     [dismissToast]
   );
-
-  const clearChangePasswordFields = useCallback(() => {
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmNewPassword("");
-  }, []);
-
-  const openChangePasswordDialog = useCallback(() => {
-    clearChangePasswordFields();
-    setIsChangePasswordOpen(true);
-  }, [clearChangePasswordFields]);
-
-  const closeChangePasswordDialog = useCallback(() => {
-    if (isChangingPassword) {
-      return;
-    }
-
-    clearChangePasswordFields();
-    setIsChangePasswordOpen(false);
-  }, [clearChangePasswordFields, isChangingPassword]);
-
-  const handleChangePassword = useCallback(async (event) => {
-    event.preventDefault();
-
-    if (isChangingPassword) {
-      return;
-    }
-
-    if (!currentPassword || !newPassword || !confirmNewPassword) {
-      notify(
-        "Complete all password fields",
-        "warning",
-        "password-fields-required"
-      );
-      return;
-    }
-
-    if (newPassword !== confirmNewPassword) {
-      notify(
-        "New passwords do not match",
-        "warning",
-        "password-confirmation-mismatch"
-      );
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      notify(
-        "New password must be at least 8 characters",
-        "warning",
-        "password-too-short"
-      );
-      return;
-    }
-
-    if (newPassword.length > 128) {
-      notify(
-        "New password must not exceed 128 characters",
-        "warning",
-        "password-too-long"
-      );
-      return;
-    }
-
-    if (newPassword === currentPassword) {
-      notify(
-        "New password must be different from the current password",
-        "warning",
-        "password-unchanged"
-      );
-      return;
-    }
-
-    setIsChangingPassword(true);
-
-    try {
-      const response = await fetch(CHANGE_PASSWORD_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({
-          current_password: currentPassword,
-          new_password: newPassword,
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        const message = SAFE_CHANGE_PASSWORD_ERRORS.has(data.detail)
-          ? data.detail
-          : "Unable to change password";
-        notify(message, "error", `change-password-${response.status}`);
-        return;
-      }
-
-      clearChangePasswordFields();
-      setIsChangePasswordOpen(false);
-      notify(
-        "Password changed successfully",
-        "success",
-        "password-changed"
-      );
-    } catch {
-      notify(
-        "Unable to change password",
-        "error",
-        "change-password-network"
-      );
-    } finally {
-      setIsChangingPassword(false);
-    }
-  }, [
-    clearChangePasswordFields,
-    confirmNewPassword,
-    currentPassword,
-    isChangingPassword,
-    newPassword,
-    notify,
-  ]);
 
   useEffect(() => {
     isScanningRef.current = isScanning;
@@ -2341,23 +2020,6 @@ function App({ isLoggingOut = false, onLogout }) {
 
           <button
             type="button"
-            className="change-password-button"
-            onClick={openChangePasswordDialog}
-            aria-label="Change password"
-            title="Change password"
-          >
-            <span className="change-password-button-label">PASSWORD</span>
-            <svg
-              className="change-password-button-icon"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path d="M7 10V8a5 5 0 0 1 10 0v2m-9 0h8a2 2 0 0 1 2 2v7H6v-7a2 2 0 0 1 2-2Zm4 4v2" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
             className="logout-button"
             onClick={handleLogout}
             disabled={isLoggingOut}
@@ -2713,22 +2375,6 @@ function App({ isLoggingOut = false, onLogout }) {
         detail={selectedDetectionDetail}
         onClose={() => setSelectedDetectionDetail(null)}
       />
-
-      {isChangePasswordOpen && (
-        <ChangePasswordDialog
-          currentPassword={currentPassword}
-          newPassword={newPassword}
-          confirmNewPassword={confirmNewPassword}
-          isPending={isChangingPassword}
-          onCurrentPasswordChange={(event) => setCurrentPassword(event.target.value)}
-          onNewPasswordChange={(event) => setNewPassword(event.target.value)}
-          onConfirmNewPasswordChange={(event) => (
-            setConfirmNewPassword(event.target.value)
-          )}
-          onClose={closeChangePasswordDialog}
-          onSubmit={handleChangePassword}
-        />
-      )}
 
       <ToastViewport toasts={toasts} onDismiss={dismissToast} />
     </main>

@@ -59,13 +59,13 @@ Each eligible bin is matched against frequency/channel definitions for:
 
 ### Authentication and interface
 
-- Local/internal administrator login, session check, password change, and logout.
-- Argon2 password hashing.
+- Local/internal administrator login, session check, and logout.
+- Plaintext administrator password stored in the local `users.password` column and managed through MySQL/MariaDB.
 - Signed HttpOnly session cookie.
 - Protected application API routes and authenticated spectrum WebSocket.
 - Safe logout that stops an active General or Specific scan before clearing the session.
-- Independent password visibility controls for login and each Change Password field.
-- Responsive desktop, tablet, and mobile web layouts, including compact navigation, scan panels, Machine cards, Login, and Change Password views.
+- Password visibility control for login.
+- Responsive desktop, tablet, and mobile web layouts, including compact navigation, scan panels, Machine cards, and Login.
 
 ## Architecture
 
@@ -101,7 +101,6 @@ UHD runs outside the web server process. This keeps native hardware interaction 
 - NumPy and Pydantic
 - SQLAlchemy and PyMySQL
 - python-dotenv
-- pwdlib with Argon2
 - itsdangerous and Starlette session support
 - WebSockets
 - Python multiprocessing and threading primitives
@@ -188,7 +187,6 @@ The probe can be used to verify that the B210 is recognized by UHD and to inspec
 |   |-- database.py
 |   |-- models.py
 |   |-- schemas.py
-|   |-- auth_security.py
 |   |-- auth_session.py
 |   |-- auth_middleware.py
 |   |-- auth_routes.py
@@ -296,7 +294,7 @@ Then create the local administrator interactively from the project root:
 python -m backend.bootstrap_admin
 ```
 
-The command prompts locally for an administrator username, password, and confirmation. Credentials are not repository configuration.
+The command prompts locally for an administrator username, password, and confirmation, then stores the password directly in `users.password`. After provisioning, edit that field in MySQL/phpMyAdmin to change the administrator password. Credentials are not repository configuration.
 
 ## Local Development
 
@@ -317,9 +315,8 @@ Vite normally serves the development frontend on port `5173`. Frontend code uses
 
 ## Authentication Flow
 
-- `POST /api/auth/login` verifies the local administrator credentials and creates a signed session.
+- `POST /api/auth/login` compares the submitted password directly with `users.password` and creates a signed session when it matches.
 - `GET /api/auth/me` checks the current session and returns the authenticated identity.
-- `POST /api/auth/change-password` requires authentication and verifies the current password. The new password must be 8–128 characters and differ from the current password. It is stored using Argon2, and the current session remains active after success.
 - `POST /api/auth/logout` clears the session. The frontend first stops an active scan using its current General/Specific owner.
 - Application API access requires a valid session, and unauthenticated spectrum WebSocket connections are rejected.
 
@@ -331,7 +328,6 @@ The current implementation intentionally does not include registration, OAuth, J
 |---|---|---|---|
 | Authentication | `POST` | `/api/auth/login` | Verify credentials and create a session |
 | Authentication | `GET` | `/api/auth/me` | Check the current session |
-| Authentication | `POST` | `/api/auth/change-password` | Replace the authenticated administrator password |
 | Authentication | `POST` | `/api/auth/logout` | Clear the current session |
 | Device | `GET` | `/api/device/status` | Read passive SDR connection state |
 | Device | `GET` | `/api/device` | Compatibility alias for device status |
@@ -366,15 +362,15 @@ For Specific Scan, the backend snapshots the selected Machine's stored DL/UL tar
 
 ## Responsive Web Interface
 
-Responsive behavior is implemented in the React/CSS frontend. Layouts adapt across desktop, tablet, and narrow mobile portrait widths, including approximately 360–412 px. The application provides compact mobile header/navigation behavior, responsive General and Specific scan views, mobile Machine cards/action controls, and responsive Login and Change Password interfaces. This is a responsive website, not a native mobile application.
+Responsive behavior is implemented in the React/CSS frontend. Layouts adapt across desktop, tablet, and narrow mobile portrait widths, including approximately 360–412 px. The application provides compact mobile header/navigation behavior, responsive General and Specific scan views, mobile Machine cards/action controls, and a responsive Login interface. This is a responsive website, not a native mobile application.
 
 ## Test Inventory
 
-The tracked source contains **86 statically visible test cases across 10 files**:
+The tracked source contains **77 statically visible test cases across 10 files**:
 
 | Area | File | Cases |
 |---|---|---:|
-| Authentication | `backend/test_authentication.py` | 17 |
+| Authentication | `backend/test_authentication.py` | 8 |
 | Spectrum stream manager | `backend/test_spectrum_stream.py` | 5 |
 | Spectrum WebSocket endpoint | `backend/test_spectrum_stream_endpoint.py` | 1 |
 | Autonomous lifecycle | `tests/test_autonomous_lifecycle.py` | 23 |
@@ -410,5 +406,5 @@ The web implementation is functionally complete and includes:
 - Machine/Channel CRUD, lookup, and Specific target measurements.
 - Authenticated WebSocket transport with REST fallback.
 - Shared Canvas spectrum renderer and responsive web UI.
-- Administrator authentication, Change Password, password visibility controls, and safe logout.
+- Administrator authentication, login password visibility, and safe logout.
 - Backend and frontend automated test suites.

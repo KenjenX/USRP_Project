@@ -116,11 +116,6 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class ChangePasswordRequest(BaseModel):
-    current_password: str = Field(repr=False)
-    new_password: str = Field(repr=False)
-
-
 class UserIdentityResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
