@@ -201,6 +201,8 @@ The probe can be used to verify that the B210 is recognized by UHD and to inspec
 |   |-- umts_classifier.py
 |   |-- lte_classifier.py
 |   `-- nr_classifier.py
+|-- database/
+|   `-- usrp_monitoring_schema.sql
 |-- frontend/
 |   |-- src/
 |   |   |-- main.jsx
@@ -225,8 +227,10 @@ Generated dependencies, build output, caches, virtual environments, and local da
 - Python and the packages in `requirements.txt`.
 - Node.js and npm.
 - UHD and its Python API available to the backend environment.
-- A connected USRP B210 for live spectrum acquisition.
 - An accessible MySQL/MariaDB-compatible database.
+- A connected USRP B210 for live spectrum acquisition.
+
+The web application and source dependencies can be installed without a connected B210. Live spectrum acquisition additionally requires a compatible UHD installation and an actual USRP B210. Passive device status detection and a successful live UHD acquisition are separate checks; a device status indicator alone does not prove that acquisition will succeed.
 
 ## Installation
 
@@ -250,11 +254,28 @@ Install frontend dependencies:
 ```powershell
 cd frontend
 npm install
+cd ..
 ```
+
+Next, install and start MySQL or MariaDB, then complete the database, authentication, and local-development steps below. Before attempting live acquisition, follow [USRP Hardware and Current Scanner Configuration](#usrp-hardware-and-current-scanner-configuration), including device discovery and replacement of the `USRP_SERIAL` placeholder.
 
 ## Database Configuration
 
-`backend/database.py` loads a project-root `.env` file and reads the following settings:
+Install and start an accessible MySQL or MariaDB instance. From the project root, connect with a database account that can create databases and tables (use `mariadb` instead of `mysql` if that is the installed client):
+
+```powershell
+mysql -h <database-host> -P <database-port> -u <database-user> -p
+```
+
+At the MySQL/MariaDB prompt, import the canonical fresh-install schema:
+
+```sql
+SOURCE database/usrp_monitoring_schema.sql;
+```
+
+The schema creates the `usrp_monitoring` database and its empty `users`, `machines`, and `channels` tables. It does not insert credentials, Machine records, or Channel records. Do not manually recreate these tables.
+
+Create a project-root `.env` file. `backend/database.py` loads this file and reads the following settings:
 
 ```dotenv
 DB_HOST=<database-host>
@@ -262,6 +283,7 @@ DB_PORT=<database-port>
 DB_NAME=<database-name>
 DB_USER=<database-user>
 DB_PASSWORD=<database-password>
+SESSION_SECRET=<session-secret>
 ```
 
 Equivalent connection-string form:
@@ -270,31 +292,19 @@ Equivalent connection-string form:
 mysql+pymysql://<database-user>:<database-password>@<database-host>:<database-port>/<database-name>
 ```
 
-Keep `.env` private and outside version control. Normal application startup does not create tables or run complete database migrations; provision the `users`, `machines`, and `channels` tables before use.
+Set `DB_NAME` to `usrp_monitoring` when using the supplied schema. The `.env` file is intentionally excluded from Git; keep it private and never commit it. Normal application startup does not create tables or run migrations.
 
 ## Authentication Configuration
 
-The backend requires a session-signing secret in the project-root `.env` file:
+The `SESSION_SECRET` configured in the project-root `.env` is used to sign administrator sessions. Keep it private and never commit it. The implementation requires at least 32 characters and at least 8 distinct characters.
 
-```dotenv
-SESSION_SECRET=<session-secret>
-```
-
-Keep this value private and never commit it. The implementation requires at least 32 characters and at least 8 distinct characters.
-
-Apply the tracked users-table migration through the database administration workflow:
-
-```text
-backend/migrations/20260807_create_users.sql
-```
-
-Then create the local administrator interactively from the project root:
+After importing the fresh-install schema, create the local administrator interactively from the project root:
 
 ```powershell
 python -m backend.bootstrap_admin
 ```
 
-The command prompts locally for an administrator username, password, and confirmation, then stores the password directly in `users.password`. After provisioning, edit that field in MySQL/phpMyAdmin to change the administrator password. Credentials are not repository configuration.
+The command prompts locally for an administrator username, password, and confirmation; there is no default password. It stores the password directly in `users.password`, preserving the project's plaintext local/internal administrator design. Credentials are not repository configuration. The tracked `backend/migrations/20260807_create_users.sql` and root `migrate_channel_frequency_precision.py` remain historical/special-purpose migration artifacts; fresh installations use `database/usrp_monitoring_schema.sql`.
 
 ## Local Development
 
@@ -312,6 +322,12 @@ npm run dev
 ```
 
 Vite normally serves the development frontend on port `5173`. Frontend code uses relative `/api` requests. During development, Vite proxies both HTTP and WebSocket `/api` traffic to FastAPI on port `8000`. These commands describe the local development workflow.
+
+Open the application in a browser at:
+
+```text
+http://localhost:5173
+```
 
 ## Authentication Flow
 
